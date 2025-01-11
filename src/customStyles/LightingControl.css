@@ -1,0 +1,68 @@
+
+  body {
+    font-family: Arial, sans-serif;
+  }
+
+  .main-lighting {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .card {
+    background-color: #333;
+    border-radius: 12px;
+    padding: 20px;
+    width: 200px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
+  
+  .card .icon {
+    width: 24px;
+    height: 24px;
+    background-color: #444;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  
+  .card h3 {
+    font-size: 1.2em;
+    margin: 4px 0;
+  }
+  
+  .card p {
+    font-size: 0.9em;
+    color: #aaa;
+  }
+  
+  .toggle-switch {
+    width: 40px;
+    height: 20px;
+    background-color: #555;
+    border-radius: 10px;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    cursor: pointer;
+  }
+  
+  .toggle-switch::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    background-color: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
+  }
+  
+  .toggle-switch.active {
+    background-color: #06c;
+  }
+  
+  .toggle-switch.active::before {
+    transform: translateX(20px);
+  }
+  

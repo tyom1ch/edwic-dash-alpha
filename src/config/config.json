@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {
+      "type": "sensor",
+      "name": "TemperatureSensor",
+      "topic": "obk_DF6D00002/voltage/get",
+      "label": "Температура",
+      "unit": "°C"
+    },
+    {
+      "type": "switch",
+      "name": "LightSwitch",
+      "commandTopic": "home/light/command",
+      "stateTopic": "home/light/state",
+      "label": "Освітлення"
+    }
+  ]
+}
