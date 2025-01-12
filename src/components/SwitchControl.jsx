@@ -10,9 +10,9 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
     const handleUpdate = (newState) => {
       setState(newState);
     };
-    state === 'OFF' ? setIsConnected(false) : setIsConnected(true);
     // Підписуємося на зміни
     MQTTCore.subscribe(stateTopic, handleUpdate);
+    state === null ? setIsConnected(true) : setIsConnected(false);
 
     // Відписуємося при демонтажі
     return () => {
