@@ -7,21 +7,17 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
   const [isConnected, setIsConnected] = useState(false); // Стан підключення
 
   useEffect(() => {
-    // Перевіряємо, чи є підключення
-    setIsConnected(!!MQTTCore);
-
-    // Отримуємо стан топіка при першому рендері
-    const updateState = () => {
-      const currentState = MQTTCore.getState(stateTopic); // Отримуємо стан через ядро
-      setState(currentState);
+    const handleUpdate = (newState) => {
+      setState(newState);
     };
+    state === 'OFF' ? setIsConnected(false) : setIsConnected(true);
+    // Підписуємося на зміни
+    MQTTCore.subscribe(stateTopic, handleUpdate);
 
-    updateState();
-
-    // Оновлюємо стан кожні 1000 мс
-    const interval = setInterval(updateState, 100);
-
-    return () => clearInterval(interval); // Очищуємо інтервал при демонтажі
+    // Відписуємося при демонтажі
+    return () => {
+      MQTTCore.unsubscribe(stateTopic, handleUpdate);
+    };
   }, [stateTopic]);
 
   const handleToggle = (event) => {

@@ -3,15 +3,14 @@ import MQTTService from '../services/MQTTService';
 class MQTTCore {
   constructor() {
     this.topics = {}; // Зберігає топіки у вигляді дерева JSON
+    this.subscribers = {}; // Зберігає підписників для топіків
   }
 
   // Підключення до брокера
   async connect(host, username, password) {
     try {
       await MQTTService.connect(host, username, password);
-    //   console.log('✅ Підключено до брокера');
     } catch (error) {
-    //   console.error('❌ Помилка підключення до брокера:', error.message);
       throw error;
     }
   }
@@ -30,22 +29,43 @@ class MQTTCore {
   subscribeToAllTopics() {
     try {
       MQTTService.subscribe('#', this.handleMessage.bind(this));
-    //   console.log('✅ Підписано на всі топіки (#)');
     } catch (error) {
       console.error('❌ Помилка підписки:', error.message);
     }
   }
 
-  // Обробка вхідних повідомлень та оновлення дерева топіків
+  // Підписка на оновлення певного топіка
+  subscribe(topic, callback) {
+    if (!this.subscribers[topic]) {
+      this.subscribers[topic] = [];
+    }
+    this.subscribers[topic].push(callback);
+  }
+
+  // Відписка від оновлення певного топіка
+  unsubscribe(topic, callback) {
+    if (this.subscribers[topic]) {
+      this.subscribers[topic] = this.subscribers[topic].filter(cb => cb !== callback);
+    }
+  }
+
+  // Сповіщення підписників про оновлення
+  notifySubscribers(topic, message) {
+    if (this.subscribers[topic]) {
+      this.subscribers[topic].forEach(callback => callback(message));
+    }
+  }
+
+  // Обробка вхідних повідомлень
   handleMessage(topic, message) {
-    // console.log(`📬 Повідомлення з топіка ${topic}: ${message}`);
     this.updateTopicStructure(topic, message);
-    // console.log((this.topics));
+
+    // Сповіщаємо підписників
+    this.notifySubscribers(topic, message);
   }
 
   // Оновлення структури топіків
   updateTopicStructure(topic, message) {
-    // console.log(topics);
     const parts = topic.split('/');
     let currentLevel = this.topics;
 
@@ -55,6 +75,7 @@ class MQTTCore {
       }
       if (index === parts.length - 1) {
         currentLevel[part] = message; // Зберігаємо значення на кінцевому рівні
+        this.notifySubscribers(topic, message); // Сповіщаємо зміни на конкретному рівні
       }
       currentLevel = currentLevel[part];
     });
@@ -67,20 +88,18 @@ class MQTTCore {
 
     for (const part of parts) {
       if (!currentLevel[part]) {
-        // console.warn(`⚠️ Топік "${topic}" не знайдено`);
         return null;
       }
       currentLevel = currentLevel[part];
     }
 
-    return currentLevel; // Повертаємо знайдений стан
+    return currentLevel;
   }
 
   // Надсилання повідомлення в топік
   sendMessage(topic, message) {
     try {
       MQTTService.publish(topic, message);
-      console.log(`📤 Повідомлення відправлено в топік ${topic}: ${message}`);
     } catch (error) {
       console.error(`❌ Помилка відправки повідомлення в топік ${topic}:`, error.message);
     }
