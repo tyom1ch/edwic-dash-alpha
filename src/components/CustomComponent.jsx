@@ -11,7 +11,9 @@ const CustomComponent = ({ type, props }) => {
       return <SwitchControl {...props} />;
       // return <SwitchNew {...props} />;
     case 'sensor':
+    case 'binary_sensor':
       return <SensorComponent {...props} />;
+    case 'number':
     case 'input': // Додаємо новий кейс для InputBox
       return <InputBox {...props} />;
     default:

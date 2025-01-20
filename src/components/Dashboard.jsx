@@ -5,6 +5,7 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import TopicTreeViewer from './TopicTreeViewer';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import ComponentDialog from './ComponentDialog';
+import EntityManagerDebug from './EntityManagerDebug';
 
 const Dashboard = () => {
   const [components, setComponents] = useLocalStorage('dashboardComponents', []);
@@ -93,6 +94,8 @@ const Dashboard = () => {
       >
         Додати компонент
       </Button>
+
+        <EntityManagerDebug onAddComponent={handleAddComponent} />
 
       {/* <Grid item xs={12} md={4}>
         <TopicTreeViewer components={components} setComponents={setComponents} />

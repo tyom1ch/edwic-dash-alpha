@@ -7,18 +7,23 @@ const InputBox = ({ stateTopic, commandTopic, label }) => {
   const [state, setState] = useState(null);
   
   useEffect(() => {
-    // Оновлюємо стан при надходженні повідомлень
-    const updateState = () => {
-      const currentState = MQTTCore.getState(stateTopic);
-      setState(currentState);
+    const handleUpdate = (newState) => {
+      setState(newState); // Оновлюємо стан при зміні топіка
     };
 
-    // Підписуємося на всі топіки і оновлюємо стан
-    updateState(); // Отримуємо початковий стан
+    // Підписуємося на оновлення для вказаного топіка
+    MQTTCore.subscribe(stateTopic, handleUpdate);
 
-    const intervalId = setInterval(updateState, 100); // Перевірка стану щосекунди
+    // Ініціалізуємо початковий стан
+    const initialState = MQTTCore.getState(stateTopic);
+    if (initialState !== null) {
+      setState(initialState);
+    }
 
-    return () => clearInterval(intervalId); // Чистимо інтервал при розмонтуванні
+    // Відписуємося при демонтажі компонента
+    return () => {
+      MQTTCore.unsubscribe(stateTopic, handleUpdate);
+    };
   }, [stateTopic]);
 
   const handleChange = (event) => {

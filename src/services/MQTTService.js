@@ -36,34 +36,36 @@ class MQTTService {
     });
   }
 
-  // Підписка на топік (асинхронно)
-  async subscribe(topic, callback) {
-    console.log("Subscribe" + topic)
-    if (!this.client) {
-      throw new Error('MQTT клієнт не підключено');
-    }
+ // Підписка на топік (асинхронно)
+async subscribe(topic, callback) {
+  console.log(`🔔 Підписка на топік: ${topic}`);
+  if (!this.client) {
+    throw new Error('MQTT клієнт не підключено');
+  }
 
-    try {
-      await new Promise((resolve, reject) => {
-        this.client.subscribe(topic, (err) => {
-          if (err) {
-            reject(new Error(`❌ Помилка підписки на топік: ${topic}`));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      // Прослуховування повідомлень після підписки
-      this.client.on('message', (receivedTopic, message) => {
-        if (receivedTopic === topic) {
-          callback(receivedTopic, message.toString());
+  try {
+    await new Promise((resolve, reject) => {
+      this.client.subscribe(topic, (err) => {
+        if (err) {
+          reject(new Error(`❌ Помилка підписки на топік: ${topic}`));
+        } else {
+          resolve();
         }
       });
-    } catch (error) {
-      console.error(error.message);
-    }
+    });
+
+    // Прослуховування повідомлень
+    this.client.on('message', (receivedTopic, message) => {
+      // console.log(`📨 MQTTService отримало повідомлення: ${receivedTopic} => ${message.toString()}`);
+      // Передаємо ВСІ повідомлення у callback
+      callback(receivedTopic, message.toString());
+    });
+
+  } catch (error) {
+    console.error(error.message);
   }
+}
+
 
   // Надсилання повідомлення (асинхронно)
   async publish(topic, message) {
