@@ -23,7 +23,9 @@ const ComponentDialog = ({ isOpen, onClose, onSave, component, isEdit }) => {
     const updatedFormData = { ...formData, [field]: value };
 
     if (value === "switch" || "input") {
+      if (updatedFormData.commandTopic === "") {
       updatedFormData.commandTopic = modifyTopic(formData.stateTopic);
+      }
     } else if (value === "sensor") {
       updatedFormData.commandTopic = "";
     }

@@ -6,14 +6,15 @@ class MQTTService {
     this.isConnected = false;
   }
 
-  connect(host, username, password) {
-    return new Promise((resolve, reject) => {
-      const options = {
-        port: 8080,
-        username,
-        password,
-      };
+  // Підключення до брокера (асинхронне)
+  async connect(host, username, password) {
+    const options = {
+      port: 8080,
+      username,
+      password,
+    };
 
+    return new Promise((resolve, reject) => {
       this.client = mqtt.connect(host, options);
 
       this.client.on('connect', () => {
@@ -35,24 +36,50 @@ class MQTTService {
     });
   }
 
-  subscribe(topic, callback) {
+  // Підписка на топік (асинхронно)
+  async subscribe(topic, callback) {
+    console.log("Subscribe" + topic)
     if (!this.client) {
       throw new Error('MQTT клієнт не підключено');
     }
 
-    this.client.subscribe(topic);
+    try {
+      await new Promise((resolve, reject) => {
+        this.client.subscribe(topic, (err) => {
+          if (err) {
+            reject(new Error(`❌ Помилка підписки на топік: ${topic}`));
+          } else {
+            resolve();
+          }
+        });
+      });
 
-    this.client.on('message', (receivedTopic, message) => {
-      callback(receivedTopic, message.toString());
-    });
+      // Прослуховування повідомлень після підписки
+      this.client.on('message', (receivedTopic, message) => {
+        if (receivedTopic === topic) {
+          callback(receivedTopic, message.toString());
+        }
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
-  publish(topic, message) {
+  // Надсилання повідомлення (асинхронно)
+  async publish(topic, message) {
     if (!this.client) {
       throw new Error('MQTT клієнт не підключено');
     }
 
-    this.client.publish(topic, message);
+    return new Promise((resolve, reject) => {
+      this.client.publish(topic, message, (err) => {
+        if (err) {
+          reject(new Error(`❌ Помилка публікації в топік ${topic}: ${err.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 }
 

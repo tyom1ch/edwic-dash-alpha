@@ -4,41 +4,61 @@ class MQTTCore {
   constructor() {
     this.topics = {}; // Зберігає топіки у вигляді дерева JSON
     this.subscribers = {}; // Зберігає підписників для топіків
+    this.reconnectInterval = 5000; // Інтервал для повторного підключення (5 секунд)
+    this.maxReconnectAttempts = 10; // Максимальна кількість спроб перепідключення
+    this.reconnectAttempts = 0; // Лічильник спроб перепідключення
   }
 
   // Підключення до брокера
   async connect(host, username, password) {
     try {
-      await MQTTService.connect(host, username, password);
+      console.log('✅ Підключення до брокера...');
+      await this.tryConnect(host, username, password);
     } catch (error) {
-      throw error;
+      console.error('❌ Помилка підключення:', error.message);
+    }
+  }
+
+  // Спроба підключення до брокера з повторними спробами
+  async tryConnect(host, username, password) {
+    try {
+      await MQTTService.connect(host, username, password);
+      console.log('✅ Підключено до брокера');
+      this.reconnectAttempts = 0; // Скидаємо лічильник спроб після успішного підключення
+    } catch (error) {
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        console.log(`⏳ Спроба підключення не вдалася. Повторна спроба через ${this.reconnectInterval / 1000} секунд...`);
+        this.reconnectAttempts++;
+        setTimeout(() => this.tryConnect(host, username, password), this.reconnectInterval);
+      } else {
+        console.error('❌ Перевищено кількість спроб підключення');
+      }
     }
   }
 
   // Відключення від брокера
-  disconnect() {
+  async disconnect() {
     try {
-      MQTTService.disconnect();
+      await MQTTService.disconnect();
       console.log('✅ Відключено від брокера');
     } catch (error) {
-      console.error('❌ Помилка відключення:', error.message);
+      // console.error('❌ Помилка відключення:', error.message);
     }
   }
 
-  // Підписка на всі топіки
-  subscribeToAllTopics() {
-    try {
-      MQTTService.subscribe('#', this.handleMessage.bind(this));
-    } catch (error) {
-      console.error('❌ Помилка підписки:', error.message);
-    }
-  }
-
-  // Підписка на оновлення певного топіка
-  subscribe(topic, callback) {
+  // Підписка на певний топік і отримання даних
+  async subscribe(topic, callback) {
     if (!this.subscribers[topic]) {
       this.subscribers[topic] = [];
+      try {
+        // Підписка на топік через MQTTService для отримання повідомлень
+        await MQTTService.subscribe(topic, this.handleMessage.bind(this));
+      } catch (error) {
+        // console.error('❌ Помилка підписки на топік:', error.message);
+      }
     }
+
+    // Додаємо колбек до списку підписників
     this.subscribers[topic].push(callback);
   }
 
@@ -58,7 +78,7 @@ class MQTTCore {
 
   // Обробка вхідних повідомлень
   handleMessage(topic, message) {
-    this.updateTopicStructure(topic, message);
+    // this.updateTopicStructure(topic, message);
 
     // Сповіщаємо підписників
     this.notifySubscribers(topic, message);
@@ -97,12 +117,17 @@ class MQTTCore {
   }
 
   // Надсилання повідомлення в топік
-  sendMessage(topic, message) {
+  async sendMessage(topic, message) {
     try {
-      MQTTService.publish(topic, message);
+      await MQTTService.publish(topic, message);
     } catch (error) {
-      console.error(`❌ Помилка відправки повідомлення в топік ${topic}:`, error.message);
+      // console.error(`❌ Помилка відправки повідомлення в топік ${topic}:`, error.message);
     }
+  }
+
+  // Перевірка підключення
+  isConnected() {
+    return MQTTService.isConnected(); // Метод для перевірки статусу підключення в MQTTService
   }
 }
 

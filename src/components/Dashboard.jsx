@@ -94,13 +94,13 @@ const Dashboard = () => {
         Додати компонент
       </Button>
 
-      <Grid item xs={12} md={4}>
+      {/* <Grid item xs={12} md={4}>
         <TopicTreeViewer components={components} setComponents={setComponents} />
-      </Grid>
+      </Grid> */}
 
       <ComponentDialog
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {setIsModalOpen(false); setEditComponent(null);}}
         onSave={handleAddComponent}
         component={editComponent}
         isEdit={editComponent !== null}

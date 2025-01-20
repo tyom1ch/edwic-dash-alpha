@@ -28,7 +28,7 @@ const App = () => {
     if (loading) {
       MQTTCore.connect('ws://' + connectionSettings.host, connectionSettings.username, connectionSettings.password)
         .then(() => {
-          MQTTCore.subscribeToAllTopics();
+          // MQTTCore.subscribeToAllTopics();
           setConnectionStatus(true);
           setLoading(false); // Встановлюємо статус завантаження в false
         })

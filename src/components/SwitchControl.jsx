@@ -4,7 +4,6 @@ import MQTTCore from '../core/MQTTCore';
 
 const SwitchControl = ({ stateTopic, commandTopic, label }) => {
   const [state, setState] = useState(null); // Локальний стан
-  const [isConnected, setIsConnected] = useState(false); // Стан підключення
 
   useEffect(() => {
     const handleUpdate = (newState) => {
@@ -12,12 +11,6 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
     };
     // Підписуємося на зміни
     MQTTCore.subscribe(stateTopic, handleUpdate);
-    state === null ? setIsConnected(true) : setIsConnected(false);
-
-    // Відписуємося при демонтажі
-    return () => {
-      MQTTCore.unsubscribe(stateTopic, handleUpdate);
-    };
   }, [stateTopic]);
 
   const handleToggle = (event) => {
@@ -35,7 +28,7 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
               checked={state === 'ON'} // Встановлюємо стан кнопки
               onChange={handleToggle}
               color="primary"
-              disabled={!isConnected} // Вимикаємо кнопку, якщо немає з'єднання
+              disabled={!state} // Вимикаємо кнопку, якщо немає з'єднання
             />
           }
           label={state === 'ON' ? 'ВКЛ.' : state === 'OFF' ? 'ВИКЛ.' : 'Немає даних'}
