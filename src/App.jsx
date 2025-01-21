@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import MQTTCore from './core/MQTTCore';
 import useLocalStorage from './hooks/useLocalStorage'; // Імпортуємо хук
-import Dashboard from './components/Dashboard';
+import Dashboard from './components/MainDashboard';
 import ModalSettings from './components/ModalSettings';
 import LoadingSpinner from './components/LoadingSpinner';
 import SettingsButton from './components/SettingsButton';

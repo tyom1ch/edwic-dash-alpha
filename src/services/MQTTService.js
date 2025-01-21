@@ -19,19 +19,19 @@ class MQTTService {
 
       this.client.on('connect', () => {
         this.isConnected = true;
-        console.log('✅ Підключено до MQTT брокера');
+        // console.log('✅ Підключено до MQTT брокера');
         resolve();
       });
 
       this.client.on('error', (err) => {
-        console.error(`❌ Помилка MQTT: ${err.message}`);
+        // console.error(`❌ Помилка MQTT: ${err.message}`);
         this.client.end();
         reject(err);
       });
 
       this.client.on('close', () => {
         this.isConnected = false;
-        console.log('🔌 З\'єднання з MQTT брокером розірвано');
+        // console.log('🔌 З\'єднання з MQTT брокером розірвано');
       });
     });
   }
