@@ -3,8 +3,8 @@ import { useState } from "react";
 import { IconButton, Menu, MenuItem, Button } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import CustomComponent from "./CustomComponent";
-import EntityManagerDebug from "./EntityManagerDebug";
+import CustomComponent from "../customComponent/CustomComponent";
+import EntityManagerDebug from "../entities/EntityManagerDebug";
 import AddDashboardPage from "./AddDashboardPage";
 
 function DashboardContent({

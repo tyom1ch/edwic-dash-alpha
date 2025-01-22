@@ -1,7 +1,6 @@
 import React from "react";
 import { Card, CardContent, Typography } from "@mui/material";
 import SwitchControl from "./SwitchControl";
-import SwitchNew from "./SwitchNew";
 import SensorComponent from "./SensorComponent";
 import InputBox from "./InputBox"; // Імпорт нового компонента
 

@@ -1,7 +1,7 @@
 import { createTheme } from "@mui/material/styles";
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
-import ComponentDialog from "./ComponentDialog";
+import ComponentDialog from "../components/ComponentDialog";
 import { useState } from "react";
 import { AddBox } from "@mui/icons-material";
 import useLocalStorage from "../hooks/useLocalStorage";

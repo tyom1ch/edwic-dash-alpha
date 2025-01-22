@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import MQTTCore from "./core/MQTTCore";
 import useLocalStorage from "./hooks/useLocalStorage"; // Імпортуємо хук
-import Dashboard from "./components/MainDashboard";
-import ModalSettings from "./components/ModalSettings";
+import Dashboard from "./Dashboard/MainDashboard";
+import ModalSettings from "./modal/ModalSettings";
 import LoadingSpinner from "./components/LoadingSpinner";
 import SettingsButton from "./components/SettingsButton";
 import { StyledEngineProvider } from "@mui/material";
