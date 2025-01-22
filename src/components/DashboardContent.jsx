@@ -1,12 +1,17 @@
-import React from 'react';
-import { Grid, Typography, Button } from '@mui/material';
-import CustomComponent from './CustomComponent';
-import EntityManagerDebug from './EntityManagerDebug';
+import React from "react";
+import { Grid, Typography, Button } from "@mui/material";
+import CustomComponent from "./CustomComponent";
+import EntityManagerDebug from "./EntityManagerDebug";
 
-const DashboardContent = ({ activeDashboard, handleAddComponent, setIsModalOpen, setEditComponent }) => (
-  <div style={{ flex: 1, padding: '20px' }}>
+const DashboardContent = ({
+  activeDashboard,
+  handleAddComponent,
+  setIsModalOpen,
+  setEditComponent,
+}) => (
+  <div style={{ flex: 1, padding: "20px" }}>
     <Typography variant="h4" gutterBottom>
-      {activeDashboard ? activeDashboard.name : 'No Active Dashboard'}
+      {activeDashboard ? activeDashboard.name : "No Active Dashboard"}
     </Typography>
     {activeDashboard ? (
       <>
@@ -17,13 +22,19 @@ const DashboardContent = ({ activeDashboard, handleAddComponent, setIsModalOpen,
             </Grid>
           ))}
         </Grid>
-        <Button variant="contained" onClick={() => setIsModalOpen(true)} sx={{ mt: 3 }}>
+        <Button
+          variant="contained"
+          onClick={() => setIsModalOpen(true)}
+          sx={{ mt: 3 }}
+        >
           Add Component
         </Button>
         <EntityManagerDebug onAddComponent={handleAddComponent} />
       </>
     ) : (
-      <Typography variant="body1">Please create or select a dashboard.</Typography>
+      <Typography variant="body1">
+        Please create or select a dashboard.
+      </Typography>
     )}
   </div>
 );

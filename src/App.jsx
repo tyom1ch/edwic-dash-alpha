@@ -1,18 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import MQTTCore from './core/MQTTCore';
-import useLocalStorage from './hooks/useLocalStorage'; // Імпортуємо хук
-import Dashboard from './components/MainDashboard';
-import ModalSettings from './components/ModalSettings';
-import LoadingSpinner from './components/LoadingSpinner';
-import SettingsButton from './components/SettingsButton';
+import React, { useEffect, useState } from "react";
+import MQTTCore from "./core/MQTTCore";
+import useLocalStorage from "./hooks/useLocalStorage"; // Імпортуємо хук
+import Dashboard from "./components/MainDashboard";
+import ModalSettings from "./components/ModalSettings";
+import LoadingSpinner from "./components/LoadingSpinner";
+import SettingsButton from "./components/SettingsButton";
+import { StyledEngineProvider } from "@mui/material";
 
 const App = () => {
   // Використовуємо useLocalStorage для зберігання налаштувань підключення
-  const [connectionSettings, setConnectionSettings] = useLocalStorage('mqttConnectionSettings', {
-    host: '',
-    username: '',
-    password: '',
-  });
+  const [connectionSettings, setConnectionSettings] = useLocalStorage(
+    "mqttConnectionSettings",
+    {
+      host: "",
+      username: "",
+      password: "",
+    }
+  );
   // const [connectionSettings, setConnectionSettings] = useLocalStorage('mqttConnectionSettings', {
   //   host: '91.222.155.146',
   //   username: 'glados',
@@ -26,14 +30,18 @@ const App = () => {
   // Підключення до брокера при завантаженні
   useEffect(() => {
     if (loading) {
-      MQTTCore.connect('ws://' + connectionSettings.host, connectionSettings.username, connectionSettings.password)
+      MQTTCore.connect(
+        "ws://" + connectionSettings.host,
+        connectionSettings.username,
+        connectionSettings.password
+      )
         .then(() => {
           // MQTTCore.subscribeToAllTopics();
           setConnectionStatus(true);
           setLoading(false); // Встановлюємо статус завантаження в false
         })
         .catch((error) => {
-          console.error('Помилка підключення:', error);
+          console.error("Помилка підключення:", error);
           setConnectionStatus(false);
           setLoading(false); // Встановлюємо статус завантаження в false
         });
@@ -51,22 +59,20 @@ const App = () => {
   };
 
   return (
-    <div>
+    <StyledEngineProvider>
       {loading && <LoadingSpinner />} {/* Кільце завантаження */}
-
       <SettingsButton onClick={handleOpenModal} /> {/* Кнопка налаштувань */}
-
       <ModalSettings
         open={openModal}
         onClose={handleCloseModal}
         connectionSettings={connectionSettings}
         setConnectionSettings={setConnectionSettings}
         onSave={handleSaveSettings}
-      /> {/* Модальне вікно для налаштувань */}
-
+      />{" "}
+      {/* Модальне вікно для налаштувань */}
       {/* Якщо підключення успішне, рендеримо Dashboard */}
       {connectionStatus && <Dashboard />}
-    </div>
+    </StyledEngineProvider>
   );
 };
 

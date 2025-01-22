@@ -1,16 +1,22 @@
-import React from 'react';
-import { Modal, Box, TextField, Button } from '@mui/material';
+import React from "react";
+import { Modal, Box, TextField, Button } from "@mui/material";
 
-const ModalSettings = ({ open, onClose, connectionSettings, setConnectionSettings, onSave }) => {
+const ModalSettings = ({
+  open,
+  onClose,
+  connectionSettings,
+  setConnectionSettings,
+  onSave,
+}) => {
   return (
     <Modal open={open} onClose={onClose}>
       <Box
         sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          bgcolor: 'background.paper',
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          bgcolor: "background.paper",
           padding: 4,
           borderRadius: 2,
           boxShadow: 24,
@@ -24,7 +30,12 @@ const ModalSettings = ({ open, onClose, connectionSettings, setConnectionSetting
           fullWidth
           margin="normal"
           value={connectionSettings.host}
-          onChange={(e) => setConnectionSettings({ ...connectionSettings, host: e.target.value })}
+          onChange={(e) =>
+            setConnectionSettings({
+              ...connectionSettings,
+              host: e.target.value,
+            })
+          }
         />
         <TextField
           label="Логін"
@@ -32,7 +43,12 @@ const ModalSettings = ({ open, onClose, connectionSettings, setConnectionSetting
           fullWidth
           margin="normal"
           value={connectionSettings.username}
-          onChange={(e) => setConnectionSettings({ ...connectionSettings, username: e.target.value })}
+          onChange={(e) =>
+            setConnectionSettings({
+              ...connectionSettings,
+              username: e.target.value,
+            })
+          }
         />
         <TextField
           label="Пароль"
@@ -41,9 +57,19 @@ const ModalSettings = ({ open, onClose, connectionSettings, setConnectionSetting
           fullWidth
           margin="normal"
           value={connectionSettings.password}
-          onChange={(e) => setConnectionSettings({ ...connectionSettings, password: e.target.value })}
+          onChange={(e) =>
+            setConnectionSettings({
+              ...connectionSettings,
+              password: e.target.value,
+            })
+          }
         />
-        <Button onClick={onSave} variant="contained" fullWidth sx={{ marginTop: 2 }}>
+        <Button
+          onClick={onSave}
+          variant="contained"
+          fullWidth
+          sx={{ marginTop: 2 }}
+        >
           Зберегти
         </Button>
       </Box>

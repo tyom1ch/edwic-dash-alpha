@@ -1,11 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { TextField, Card, CardContent, Typography, Button } from '@mui/material';
-import MQTTCore from '../core/MQTTCore';
+import React, { useEffect, useState } from "react";
+import {
+  TextField,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+} from "@mui/material";
+import MQTTCore from "../core/MQTTCore";
 
 const InputBox = ({ stateTopic, commandTopic, label }) => {
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [state, setState] = useState(null);
-  
+
   useEffect(() => {
     const handleUpdate = (newState) => {
       setState(newState); // Оновлюємо стан при зміні топіка
@@ -32,7 +38,7 @@ const InputBox = ({ stateTopic, commandTopic, label }) => {
 
   const handleSubmit = () => {
     MQTTCore.sendMessage(commandTopic, inputValue); // Відправляємо значення в топік
-    setInputValue(''); // Очищуємо поле після відправки
+    setInputValue(""); // Очищуємо поле після відправки
   };
 
   return (
@@ -46,7 +52,7 @@ const InputBox = ({ stateTopic, commandTopic, label }) => {
           fullWidth
           variant="outlined"
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
+            if (event.key === "Enter") {
               handleSubmit(); // Викликаємо handleSubmit, якщо натиснуто Enter
             }
           }}

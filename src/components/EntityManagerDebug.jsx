@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Button,
   List,
@@ -9,9 +9,10 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import EntityManager from './EntityManager';
+  Box,
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import EntityManager from "./EntityManager";
 
 const EntityManagerDebug = ({ onAddComponent }) => {
   const [entities, setEntities] = useState([]);
@@ -22,7 +23,7 @@ const EntityManagerDebug = ({ onAddComponent }) => {
     };
 
     // Ініціалізуємо сутності
-    EntityManager.initializeEntities('');
+    EntityManager.initializeEntities("");
 
     // Підписуємось на зміни
     EntityManager.subscribeToAllEntities(fetchEntities);
@@ -38,7 +39,7 @@ const EntityManagerDebug = ({ onAddComponent }) => {
 
   // Групування сутностей за префіксом (наприклад, "kotelnya-thermostat")
   const groupedEntities = entities.reduce((groups, entity) => {
-    const groupKey = entity.label.split('/')[0]; // Використовуємо першу частину теми
+    const groupKey = entity.label.split("/")[0]; // Використовуємо першу частину теми
     if (!groups[groupKey]) {
       groups[groupKey] = [];
     }
@@ -47,9 +48,14 @@ const EntityManagerDebug = ({ onAddComponent }) => {
   }, {});
 
   const handleAddEntity = (entity) => {
+    // Split the label by '/' and take the last part (for example, "kek" from "example/lol/kek")
+    const labelParts = entity.label.split("/");
+    const lastSegment = labelParts[labelParts.length - 1];
+
+    // Use the last segment as the label when adding the component
     onAddComponent({
       type: entity.type,
-      label: entity.label,
+      label: lastSegment, // Use only the last part of the topic as the label
       stateTopic: entity.stateTopic,
       commandTopic: entity.commandTopic,
       id: Date.now(),
@@ -57,14 +63,14 @@ const EntityManagerDebug = ({ onAddComponent }) => {
   };
 
   return (
-    <div style={{ marginTop: '20px' }}>
+    <Box sx={{ width: { xs: "100%", sm: "auto", md: "auto" } }} marginTop={1}>
       <Typography variant="h5" gutterBottom>
         Додати сутності
       </Typography>
       {Object.keys(groupedEntities).length === 0 ? (
         <Typography>Сутності не знайдено</Typography>
       ) : (
-        <div>
+        <Box>
           {Object.entries(groupedEntities).map(([group, items]) => (
             <Accordion key={group}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -75,8 +81,8 @@ const EntityManagerDebug = ({ onAddComponent }) => {
                   {items.map((entity) => (
                     <ListItem key={entity.id} divider>
                       <ListItemText
-                        primary={entity.label.split('/').slice(1).join('/')} // Підпорядкована частина
-                        secondary={`Стан: ${entity.state ?? 'Невідомо'}`}
+                        primary={entity.label.split("/").slice(1).join("/")} // Підпорядкована частина
+                        secondary={`Стан: ${entity.state ?? "Невідомо"}`}
                       />
                       <ListItemSecondaryAction>
                         <Button
@@ -93,9 +99,9 @@ const EntityManagerDebug = ({ onAddComponent }) => {
               </AccordionDetails>
             </Accordion>
           ))}
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 

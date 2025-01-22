@@ -1,21 +1,22 @@
-import * as React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { createTheme } from '@mui/material/styles';
-import { AppProvider } from '@toolpad/core/AppProvider';
-import { DashboardLayout } from '@toolpad/core/DashboardLayout';
-import useSimpleRouter from '../hooks/useSimpleRouter';
-import { Grid, IconButton, Menu, MenuItem, Button } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ComponentDialog from './ComponentDialog';
-import CustomComponent from './CustomComponent';
-import { useState } from 'react';
-import EntityManagerDebug from './EntityManagerDebug';
-import useLocalStorage from '../hooks/useLocalStorage';
+import * as React from "react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import { createTheme } from "@mui/material/styles";
+import { AppProvider } from "@toolpad/core/AppProvider";
+import { DashboardLayout } from "@toolpad/core/DashboardLayout";
+import useSimpleRouter from "../hooks/useSimpleRouter";
+import { IconButton, Menu, MenuItem, Button } from "@mui/material";
+import Grid from '@mui/material/Grid2';
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ComponentDialog from "./ComponentDialog";
+import CustomComponent from "./CustomComponent";
+import { useState } from "react";
+import EntityManagerDebug from "./EntityManagerDebug";
+import useLocalStorage from "../hooks/useLocalStorage";
 
 const demoTheme = createTheme({
   cssVariables: {
-    colorSchemeSelector: 'data-toolpad-color-scheme',
+    colorSchemeSelector: "data-toolpad-color-scheme",
   },
   colorSchemes: { light: true, dark: true },
 });
@@ -47,10 +48,17 @@ function DashboardContent({
   }
 
   return (
-    <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+      }}
+    >
       <Typography>{currentDashboard.title}</Typography>
       <Button
-        onClick={() => onAddDashboard('New Dashboard')}
+        onClick={() => onAddDashboard("New Dashboard")}
         variant="contained"
         color="primary"
         sx={{ marginBottom: 2 }}
@@ -58,13 +66,20 @@ function DashboardContent({
         Додати новий дашборд
       </Button>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} padding={1} justifyContent={"center"} alignItems={"flex-end"}>
         {currentDashboard.components.map((component) => (
-          <Grid item xs={12} sm={6} md={4} key={component.id} style={{ position: 'relative' }}>
+          <Grid
+            item
+            xs={12}
+            sm={6}
+            md={4}
+            key={component.id}
+            style={{ position: "relative"}}
+          >
             <CustomComponent type={component.type} props={component} />
             <IconButton
               onClick={(e) => handleMenuOpen(e, component.id)}
-              sx={{ position: 'absolute', top: 8, right: 8 }}
+              sx={{ position: "absolute", top: 8, right: 8 }}
             >
               <MoreVertIcon />
             </IconButton>
@@ -73,34 +88,55 @@ function DashboardContent({
               open={selectedComponentId === component.id && anchorEl !== null}
               onClose={handleMenuClose}
               anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
             >
-              <MenuItem onClick={() => onEditComponent(component.id)}>Редагувати</MenuItem>
-              <MenuItem onClick={() => onDeleteComponent(component.id)}>Видалити</MenuItem>
+              <MenuItem onClick={() => onEditComponent(component.id)}>
+                Редагувати
+              </MenuItem>
+              <MenuItem onClick={() => onDeleteComponent(component.id)}>
+                Видалити
+              </MenuItem>
             </Menu>
           </Grid>
         ))}
       </Grid>
-      <Button onClick={() => onAddComponent(currentDashboardId, { type: 'newComponentType', content: 'New Component' })}>
-        Додати компонент
-      </Button>
-      <EntityManagerDebug onAddComponent={(component) => onAddComponent(currentDashboardId, component)} />
+      <EntityManagerDebug
+        onAddComponent={(component) =>
+          onAddComponent(currentDashboardId, component)
+        }
+      />
     </Box>
   );
 }
 
 function MainDashboard(props) {
+  const handleSaveComponent = (updatedComponent) => {
+    setDashboards((prevState) => {
+      const updatedDashboards = { ...prevState };
+      Object.keys(updatedDashboards).forEach((dashboardId) => {
+        updatedDashboards[dashboardId].components = updatedDashboards[
+          dashboardId
+        ].components.map((component) =>
+          component.id === updatedComponent.id
+            ? { ...component, label: updatedComponent.title }
+            : component
+        );
+      });
+      return updatedDashboards;
+    });
+  };
+
   const { window } = props;
-  const router = useSimpleRouter('/home');
-  const [dashboards, setDashboards] = useLocalStorage('dashboards', {
-    'dashboard-1': {
-      title: 'Default Dashboard',
+  const router = useSimpleRouter("/home");
+  const [dashboards, setDashboards] = useLocalStorage("dashboards", {
+    "dashboard-1": {
+      title: "Default Dashboard",
       components: [],
     },
   });
@@ -122,7 +158,10 @@ function MainDashboard(props) {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
       if (updatedDashboards[dashboardId]) {
-        updatedDashboards[dashboardId].components.push({ ...newComponent, id: Date.now() });
+        updatedDashboards[dashboardId].components.push({
+          ...newComponent,
+          id: Date.now(),
+        });
       }
       return updatedDashboards;
     });
@@ -140,24 +179,24 @@ function MainDashboard(props) {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
       Object.keys(updatedDashboards).forEach((dashboardId) => {
-        updatedDashboards[dashboardId].components = updatedDashboards[dashboardId].components.filter(
-          (comp) => comp.id !== id
-        );
+        updatedDashboards[dashboardId].components = updatedDashboards[
+          dashboardId
+        ].components.filter((comp) => comp.id !== id);
       });
       return updatedDashboards;
     });
   };
 
   // Отримуємо ID дашборду з роута
-// Заміна на router.pathname
-const currentDashboardId = router.pathname.split('/')[1] || 'dashboard-1';
+  // Заміна на router.pathname
+  const currentDashboardId = router.pathname.split("/")[1] || "dashboard-1";
 
   return (
     <AppProvider
       navigation={[
         {
-          kind: 'header',
-          title: 'Dashboards',
+          kind: "header",
+          title: "Dashboards",
         },
         ...Object.entries(dashboards).map(([id, { title }]) => ({
           segment: id,
@@ -166,7 +205,7 @@ const currentDashboardId = router.pathname.split('/')[1] || 'dashboard-1';
       ]}
       branding={{
         logo: <img src="https://mui.com/static/logo.png" alt="MUI logo" />,
-        title: 'EdwIC',
+        title: "EdwIC",
       }}
       router={router}
       theme={demoTheme}
@@ -185,7 +224,7 @@ const currentDashboardId = router.pathname.split('/')[1] || 'dashboard-1';
       <ComponentDialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSave={null}
+        onSave={handleSaveComponent}
         component={editComponent}
         isEdit={editComponent !== null}
       />

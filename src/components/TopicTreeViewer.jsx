@@ -1,31 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Typography, Box } from '@mui/material';
-import { SimpleTreeView, TreeItem } from '@mui/x-tree-view';
-import MQTTCore from '../core/MQTTCore';
-import * as Icons from '@mui/icons-material';
-import ComponentDialog from './ComponentDialog';
+import React, { useState, useEffect } from "react";
+import { Typography, Box } from "@mui/material";
+import { SimpleTreeView, TreeItem } from "@mui/x-tree-view";
+import MQTTCore from "../core/MQTTCore";
+import * as Icons from "@mui/icons-material";
+import ComponentDialog from "./ComponentDialog";
 
 // Функція для визначення іконки за назвою топіка
 const getIconByTopicName = (topicName) => {
-  if (topicName.toLowerCase().includes('temperature')) {
+  if (topicName.toLowerCase().includes("temperature")) {
     return <Icons.DeviceThermostat />;
-  } else if (topicName.toLowerCase().includes('power')) {
+  } else if (topicName.toLowerCase().includes("power")) {
     return <Icons.Bolt />;
-  } else if (topicName.toLowerCase().includes('alert')) {
+  } else if (topicName.toLowerCase().includes("alert")) {
     return <Icons.Warning />;
-  } else if (topicName.toLowerCase().includes('device')) {
+  } else if (topicName.toLowerCase().includes("device")) {
     return <Icons.DeviceHub />;
   }
 };
 
 // Рекурсивна функція для створення дерева
-const createTreeItems = (data, handleItemClick, parentKey = '') => {
+const createTreeItems = (data, handleItemClick, parentKey = "") => {
   return Object.entries(data).map(([key, value]) => {
     const nodeId = parentKey ? `${parentKey}/${key}` : key;
     const icon = getIconByTopicName(key);
-    const state = typeof value === 'object' ? JSON.stringify(value) : value; // Отримуємо стан
+    const state = typeof value === "object" ? JSON.stringify(value) : value; // Отримуємо стан
 
-    if (typeof value === 'object' && value !== null) {
+    if (typeof value === "object" && value !== null) {
       return (
         <TreeItem key={nodeId} itemId={nodeId} label={key} icon={icon}>
           {createTreeItems(value, handleItemClick, nodeId)}
@@ -45,15 +45,14 @@ const createTreeItems = (data, handleItemClick, parentKey = '') => {
   });
 };
 
-
 const TopicTreeViewer = ({ components, setComponents }) => {
   const [topicsStructure, setTopicsStructure] = useState({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newComponent, setNewComponent] = useState({
-    type: 'sensor',
-    label: '',
-    stateTopic: '',
-    commandTopic: '',
+    type: "sensor",
+    label: "",
+    stateTopic: "",
+    commandTopic: "",
   });
 
   useEffect(() => {
@@ -80,21 +79,21 @@ const TopicTreeViewer = ({ components, setComponents }) => {
     ]);
     setIsDialogOpen(false);
     setNewComponent({
-      type: 'sensor',
-      label: '',
-      stateTopic: '',
-      commandTopic: '',
+      type: "sensor",
+      label: "",
+      stateTopic: "",
+      commandTopic: "",
     });
   };
 
   return (
-    <Box sx={{ padding: '20px', maxHeight: '400px', overflow: 'auto' }}>
+    <Box sx={{ padding: "20px", maxHeight: "400px", overflow: "auto" }}>
       <Typography variant="h4" gutterBottom>
         Структура топіків
       </Typography>
       <SimpleTreeView
         aria-label="MQTT Topic Tree"
-        sx={{ flexGrow: 1, maxHeight: 400, overflowY: 'auto' }}
+        sx={{ flexGrow: 1, maxHeight: 400, overflowY: "auto" }}
       >
         {createTreeItems(topicsStructure, handleItemClick)}
       </SimpleTreeView>

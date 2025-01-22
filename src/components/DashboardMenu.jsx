@@ -1,8 +1,18 @@
-import React from 'react';
-import { Menu, MenuItem, IconButton } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import React from "react";
+import { Menu, MenuItem, IconButton } from "@mui/material";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 
-const DashboardMenu = ({ anchorEl, selectedComponentId, setAnchorEl, setEditComponent, setIsModalOpen, component, dashboards, setDashboards, activeDashboardId }) => (
+const DashboardMenu = ({
+  anchorEl,
+  selectedComponentId,
+  setAnchorEl,
+  setEditComponent,
+  setIsModalOpen,
+  component,
+  dashboards,
+  setDashboards,
+  activeDashboardId,
+}) => (
   <Menu
     anchorEl={anchorEl}
     open={selectedComponentId === component.id && Boolean(anchorEl)}
@@ -23,7 +33,9 @@ const DashboardMenu = ({ anchorEl, selectedComponentId, setAnchorEl, setEditComp
           dashboard.id === activeDashboardId
             ? {
                 ...dashboard,
-                components: dashboard.components.filter((comp) => comp.id !== component.id),
+                components: dashboard.components.filter(
+                  (comp) => comp.id !== component.id
+                ),
               }
             : dashboard
         );

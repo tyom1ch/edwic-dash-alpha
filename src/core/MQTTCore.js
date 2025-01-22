@@ -1,4 +1,4 @@
-import MQTTService from '../services/MQTTService';
+import MQTTService from "../services/MQTTService";
 
 class MQTTCore {
   constructor() {
@@ -12,10 +12,10 @@ class MQTTCore {
   // Підключення до брокера
   async connect(host, username, password) {
     try {
-      console.log('✅ Підключення до брокера...');
+      console.log("✅ Підключення до брокера...");
       await this.tryConnect(host, username, password);
     } catch (error) {
-      console.error('❌ Помилка підключення:', error.message);
+      console.error("❌ Помилка підключення:", error.message);
     }
   }
 
@@ -23,15 +23,20 @@ class MQTTCore {
   async tryConnect(host, username, password) {
     try {
       await MQTTService.connect(host, username, password);
-      console.log('✅ Підключено до брокера');
+      console.log("✅ Підключено до брокера");
       this.reconnectAttempts = 0; // Скидаємо лічильник спроб після успішного підключення
     } catch (error) {
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        console.log(`⏳ Спроба підключення не вдалася. Повторна спроба через ${this.reconnectInterval / 1000} секунд...`);
+        console.log(
+          `⏳ Спроба підключення не вдалася. Повторна спроба через ${this.reconnectInterval / 1000} секунд...`
+        );
         this.reconnectAttempts++;
-        setTimeout(() => this.tryConnect(host, username, password), this.reconnectInterval);
+        setTimeout(
+          () => this.tryConnect(host, username, password),
+          this.reconnectInterval
+        );
       } else {
-        console.error('❌ Перевищено кількість спроб підключення');
+        console.error("❌ Перевищено кількість спроб підключення");
       }
     }
   }
@@ -40,9 +45,9 @@ class MQTTCore {
   async disconnect() {
     try {
       await MQTTService.disconnect();
-      console.log('✅ Відключено від брокера');
+      console.log("✅ Відключено від брокера");
     } catch (error) {
-      // console.error('❌ Помилка відключення:', error.message);
+      console.error("❌ Помилка відключення:", error.message);
     }
   }
 
@@ -54,7 +59,7 @@ class MQTTCore {
         // Підписка на топік через MQTTService для отримання повідомлень
         await MQTTService.subscribe(topic, this.handleMessage.bind(this));
       } catch (error) {
-        // console.error('❌ Помилка підписки на топік:', error.message);
+        console.error("❌ Помилка підписки на топік:", error.message);
       }
     }
 
@@ -65,45 +70,45 @@ class MQTTCore {
   // Відписка від оновлення певного топіка
   unsubscribe(topic, callback) {
     if (this.subscribers[topic]) {
-      this.subscribers[topic] = this.subscribers[topic].filter(cb => cb !== callback);
+      this.subscribers[topic] = this.subscribers[topic].filter(
+        (cb) => cb !== callback
+      );
     }
   }
 
   // Сповіщення підписників про оновлення
-  notifySubscribers(topic, message) {
+  notifySubscribers(topic) {
+    const message = this.getState(topic);
     if (this.subscribers[topic]) {
-      this.subscribers[topic].forEach(callback => callback(message));
+      this.subscribers[topic].forEach((callback) => callback(message));
+    }
+  }
+
+  // Оновлення структури топіків
+  updateTopicStructure(topic, message) {
+    const parts = topic.split("/");
+    let currentLevel = this.topics;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!currentLevel[part]) {
+        currentLevel[part] = i === parts.length - 1 ? message : {};
+      } else if (i === parts.length - 1) {
+        currentLevel[part] = message;
+      }
+      currentLevel = currentLevel[part];
     }
   }
 
   // Обробка вхідних повідомлень
   handleMessage(topic, message) {
-    // this.updateTopicStructure(topic, message);
-
-    // Сповіщаємо підписників
-    this.notifySubscribers(topic, message);
-  }
-
-  // Оновлення структури топіків
-  updateTopicStructure(topic, message) {
-    const parts = topic.split('/');
-    let currentLevel = this.topics;
-
-    parts.forEach((part, index) => {
-      if (!currentLevel[part]) {
-        currentLevel[part] = {}; // Ініціалізуємо, якщо рівень не існує
-      }
-      if (index === parts.length - 1) {
-        currentLevel[part] = message; // Зберігаємо значення на кінцевому рівні
-        this.notifySubscribers(topic, message); // Сповіщаємо зміни на конкретному рівні
-      }
-      currentLevel = currentLevel[part];
-    });
+    this.updateTopicStructure(topic, message);
+    this.notifySubscribers(topic);
   }
 
   // Отримання стану певного топіка
   getState(topic) {
-    const parts = topic.split('/');
+    const parts = topic.split("/");
     let currentLevel = this.topics;
 
     for (const part of parts) {
@@ -121,7 +126,10 @@ class MQTTCore {
     try {
       await MQTTService.publish(topic, message);
     } catch (error) {
-      // console.error(`❌ Помилка відправки повідомлення в топік ${topic}:`, error.message);
+      console.error(
+        `❌ Помилка відправки повідомлення в топік ${topic}:`,
+        error.message
+      );
     }
   }
 
