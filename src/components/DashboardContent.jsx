@@ -1,42 +1,105 @@
-import React from "react";
-import { Grid, Typography, Button } from "@mui/material";
+import Box from "@mui/material/Box";
+import { useState } from "react";
+import { IconButton, Menu, MenuItem, Button } from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CustomComponent from "./CustomComponent";
 import EntityManagerDebug from "./EntityManagerDebug";
+import AddDashboardPage from "./AddDashboardPage";
 
-const DashboardContent = ({
-  activeDashboard,
-  handleAddComponent,
-  setIsModalOpen,
-  setEditComponent,
-}) => (
-  <div style={{ flex: 1, padding: "20px" }}>
-    <Typography variant="h4" gutterBottom>
-      {activeDashboard ? activeDashboard.name : "No Active Dashboard"}
-    </Typography>
-    {activeDashboard ? (
-      <>
-        <Grid container spacing={2}>
-          {activeDashboard.components.map((component) => (
-            <Grid item xs={12} sm={6} md={4} key={component.id}>
+function DashboardContent({
+  dashboards,
+  currentDashboardId,
+  onAddComponent,
+  onEditComponent,
+  onDeleteComponent,
+  onAddDashboard,
+  router,
+}) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedComponentId, setSelectedComponentId] = useState(null);
+
+  const handleMenuOpen = (event, id) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedComponentId(id);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const currentDashboard = dashboards[currentDashboardId];
+
+  if (!currentDashboard) {
+    return <AddDashboardPage onAddDashboard={onAddDashboard} router={router} />;
+  }
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+      }}
+    >
+      <Box sx={{ width: "100%" }}>
+        <Grid
+          container
+          spacing={2}
+          padding={2}
+          justifyContent={"center"}
+          alignItems={"flex-end"}
+        >
+          {currentDashboard.components.map((component) => (
+            <Grid
+              item
+              xs={12}
+              sm={6}
+              md={4}
+              key={component.id}
+              style={{ position: "relative" }}
+              sx={{ width: { xs: "1", sm: "auto", md: "auto" } }}
+            >
               <CustomComponent type={component.type} props={component} />
+              <IconButton
+                onClick={(e) => handleMenuOpen(e, component.id)}
+                sx={{ position: "absolute", top: 8, right: 8 }}
+              >
+                <MoreVertIcon />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={selectedComponentId === component.id && anchorEl !== null}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: "top",
+                  horizontal: "right",
+                }}
+                transformOrigin={{
+                  vertical: "top",
+                  horizontal: "right",
+                }}
+              >
+                <MenuItem onClick={() => onEditComponent(component.id)}>
+                  Редагувати
+                </MenuItem>
+                <MenuItem onClick={() => onDeleteComponent(component.id)}>
+                  Видалити
+                </MenuItem>
+              </Menu>
             </Grid>
           ))}
         </Grid>
-        <Button
-          variant="contained"
-          onClick={() => setIsModalOpen(true)}
-          sx={{ mt: 3 }}
-        >
-          Add Component
-        </Button>
-        <EntityManagerDebug onAddComponent={handleAddComponent} />
-      </>
-    ) : (
-      <Typography variant="body1">
-        Please create or select a dashboard.
-      </Typography>
-    )}
-  </div>
-);
+      </Box>
+
+      <EntityManagerDebug
+        onAddComponent={(component) =>
+          onAddComponent(currentDashboardId, component)
+        }
+      />
+    </Box>
+  );
+}
 
 export default DashboardContent;

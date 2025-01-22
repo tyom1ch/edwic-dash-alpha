@@ -6,6 +6,7 @@ import ModalSettings from "./components/ModalSettings";
 import LoadingSpinner from "./components/LoadingSpinner";
 import SettingsButton from "./components/SettingsButton";
 import { StyledEngineProvider } from "@mui/material";
+import useSimpleRouter from "./hooks/useSimpleRouter";
 
 const App = () => {
   // Використовуємо useLocalStorage для зберігання налаштувань підключення
@@ -58,6 +59,8 @@ const App = () => {
     setOpenModal(false); // Закриваємо модальне вікно
   };
 
+  const router = useSimpleRouter("/home");
+
   return (
     <StyledEngineProvider>
       {loading && <LoadingSpinner />} {/* Кільце завантаження */}
@@ -71,7 +74,7 @@ const App = () => {
       />{" "}
       {/* Модальне вікно для налаштувань */}
       {/* Якщо підключення успішне, рендеримо Dashboard */}
-      {connectionStatus && <Dashboard />}
+      {connectionStatus && <Dashboard router={router}/>}
     </StyledEngineProvider>
   );
 };

@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Switch,
-  FormControlLabel,
-  Typography,
-  Card,
-  CardContent,
-  Box,
-} from "@mui/material";
+import { Typography, Card, CardContent, ButtonBase } from "@mui/material";
 import MQTTCore from "../core/MQTTCore";
 
 const SwitchControl = ({ stateTopic, commandTopic, label }) => {
@@ -29,40 +22,50 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
       setLoading(false); // Дані отримані, припиняємо завантаження
     }
 
-    // Очищення підписки при демонтунгу
+    // Очищення підписки при демонтажі
     return () => {
       MQTTCore.unsubscribe(stateTopic, handleUpdate);
     };
   }, [stateTopic]);
 
-  const handleToggle = (event) => {
-    const newState = event.target.checked ? "ON" : "OFF";
+  const handleToggle = () => {
+    const newState = state === "ON" ? "OFF" : "ON";
+    setState(newState); // Локальне оновлення стану для миттєвого відображення
     MQTTCore.sendMessage(commandTopic, newState); // Відправляємо команду через ядро
   };
 
   return (
-    <Box sx={{ width: { xs: '1', sm: 'auto', md: 'auto' } }} marginTop={1}>
-    <Card variant="outlined" sx={{ minWidth: 275, height: 100, mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6">{label}</Typography>
-        {loading ? (
-          <Typography color="textSecondary">Завантаження...</Typography>
-        ) : (
-          <FormControlLabel
-            control={
-              <Switch
-                checked={state === "ON"} // Встановлюємо стан кнопки
-                onChange={handleToggle}
-                color="primary"
-                disabled={state === null} // Вимикаємо кнопку, якщо немає даних
-              />
-            }
-            label={state === "ON" ? "ВКЛ." : "ВИКЛ."}
-          />
-        )}
-      </CardContent>
+    <Card
+      variant="outlined"
+      sx={{
+        minWidth: 275,
+        height: 100, // Оновлено на фіксовану висоту
+        mb: 2,
+        overflow: "hidden",
+        transition: "background-color 0.3s ease", // Додаємо плавний перехід
+      }}
+    >
+      <ButtonBase
+        onClick={handleToggle}
+        sx={{
+          width: "100%",
+          height: "100%", // Завдяки цьому картка буде заповнювати всю висоту
+          display: "block",
+          textAlign: "left",
+        }}
+      >
+        <CardContent>
+          <Typography color="textSecondary" variant="h6" sx={{ paddingRight: 6 }}>
+            {label}
+          </Typography>
+          {loading ? (
+            <Typography color="textSecondary">Завантаження...</Typography>
+          ) : (
+            <Typography color={state === "ON" ? "textPrimary" : "textSecondary"} variant="h5">{state}</Typography>
+          )}
+        </CardContent>
+      </ButtonBase>
     </Card>
-    </Box>
   );
 };
 

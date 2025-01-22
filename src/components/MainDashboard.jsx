@@ -1,23 +1,12 @@
-import * as React from "react";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import { createTheme } from "@mui/material/styles";
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
-import useSimpleRouter from "../hooks/useSimpleRouter";
-import { IconButton, Menu, MenuItem, Button } from "@mui/material";
-import Grid from "@mui/material/Grid2";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ComponentDialog from "./ComponentDialog";
-import CustomComponent from "./CustomComponent";
 import { useState } from "react";
-import EntityManagerDebug from "./EntityManagerDebug";
-import useLocalStorage from "../hooks/useLocalStorage";
-
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import AddBusinessIcon from "@mui/icons-material/AddBusiness";
 import { AddBox } from "@mui/icons-material";
-import AddDashboardPage from "./AddDashboardPage";
+import useLocalStorage from "../hooks/useLocalStorage";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import DashboardContent from "./DashboardContent";
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -26,97 +15,7 @@ const demoTheme = createTheme({
   colorSchemes: { light: true, dark: true },
 });
 
-function DashboardContent({
-  dashboards,
-  currentDashboardId,
-  onAddComponent,
-  onEditComponent,
-  onDeleteComponent,
-  onAddDashboard,
-}) {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedComponentId, setSelectedComponentId] = useState(null);
-
-  const handleMenuOpen = (event, id) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedComponentId(id);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const currentDashboard = dashboards[currentDashboardId];
-
-  if (!currentDashboard) {
-    return <AddDashboardPage onAddDashboard={onAddDashboard}/>;
-  }
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-      }}
-    >
-      <Grid
-        container
-        spacing={2}
-        padding={2}
-        justifyContent={"center"}
-        alignItems={"flex-end"}
-      >
-        {currentDashboard.components.map((component) => (
-          <Grid
-            item
-            xs={12}
-            sm={6}
-            md={4}
-            key={component.id}
-            style={{ position: "relative" }}
-          >
-            <CustomComponent type={component.type} props={component} />
-            <IconButton
-              onClick={(e) => handleMenuOpen(e, component.id)}
-              sx={{ position: "absolute", top: 8, right: 8 }}
-            >
-              <MoreVertIcon />
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={selectedComponentId === component.id && anchorEl !== null}
-              onClose={handleMenuClose}
-              anchorOrigin={{
-                vertical: "top",
-                horizontal: "right",
-              }}
-              transformOrigin={{
-                vertical: "top",
-                horizontal: "right",
-              }}
-            >
-              <MenuItem onClick={() => onEditComponent(component.id)}>
-                Редагувати
-              </MenuItem>
-              <MenuItem onClick={() => onDeleteComponent(component.id)}>
-                Видалити
-              </MenuItem>
-            </Menu>
-          </Grid>
-        ))}
-      </Grid>
-      <EntityManagerDebug
-        onAddComponent={(component) =>
-          onAddComponent(currentDashboardId, component)
-        }
-      />
-    </Box>
-  );
-}
-
-function MainDashboard(props) {
+function MainDashboard({router, ...props}) {
   const handleSaveComponent = (updatedComponent) => {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
@@ -138,7 +37,7 @@ function MainDashboard(props) {
   };
 
   const { window } = props;
-  const router = useSimpleRouter("/home");
+  // const router = useSimpleRouter("/home");
   const [dashboards, setDashboards] = useLocalStorage("dashboards", {
     "dashboard-1": {
       title: "Default Dashboard",
@@ -226,6 +125,7 @@ function MainDashboard(props) {
     >
       <DashboardLayout>
         <DashboardContent
+          router={router}
           dashboards={dashboards}
           currentDashboardId={currentDashboardId}
           onAddComponent={handleAddComponent}

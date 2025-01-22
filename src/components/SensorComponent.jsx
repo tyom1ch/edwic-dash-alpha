@@ -26,15 +26,32 @@ const SensorComponent = ({ stateTopic, label, measureUnit }) => {
   }, [stateTopic]);
 
   return (
-    <Card variant="outlined" sx={{ minWidth: 275, height: 100, mb: 2 }}>
-      <CardContent>
-        <Typography variant="h4">{label}</Typography>
-        <Typography variant="h6">
-          {state !== null ? state : "Очікування даних..."}
-          &nbsp;
-          {measureUnit}
-        </Typography>
-      </CardContent>
+    <Card
+      variant="outlined"
+      sx={{
+        minWidth: 275,
+        height: 100, // Встановлюємо однакову висоту
+        mb: 2,
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        sx={{
+          width: "100%",
+          height: "100%", // Розтягуємо на всю висоту картки
+          display: "block",
+          textAlign: "left",
+        }}
+      >
+        <CardContent>
+          <Typography color="textSecondary" variant="h6" sx={{ paddingRight: 6 }}>{label}</Typography>
+          {!state ? (
+            <Typography color="textSecondary">Завантаження...</Typography>
+          ) : (
+            <Typography variant="h5">{state}</Typography>
+          )}
+        </CardContent>
+      </Box>
     </Card>
   );
 };
