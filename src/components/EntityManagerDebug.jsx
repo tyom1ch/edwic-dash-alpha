@@ -48,14 +48,9 @@ const EntityManagerDebug = ({ onAddComponent }) => {
   }, {});
 
   const handleAddEntity = (entity) => {
-    // Split the label by '/' and take the last part (for example, "kek" from "example/lol/kek")
-    const labelParts = entity.label.split("/");
-    const lastSegment = labelParts[labelParts.length - 1];
-
-    // Use the last segment as the label when adding the component
     onAddComponent({
       type: entity.type,
-      label: lastSegment, // Use only the last part of the topic as the label
+      label: entity.label,
       stateTopic: entity.stateTopic,
       commandTopic: entity.commandTopic,
       id: Date.now(),
@@ -63,7 +58,7 @@ const EntityManagerDebug = ({ onAddComponent }) => {
   };
 
   return (
-    <Box sx={{ width: { xs: "100%", sm: "auto", md: "auto" } }} marginTop={1}>
+    <Box sx={{ width: { xs: "1", sm: "auto", md: "auto" } }} marginTop={1}>
       <Typography variant="h5" gutterBottom>
         Додати сутності
       </Typography>

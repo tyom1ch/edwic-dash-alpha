@@ -6,13 +6,18 @@ import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import useSimpleRouter from "../hooks/useSimpleRouter";
 import { IconButton, Menu, MenuItem, Button } from "@mui/material";
-import Grid from '@mui/material/Grid2';
+import Grid from "@mui/material/Grid2";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ComponentDialog from "./ComponentDialog";
 import CustomComponent from "./CustomComponent";
 import { useState } from "react";
 import EntityManagerDebug from "./EntityManagerDebug";
 import useLocalStorage from "../hooks/useLocalStorage";
+
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import AddBusinessIcon from "@mui/icons-material/AddBusiness";
+import { AddBox } from "@mui/icons-material";
+import AddDashboardPage from "./AddDashboardPage";
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -44,7 +49,7 @@ function DashboardContent({
   const currentDashboard = dashboards[currentDashboardId];
 
   if (!currentDashboard) {
-    return <Typography variant="h6">Дашборд не знайдено</Typography>;
+    return <AddDashboardPage onAddDashboard={onAddDashboard}/>;
   }
 
   return (
@@ -56,17 +61,13 @@ function DashboardContent({
         textAlign: "center",
       }}
     >
-      <Typography>{currentDashboard.title}</Typography>
-      <Button
-        onClick={() => onAddDashboard("New Dashboard")}
-        variant="contained"
-        color="primary"
-        sx={{ marginBottom: 2 }}
+      <Grid
+        container
+        spacing={2}
+        padding={2}
+        justifyContent={"center"}
+        alignItems={"flex-end"}
       >
-        Додати новий дашборд
-      </Button>
-
-      <Grid container spacing={2} padding={1} justifyContent={"center"} alignItems={"flex-end"}>
         {currentDashboard.components.map((component) => (
           <Grid
             item
@@ -74,7 +75,7 @@ function DashboardContent({
             sm={6}
             md={4}
             key={component.id}
-            style={{ position: "relative"}}
+            style={{ position: "relative" }}
           >
             <CustomComponent type={component.type} props={component} />
             <IconButton
@@ -130,6 +131,10 @@ function MainDashboard(props) {
       });
       return updatedDashboards;
     });
+  };
+
+  const handleAddDashboardMenu = () => {
+    setIsModalOpen(true); // Відкриваємо модальне вікно для введення назви
   };
 
   const { window } = props;
@@ -200,8 +205,16 @@ function MainDashboard(props) {
         },
         ...Object.entries(dashboards).map(([id, { title }]) => ({
           segment: id,
+          icon: <DashboardIcon />,
           title,
         })),
+        { kind: "divider" },
+        {
+          segment: "add-dash",
+          title: "Add dashboard",
+          icon: <AddBox />,
+          onClick: handleAddDashboardMenu,
+        },
       ]}
       branding={{
         logo: <img src="https://mui.com/static/logo.png" alt="MUI logo" />,
