@@ -3,10 +3,11 @@ import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import ComponentDialog from "../components/ComponentDialog";
 import { useState } from "react";
-import { AddBox } from "@mui/icons-material";
+import { Add, AddBox, AddCircleRounded } from "@mui/icons-material";
 import useLocalStorage from "../hooks/useLocalStorage";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DashboardContent from "./DashboardContent";
+import { Fab } from "@mui/material";
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -15,7 +16,7 @@ const demoTheme = createTheme({
   colorSchemes: { light: true, dark: true },
 });
 
-function MainDashboard({router, ...props}) {
+function MainDashboard({ router, ...props }) {
   const handleSaveComponent = (updatedComponent) => {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
@@ -94,6 +95,7 @@ function MainDashboard({router, ...props}) {
   // Отримуємо ID дашборду з роута
   // Заміна на router.pathname
   const currentDashboardId = router.pathname.split("/")[1] || "dashboard-1";
+  const [lockMode, setLockMode] = useState(false);
 
   return (
     <AppProvider
@@ -126,6 +128,7 @@ function MainDashboard({router, ...props}) {
       <DashboardLayout>
         <DashboardContent
           router={router}
+          lockMode={lockMode}
           dashboards={dashboards}
           currentDashboardId={currentDashboardId}
           onAddComponent={handleAddComponent}
@@ -134,6 +137,17 @@ function MainDashboard({router, ...props}) {
           onAddDashboard={handleAddDashboard}
         />
       </DashboardLayout>
+      {lockMode ? (
+        <Fab
+          color="primary"
+          aria-label="add"
+          sx={{ position: "fixed", right: 16, bottom: 16 }}
+        >
+          <Add />
+        </Fab>
+      ) : (
+        false
+      )}
       <ComponentDialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

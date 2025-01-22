@@ -1,56 +1,121 @@
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField } from "@mui/material";
+import React from 'react';
+import { Modal, Box, TextField, Select, MenuItem, Typography, Button } from '@mui/material';
 
-function ComponentDialog({ isOpen, onClose, onSave, component, isEdit }) {
-  const [localComponent, setLocalComponent] = useState(component || {});
+const ComponentDialog = ({ isOpen, onClose, onSave, component, isEdit }) => {
+  const [formData, setFormData] = React.useState(component || {
+    type: 'sensor',
+    label: '',
+    stateTopic: '',
+    commandTopic: '',
+    measureUnit: '',
+  });
 
-  useEffect(() => {
-    if (isEdit && component) {
-      setLocalComponent(component);  // Populate the dialog with the current component
-    }
-  }, [isEdit, component]);
+  React.useEffect(() => {
+    setFormData(component || { type: 'sensor', label: '', stateTopic: '', commandTopic: '' });
+  }, [component]);
 
-  const handleSave = () => {
-    if (onSave && localComponent) {
-      onSave(localComponent);  // This will call the `handleSaveComponent` function in MainDashboard
-      onClose();  // Close the modal after saving
-    }
+  const modifyTopic = (topic) => {
+    console.log("MOD:", topic);
+    return topic.split("/").slice(0, -1).concat("command").join("/");
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setLocalComponent((prev) => ({
-      ...prev,
-      [name]: value,  // Update the title here
-    }));
+  const handleInputChange = (field, value) => {
+    const updatedFormData = { ...formData, [field]: value };
+
+    if (value === "switch" || "input") {
+      updatedFormData.commandTopic = modifyTopic(formData.stateTopic);
+    } else if (value === "sensor") {
+      updatedFormData.commandTopic = "";
+    }
+  
+    setFormData(updatedFormData);
+  };
+
+  const handleSave = () => {
+    onSave(formData);
+    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onClose={onClose}>
-      <DialogTitle>{isEdit ? "Edit Component" : "Add Component"}</DialogTitle>
-      <DialogContent>
+    <Modal open={isOpen} onClose={onClose}>
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 400,
+          bgcolor: 'background.paper',
+          boxShadow: 24,
+          p: 4,
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          {isEdit ? 'Редагувати компонент' : 'Додати новий компонент'}
+        </Typography>
         <TextField
-          autoFocus
-          margin="dense"
-          label="Component Title"
-          type="text"
+          label="Мітка"
           fullWidth
-          name="title"  // Make sure this is linked to the component's title
-          value={localComponent.title || ""}
-          onChange={handleChange}  // Update the title in the state when changed
+          margin="normal"
+          value={formData.label}
+          onChange={(e) => handleInputChange('label', e.target.value)}
         />
-        {/* You can add more fields if needed */}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} color="primary">
-          Cancel
+        <Select
+          fullWidth
+          value={formData.type}
+          onChange={(e) => handleInputChange('type', e.target.value)}
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value="sensor">Сенсор</MenuItem>
+          <MenuItem value="switch">Перемикач</MenuItem>
+          <MenuItem value="input">Введення</MenuItem> {/* Додаємо новий тип для InputBox */}
+        </Select>
+        <TextField
+          label="Топік стану"
+          fullWidth
+          margin="normal"
+          value={formData.stateTopic}
+          onChange={(e) => handleInputChange('stateTopic', e.target.value)}
+        />
+        {formData.type === 'sensor' && (
+        <TextField
+        label="Символ вимірювання"
+        fullWidth
+        margin="normal"
+        value={formData.measureUnit}
+        onChange={(e) => handleInputChange('measureUnit', e.target.value)}
+        />
+        )}
+        {formData.type === 'switch' && (
+          <TextField
+            label="Топік команди"
+            fullWidth
+            margin="normal"
+            value={formData.commandTopic}
+            onChange={(e) => handleInputChange('commandTopic', e.target.value)}
+          />
+        )}
+        {formData.type === 'input' && ( // Додаємо InputBox, якщо вибрано тип "input"
+          <TextField
+          label="Топік команди"
+          fullWidth
+          margin="normal"
+          value={formData.commandTopic}
+          onChange={(e) => handleInputChange('commandTopic', e.target.value)}
+          />
+        )}
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          sx={{ mt: 2 }}
+          onClick={handleSave}
+        >
+          {isEdit ? 'Зберегти' : 'Додати'}
         </Button>
-        <Button onClick={handleSave} color="primary">
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </Modal>
   );
-}
+};
 
 export default ComponentDialog;

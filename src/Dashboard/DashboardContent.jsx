@@ -15,6 +15,7 @@ function DashboardContent({
   onDeleteComponent,
   onAddDashboard,
   router,
+  lockMode
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedComponentId, setSelectedComponentId] = useState(null);
@@ -62,12 +63,14 @@ function DashboardContent({
               sx={{ width: { xs: "1", sm: "auto", md: "auto" } }}
             >
               <CustomComponent type={component.type} props={component} />
-              <IconButton
-                onClick={(e) => handleMenuOpen(e, component.id)}
-                sx={{ position: "absolute", top: 8, right: 8 }}
-              >
-                <MoreVertIcon />
-              </IconButton>
+              { lockMode ?
+                <IconButton
+                  onClick={(e) => handleMenuOpen(e, component.id)}
+                  sx={{ position: "absolute", top: 8, right: 8 }}
+                >
+                  <MoreVertIcon />
+                </IconButton> : true
+              }
               <Menu
                 anchorEl={anchorEl}
                 open={selectedComponentId === component.id && anchorEl !== null}

@@ -60,7 +60,7 @@ const EntityManagerDebug = ({ onAddComponent }) => {
   return (
     <Box sx={{ width: { xs: "1", sm: "auto", md: "auto" } }} marginTop={1}>
       <Typography variant="h5" gutterBottom>
-        Додати сутності
+        Мої пристрої
       </Typography>
       {Object.keys(groupedEntities).length === 0 ? (
         <Typography>Сутності не знайдено</Typography>
