@@ -96,11 +96,11 @@ function DashboardContent({
         </Grid>
       </Box>
 
-      <EntityManagerDebug
+      {/* <EntityManagerDebug
         onAddComponent={(component) =>
           onAddComponent(currentDashboardId, component)
         }
-      />
+      /> */}
     </Box>
   );
 }

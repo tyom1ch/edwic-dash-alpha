@@ -1,15 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { createTheme, ThemeProvider, CssBaseline, StyledEngineProvider } from "@mui/material";
 import MQTTCore from "./core/MQTTCore";
-import useLocalStorage from "./hooks/useLocalStorage"; // Імпортуємо хук
+import useLocalStorage from "./hooks/useLocalStorage";
 import Dashboard from "./Dashboard/MainDashboard";
 import ModalSettings from "./modal/ModalSettings";
 import LoadingSpinner from "./components/LoadingSpinner";
 import SettingsButton from "./components/SettingsButton";
-import { StyledEngineProvider } from "@mui/material";
 import useSimpleRouter from "./hooks/useSimpleRouter";
 
 const App = () => {
-  // Використовуємо useLocalStorage для зберігання налаштувань підключення
+  const [themeMode, setThemeMode] = useLocalStorage("themeMode", "light"); // Зберігаємо вибір теми
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: themeMode,
+        },
+      }),
+    [themeMode]
+  );
+
   const [connectionSettings, setConnectionSettings] = useLocalStorage(
     "mqttConnectionSettings",
     {
@@ -18,17 +28,11 @@ const App = () => {
       password: "",
     }
   );
-  // const [connectionSettings, setConnectionSettings] = useLocalStorage('mqttConnectionSettings', {
-  //   host: '91.222.155.146',
-  //   username: 'glados',
-  //   password: 'glados',
-  // });
 
   const [connectionStatus, setConnectionStatus] = useState(false);
-  const [loading, setLoading] = useState(true); // Статус завантаження
-  const [openModal, setOpenModal] = useState(false); // Статус модального вікна
+  const [loading, setLoading] = useState(true);
+  const [openModal, setOpenModal] = useState(false);
 
-  // Підключення до брокера при завантаженні
   useEffect(() => {
     if (loading) {
       MQTTCore.connect(
@@ -37,44 +41,42 @@ const App = () => {
         connectionSettings.password
       )
         .then(() => {
-          // MQTTCore.subscribeToAllTopics();
           setConnectionStatus(true);
-          setLoading(false); // Встановлюємо статус завантаження в false
+          setLoading(false);
         })
         .catch((error) => {
           console.error("Помилка підключення:", error);
           setConnectionStatus(false);
-          setLoading(false); // Встановлюємо статус завантаження в false
+          setLoading(false);
         });
     }
   }, [loading, connectionSettings]);
 
-  // Функція для відкриття і закриття модального вікна
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
 
-  // Функція для збереження налаштувань з модального вікна
   const handleSaveSettings = () => {
-    setLoading(true); // Починаємо процес підключення
-    setOpenModal(false); // Закриваємо модальне вікно
+    setLoading(true);
+    setOpenModal(false);
   };
 
   const router = useSimpleRouter("/home");
 
   return (
     <StyledEngineProvider>
-      {loading && <LoadingSpinner />} {/* Кільце завантаження */}
-      <SettingsButton onClick={handleOpenModal} /> {/* Кнопка налаштувань */}
-      <ModalSettings
-        open={openModal}
-        onClose={handleCloseModal}
-        connectionSettings={connectionSettings}
-        setConnectionSettings={setConnectionSettings}
-        onSave={handleSaveSettings}
-      />{" "}
-      {/* Модальне вікно для налаштувань */}
-      {/* Якщо підключення успішне, рендеримо Dashboard */}
-      {connectionStatus && <Dashboard router={router}/>}
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {loading && <LoadingSpinner />}
+        <SettingsButton onClick={handleOpenModal} />
+        <ModalSettings
+          open={openModal}
+          onClose={handleCloseModal}
+          connectionSettings={connectionSettings}
+          setConnectionSettings={setConnectionSettings}
+          onSave={handleSaveSettings}
+        />
+        {connectionStatus && <Dashboard router={router} />}
+      </ThemeProvider>
     </StyledEngineProvider>
   );
 };

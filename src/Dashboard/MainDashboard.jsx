@@ -3,11 +3,18 @@ import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import ComponentDialog from "../components/ComponentDialog";
 import { useState } from "react";
-import { Add, AddBox, AddCircleRounded } from "@mui/icons-material";
+import {
+  Add,
+  AddBox,
+  AddCircleRounded,
+  Lock,
+  MoreVert,
+} from "@mui/icons-material";
 import useLocalStorage from "../hooks/useLocalStorage";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DashboardContent from "./DashboardContent";
-import { Fab } from "@mui/material";
+import { Fab, IconButton, Menu } from "@mui/material";
+import ModalDashSettings from "../components/ModalDashSettings";
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -36,6 +43,40 @@ function MainDashboard({ router, ...props }) {
   const handleAddDashboardMenu = () => {
     setIsModalOpen(true); // Відкриваємо модальне вікно для введення назви
   };
+
+  function DashIcons({ lockMode, setLockMode }) {
+    const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  
+    const openMenu = (event) => {
+      setMenuAnchorEl(event.currentTarget);
+    };
+  
+    const closeMenu = () => {
+      setMenuAnchorEl(null);
+    };
+  
+    return (
+      <>
+        <IconButton type="button" aria-label="add" onClick={() => {}}>
+          <Add />
+        </IconButton>
+  
+        <IconButton type="button" aria-label="more" onClick={openMenu}>
+          <MoreVert />
+        </IconButton>
+  
+        <ModalDashSettings
+          anchorEl={menuAnchorEl}
+          open={Boolean(menuAnchorEl)}
+          onClose={closeMenu}
+          lockMode={lockMode}
+          setLockMode={setLockMode}
+        />
+      </>
+    );
+  }
+  
+  
 
   const { window } = props;
   // const router = useSimpleRouter("/home");
@@ -125,7 +166,12 @@ function MainDashboard({ router, ...props }) {
       theme={demoTheme}
       window={window}
     >
-      <DashboardLayout>
+      <DashboardLayout
+        slots={{
+          toolbarActions: () => (
+            <DashIcons lockMode={lockMode} setLockMode={setLockMode} />
+          ),        }}
+      >
         <DashboardContent
           router={router}
           lockMode={lockMode}
