@@ -46,25 +46,25 @@ function MainDashboard({ router, ...props }) {
 
   function DashIcons({ lockMode, setLockMode }) {
     const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  
+
     const openMenu = (event) => {
       setMenuAnchorEl(event.currentTarget);
     };
-  
+
     const closeMenu = () => {
       setMenuAnchorEl(null);
     };
-  
+
     return (
       <>
-        <IconButton type="button" aria-label="add" onClick={() => {}}>
+        <IconButton type="button" aria-label="add" onClick={() => {setIsModalOpen(true); setEditComponent(null);}}>
           <Add />
         </IconButton>
-  
+
         <IconButton type="button" aria-label="more" onClick={openMenu}>
           <MoreVert />
         </IconButton>
-  
+
         <ModalDashSettings
           anchorEl={menuAnchorEl}
           open={Boolean(menuAnchorEl)}
@@ -75,8 +75,6 @@ function MainDashboard({ router, ...props }) {
       </>
     );
   }
-  
-  
 
   const { window } = props;
   // const router = useSimpleRouter("/home");
@@ -170,7 +168,8 @@ function MainDashboard({ router, ...props }) {
         slots={{
           toolbarActions: () => (
             <DashIcons lockMode={lockMode} setLockMode={setLockMode} />
-          ),        }}
+          ),
+        }}
       >
         <DashboardContent
           router={router}
@@ -183,17 +182,6 @@ function MainDashboard({ router, ...props }) {
           onAddDashboard={handleAddDashboard}
         />
       </DashboardLayout>
-      {lockMode ? (
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{ position: "fixed", right: 16, bottom: 16 }}
-        >
-          <Add />
-        </Fab>
-      ) : (
-        false
-      )}
       <ComponentDialog
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

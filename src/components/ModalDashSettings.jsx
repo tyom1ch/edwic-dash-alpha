@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Menu,
   MenuItem,
-  IconButton,
-  Tooltip,
   ListItemIcon,
   ListItemText,
   useColorScheme,
@@ -39,7 +37,7 @@ function ModalDashSettings({ anchorEl, open, onClose, lockMode, setLockMode }) {
           <ListItemIcon>
             <LockIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>{lockMode ? "Unlock Mode" : "Lock Mode"}</ListItemText>
+          <ListItemText>{lockMode ? "Lock edit" : "Unlock edit"}</ListItemText>
         </MenuItem>
       </Menu>
     );
