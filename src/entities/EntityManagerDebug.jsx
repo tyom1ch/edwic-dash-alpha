@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from "react";
 import {
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
+  Box,
   Typography,
+  MenuItem,
+  Select,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Box,
+  Button,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import EntityManager from "./EntityManager";
 
 const EntityManagerDebug = ({ onAddComponent }) => {
   const [entities, setEntities] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState(null); // Для збереження вибраної сутності
 
   useEffect(() => {
     const fetchEntities = () => {
@@ -55,10 +56,21 @@ const EntityManagerDebug = ({ onAddComponent }) => {
       commandTopic: entity.commandTopic,
       id: Date.now(),
     });
+    setIsAccordionOpen(false); // Згортання акордеону
+    setSelectedEntity(null); // Скидання вибору сутності
+  };
+
+  const handleEntitySelection = (entity) => {
+    handleAddEntity(entity);
+    setSelectedEntity(entity); // Встановлюємо вибрану сутність
+    setIsAccordionOpen(false); // Відкриваємо акордеон
   };
 
   return (
-    <Box sx={{ width: { xs: "1", sm: "auto", md: "auto" } }} marginTop={1}>
+    <Box
+      sx={{ width: { xs: "1", sm: "auto", md: "auto" }, mb: 2 }}
+      marginTop={1}
+    >
       <Typography variant="h5" gutterBottom>
         Мої пристрої
       </Typography>
@@ -66,34 +78,57 @@ const EntityManagerDebug = ({ onAddComponent }) => {
         <Typography>Сутності не знайдено</Typography>
       ) : (
         <Box>
-          {Object.entries(groupedEntities).map(([group, items]) => (
-            <Accordion key={group}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="h6">{group}</Typography>
+          <Select
+            value={selectedGroup}
+            onChange={(e) => setSelectedGroup(e.target.value)}
+            displayEmpty
+            fullWidth
+          >
+            <MenuItem value="">
+              Виберіть групу
+            </MenuItem>
+            {Object.keys(groupedEntities).map((group) => (
+              <MenuItem key={group} value={group}>
+                {group}
+              </MenuItem>
+            ))}
+          </Select>
+
+          {selectedGroup && (
+            <Accordion expanded={isAccordionOpen}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                onClick={() => setIsAccordionOpen(!isAccordionOpen)}
+              >
+                <Typography>
+                  {" "}
+                  {selectedEntity
+                    ? selectedEntity.label.split("/").slice(1).join("/")
+                    : "Виберіть сутність"}
+                </Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <List>
-                  {items.map((entity) => (
-                    <ListItem key={entity.id} divider>
-                      <ListItemText
-                        primary={entity.label.split("/").slice(1).join("/")} // Підпорядкована частина
-                        secondary={`Стан: ${entity.state ?? "Невідомо"}`}
-                      />
-                      <ListItemSecondaryAction>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={() => handleAddEntity(entity)}
-                        >
-                          Додати
-                        </Button>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
+                {groupedEntities[selectedGroup].map((entity) => (
+                  <Box key={entity.id} sx={{ mb: 1 }}>
+                    <Typography>
+                      {entity.label.split("/").slice(1).join("/")}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Стан: {entity.state ?? "Невідомо"}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => handleEntitySelection(entity)}
+                      sx={{ mt: 1 }}
+                    >
+                      Застосувати
+                    </Button>
+                  </Box>
+                ))}
               </AccordionDetails>
             </Accordion>
-          ))}
+          )}
         </Box>
       )}
     </Box>

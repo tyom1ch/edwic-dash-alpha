@@ -3,13 +3,7 @@ import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import ComponentDialog from "../components/ComponentDialog";
 import { useState } from "react";
-import {
-  Add,
-  AddBox,
-  AddCircleRounded,
-  Lock,
-  MoreVert,
-} from "@mui/icons-material";
+import { Add, AddBox, MoreVert, Settings } from "@mui/icons-material";
 import useLocalStorage from "../hooks/useLocalStorage";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DashboardContent from "./DashboardContent";
@@ -32,10 +26,25 @@ function MainDashboard({ router, ...props }) {
           dashboardId
         ].components.map((component) =>
           component.id === updatedComponent.id
-            ? { ...component, label: updatedComponent.title }
+            ? { ...component, ...updatedComponent }
             : component
         );
       });
+      return updatedDashboards;
+    });
+  };
+
+  const handleDeleteDashboard = () => {
+    setDashboards((prevState) => {
+      const updatedDashboards = { ...prevState };
+      delete updatedDashboards[currentDashboardId];
+
+      // Якщо видалено поточний дашборд, перевести на перший доступний дашборд або "dashboard-1".
+      const remainingDashboardIds = Object.keys(updatedDashboards);
+      const nextDashboardId = remainingDashboardIds[0] || "dashboard-1";
+
+      router.navigate(`/${nextDashboardId}`); // Змінити маршрут на новий поточний дашборд
+
       return updatedDashboards;
     });
   };
@@ -57,7 +66,14 @@ function MainDashboard({ router, ...props }) {
 
     return (
       <>
-        <IconButton type="button" aria-label="add" onClick={() => {setIsModalOpen(true); setEditComponent(null);}}>
+        <IconButton
+          type="button"
+          aria-label="add"
+          onClick={() => {
+            setIsModalOpen(true);
+            setEditComponent(null);
+          }}
+        >
           <Add />
         </IconButton>
 
@@ -71,13 +87,14 @@ function MainDashboard({ router, ...props }) {
           onClose={closeMenu}
           lockMode={lockMode}
           setLockMode={setLockMode}
+          onDeleteDashboard={handleDeleteDashboard}
         />
       </>
     );
   }
 
   const { window } = props;
-  // const router = useSimpleRouter("/home");
+
   const [dashboards, setDashboards] = useLocalStorage("dashboards", {
     "dashboard-1": {
       title: "Default Dashboard",
@@ -98,15 +115,23 @@ function MainDashboard({ router, ...props }) {
     }));
   };
 
-  const handleAddComponent = (dashboardId, newComponent) => {
+  const handleAddComponent = (newComponent) => {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
-      if (updatedDashboards[dashboardId]) {
-        updatedDashboards[dashboardId].components.push({
-          ...newComponent,
-          id: Date.now(),
-        });
+
+      if (updatedDashboards[currentDashboardId]) {
+        updatedDashboards[currentDashboardId] = {
+          ...updatedDashboards[currentDashboardId],
+          components: [
+            ...updatedDashboards[currentDashboardId].components,
+            {
+              ...newComponent,
+              id: Date.now(), // Генеруємо унікальний ID для компонента
+            },
+          ],
+        };
       }
+
       return updatedDashboards;
     });
   };
@@ -141,7 +166,7 @@ function MainDashboard({ router, ...props }) {
       navigation={[
         {
           kind: "header",
-          title: "Dashboards",
+          title: "Мої дашборди",
         },
         ...Object.entries(dashboards).map(([id, { title }]) => ({
           segment: id,
@@ -151,9 +176,13 @@ function MainDashboard({ router, ...props }) {
         { kind: "divider" },
         {
           segment: "add-dash",
-          title: "Add dashboard",
+          title: "Додати дашборд",
           icon: <AddBox />,
-          onClick: handleAddDashboardMenu,
+        },
+        {
+          segment: "settings",
+          title: "Налаштування",
+          icon: <Settings />,
         },
       ]}
       branding={{
@@ -168,7 +197,7 @@ function MainDashboard({ router, ...props }) {
         slots={{
           toolbarActions: () => (
             <DashIcons lockMode={lockMode} setLockMode={setLockMode} />
-          ),
+          ), 
         }}
       >
         <DashboardContent
@@ -184,8 +213,11 @@ function MainDashboard({ router, ...props }) {
       </DashboardLayout>
       <ComponentDialog
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+        }}
         onSave={handleSaveComponent}
+        onAdd={handleAddComponent}
         component={editComponent}
         isEdit={editComponent !== null}
       />

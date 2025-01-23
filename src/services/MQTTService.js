@@ -9,7 +9,7 @@ class MQTTService {
   // Підключення до брокера (асинхронне)
   async connect(host, username, password) {
     const options = {
-      port: 8080,
+      // port: 8080,
       username,
       password,
     };

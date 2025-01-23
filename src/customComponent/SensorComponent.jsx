@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Typography, Card, CardContent, Box } from "@mui/material";
 import MQTTCore from "../core/MQTTCore"; // Імпортуємо MQTTCore
 
-const SensorComponent = ({ stateTopic, label, measureUnit }) => {
+const SensorComponent = ({ stateTopic, label, unit }) => {
   const [state, setState] = useState(null);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ const SensorComponent = ({ stateTopic, label, measureUnit }) => {
           {!state ? (
             <Typography color="textSecondary">Завантаження...</Typography>
           ) : (
-            <Typography variant="h5">{state}</Typography>
+            <Typography variant="h5">{state} {unit}</Typography>
           )}
         </CardContent>
       </Box>
