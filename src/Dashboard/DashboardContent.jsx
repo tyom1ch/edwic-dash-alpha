@@ -4,18 +4,16 @@ import { IconButton, Menu, MenuItem, Button } from "@mui/material";
 import Grid from "@mui/material/Grid2";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CustomComponent from "../customComponent/CustomComponent";
-import EntityManagerDebug from "../entities/EntityManagerDebug";
 import AddDashboardPage from "./AddDashboardPage";
 
 function DashboardContent({
   dashboards,
   currentDashboardId,
-  onAddComponent,
   onEditComponent,
   onDeleteComponent,
   onAddDashboard,
   router,
-  lockMode
+  lockMode,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedComponentId, setSelectedComponentId] = useState(null);
@@ -32,6 +30,10 @@ function DashboardContent({
   const currentDashboard = dashboards[currentDashboardId];
 
   if (!currentDashboard) {
+    if (Object.keys(dashboards).length < 1) {
+      router.navigate(`/${dashboards[0]}`); // Змінити маршрут на новий поточний дашборд
+    }
+
     return <AddDashboardPage onAddDashboard={onAddDashboard} router={router} />;
   }
 
@@ -63,14 +65,16 @@ function DashboardContent({
               sx={{ width: { xs: "1", sm: "auto", md: "auto" } }}
             >
               <CustomComponent type={component.type} props={component} />
-              { lockMode ?
+              {lockMode ? (
                 <IconButton
                   onClick={(e) => handleMenuOpen(e, component.id)}
                   sx={{ position: "absolute", top: 8, right: 8 }}
                 >
                   <MoreVertIcon />
-                </IconButton> : true
-              }
+                </IconButton>
+              ) : (
+                true
+              )}
               <Menu
                 anchorEl={anchorEl}
                 open={selectedComponentId === component.id && anchorEl !== null}
@@ -95,8 +99,6 @@ function DashboardContent({
           ))}
         </Grid>
       </Box>
-
-
     </Box>
   );
 }

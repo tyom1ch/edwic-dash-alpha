@@ -2,7 +2,7 @@ import { createTheme } from "@mui/material/styles";
 import { AppProvider } from "@toolpad/core/AppProvider";
 import { DashboardLayout } from "@toolpad/core/DashboardLayout";
 import ComponentDialog from "../components/ComponentDialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Add, AddBox, MoreVert, Settings } from "@mui/icons-material";
 import useLocalStorage from "../hooks/useLocalStorage";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -35,22 +35,20 @@ function MainDashboard({ router, ...props }) {
   };
 
   const handleDeleteDashboard = () => {
-    setDashboards((prevState) => {
-      const updatedDashboards = { ...prevState };
-      delete updatedDashboards[currentDashboardId];
+    if (Object.keys(dashboards).length > 1) {
+      setDashboards((prevState) => {
+        const updatedDashboards = { ...prevState };
+        delete updatedDashboards[currentDashboardId];
 
-      // Якщо видалено поточний дашборд, перевести на перший доступний дашборд або "dashboard-1".
-      const remainingDashboardIds = Object.keys(updatedDashboards);
-      const nextDashboardId = remainingDashboardIds[0] || "dashboard-1";
+        // Якщо видалено поточний дашборд, перевести на перший доступний дашборд або "dashboard-1".
+        const remainingDashboardIds = Object.keys(updatedDashboards);
+        const nextDashboardId = remainingDashboardIds[0] || "dashboard";
 
-      router.navigate(`/${nextDashboardId}`); // Змінити маршрут на новий поточний дашборд
+        router.navigate(`/${nextDashboardId}`); // Змінити маршрут на новий поточний дашборд
 
-      return updatedDashboards;
-    });
-  };
-
-  const handleAddDashboardMenu = () => {
-    setIsModalOpen(true); // Відкриваємо модальне вікно для введення назви
+        return updatedDashboards;
+      });
+    }
   };
 
   function DashIcons({ lockMode, setLockMode }) {
@@ -96,8 +94,8 @@ function MainDashboard({ router, ...props }) {
   const { window } = props;
 
   const [dashboards, setDashboards] = useLocalStorage("dashboards", {
-    "dashboard-1": {
-      title: "Default Dashboard",
+    dashboard: {
+      title: "Головна",
       components: [],
     },
   });
@@ -106,6 +104,8 @@ function MainDashboard({ router, ...props }) {
 
   const handleAddDashboard = (title) => {
     const newDashboardId = `dashboard-${Date.now()}`;
+    router.navigate(`/${newDashboardId}`); // Змінити маршрут на новий поточний дашборд
+
     setDashboards((prevState) => ({
       ...prevState,
       [newDashboardId]: {
@@ -155,10 +155,10 @@ function MainDashboard({ router, ...props }) {
       return updatedDashboards;
     });
   };
-
+  
   // Отримуємо ID дашборду з роута
   // Заміна на router.pathname
-  const currentDashboardId = router.pathname.split("/")[1] || "dashboard-1";
+  const currentDashboardId = router.pathname.split("/")[1] || "dashboard";
   const [lockMode, setLockMode] = useState(false);
 
   return (
@@ -197,7 +197,7 @@ function MainDashboard({ router, ...props }) {
         slots={{
           toolbarActions: () => (
             <DashIcons lockMode={lockMode} setLockMode={setLockMode} />
-          ), 
+          ),
         }}
       >
         <DashboardContent

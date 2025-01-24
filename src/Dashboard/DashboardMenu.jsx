@@ -1,6 +1,5 @@
 import React from "react";
-import { Menu, MenuItem, IconButton } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { Menu, MenuItem } from "@mui/material";
 
 const DashboardMenu = ({
   anchorEl,

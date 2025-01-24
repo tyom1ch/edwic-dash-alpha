@@ -17,7 +17,7 @@ const AddDashboardPage = ({ onAddDashboard, router }) => {
 
   const handleClose = () => {
     setIsAdd(false); // Закриваємо діалог
-    navigate("/"); // Перехід на головну сторінку
+    navigate("/dashboard"); // Перехід на головну сторінку
   };
 
   return (

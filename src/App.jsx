@@ -1,5 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { createTheme, ThemeProvider, CssBaseline, StyledEngineProvider } from "@mui/material";
+import {
+  createTheme,
+  ThemeProvider,
+  CssBaseline,
+  StyledEngineProvider,
+} from "@mui/material";
 import MQTTCore from "./core/MQTTCore";
 import useLocalStorage from "./hooks/useLocalStorage";
 import Dashboard from "./Dashboard/MainDashboard";
@@ -60,7 +65,10 @@ const App = () => {
     setOpenModal(false);
   };
 
-  const router = useSimpleRouter("/home");
+  const router = useSimpleRouter("/dashboard");
+  useEffect(() => {
+    router.navigate("/dashboard");
+  }, []);
 
   return (
     <StyledEngineProvider>
