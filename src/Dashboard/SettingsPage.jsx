@@ -6,21 +6,48 @@ import {
   Tabs,
   Tab,
   Typography,
+  CircularProgress,
 } from "@mui/material";
+import useLocalStorage from "../hooks/useLocalStorage";
+import useSimpleRouter from "../hooks/useSimpleRouter";
+import MQTTCore from "../core/MQTTCore";
 
-function SettingsPage() {
-  const [brokerConfig, setBrokerConfig] = useState({
-    ip: "",
+function SettingsPage({ setConnectionSettings }) {
+  const [brokerConfig, setBrokerConfig] = useLocalStorage("mqttConnectionSettings", {
+    host: "",
     port: "",
-    login: "",
+    username: "",
     password: "",
-    topic: "",
+    main_topic: "",
   });
 
   const [tabIndex, setTabIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useSimpleRouter("/settings");
 
   const handleBrokerConfigChange = (e) => {
     setBrokerConfig({ ...brokerConfig, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      await MQTTCore.connect(
+        `ws://${brokerConfig.host}:${brokerConfig.port}`,
+        brokerConfig.username,
+        brokerConfig.password
+      );
+
+      setConnectionSettings(brokerConfig);
+      router.navigate("/dashboard"); // Після успішного підключення переходимо в дашборд
+    } catch (error) {
+      setError("Не вдалося підключитися до MQTT брокера. Перевірте налаштування.");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -28,12 +55,12 @@ function SettingsPage() {
       <Typography variant="h4" gutterBottom>
         Налаштування
       </Typography>
-      
+
       <Tabs value={tabIndex} onChange={(e, newIndex) => setTabIndex(newIndex)}>
         <Tab label="Резервне копіювання" />
         <Tab label="Конфігурація брокеру" />
       </Tabs>
-      
+
       {tabIndex === 0 && (
         <Box sx={{ mt: 2 }}>
           <Button variant="contained" fullWidth sx={{ mb: 1 }}>
@@ -47,14 +74,14 @@ function SettingsPage() {
           </Button>
         </Box>
       )}
-      
+
       {tabIndex === 1 && (
         <Box sx={{ mt: 2 }}>
           <TextField
             fullWidth
             label="IP брокера"
-            name="ip"
-            value={brokerConfig.ip}
+            name="host"
+            value={brokerConfig.host}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
           />
@@ -69,8 +96,8 @@ function SettingsPage() {
           <TextField
             fullWidth
             label="Логін"
-            name="login"
-            value={brokerConfig.login}
+            name="username"
+            value={brokerConfig.username}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
           />
@@ -86,11 +113,30 @@ function SettingsPage() {
           <TextField
             fullWidth
             label="Основний топік"
-            name="topic"
-            value={brokerConfig.topic}
+            name="main_topic"
+            value={brokerConfig.main_topic}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
           />
+
+          {error && (
+            <Typography color="error" sx={{ mb: 2 }}>
+              {error}
+            </Typography>
+          )}
+
+          <Button variant="contained" fullWidth onClick={handleSave} disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : "Зберегти та підключитися"}
+          </Button>
+
+          <Button
+            variant="outlined"
+            fullWidth
+            sx={{ mt: 2 }}
+            onClick={() => router.navigate("/dashboard")}
+          >
+            Вийти без збереження
+          </Button>
         </Box>
       )}
     </Box>

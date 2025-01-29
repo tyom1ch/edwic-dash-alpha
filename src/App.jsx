@@ -8,40 +8,33 @@ import {
 import MQTTCore from "./core/MQTTCore";
 import useLocalStorage from "./hooks/useLocalStorage";
 import Dashboard from "./Dashboard/MainDashboard";
-import ModalSettings from "./modal/ModalSettings";
+import SettingsPage from "./Dashboard/SettingsPage"; // Імпортуємо сторінку налаштувань
 import LoadingSpinner from "./components/LoadingSpinner";
 import SettingsButton from "./components/SettingsButton";
 import useSimpleRouter from "./hooks/useSimpleRouter";
 
 const App = () => {
-  const [themeMode, setThemeMode] = useLocalStorage("themeMode", "light"); // Зберігаємо вибір теми
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: themeMode,
-        },
-      }),
-    [themeMode]
-  );
+  const [themeMode] = useLocalStorage("themeMode", "light");
+  const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 
   const [connectionSettings, setConnectionSettings] = useLocalStorage(
     "mqttConnectionSettings",
-    {
-      host: "",
-      username: "",
-      password: "",
-    }
+    { host: "", port: "", username: "", password: "", main_topic: "" }
   );
 
   const [connectionStatus, setConnectionStatus] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [openModal, setOpenModal] = useState(false);
+  const router = useSimpleRouter("/dashboard");
 
   useEffect(() => {
+    if (!connectionSettings.host || !connectionSettings.port) {
+      router.navigate("/settings"); // Якщо брокер не налаштований, відкриваємо сторінку налаштувань
+      return;
+    }
+
     if (loading) {
       MQTTCore.connect(
-        "ws://" + connectionSettings.host,
+        `ws://${connectionSettings.host}:${connectionSettings.port}`,
         connectionSettings.username,
         connectionSettings.password
       )
@@ -49,41 +42,25 @@ const App = () => {
           setConnectionStatus(true);
           setLoading(false);
         })
-        .catch((error) => {
-          console.error("Помилка підключення:", error);
+        .catch(() => {
           setConnectionStatus(false);
           setLoading(false);
+          router.navigate("/settings"); // Якщо помилка підключення – перекидаємо на /settings
         });
     }
   }, [loading, connectionSettings]);
-
-  const handleOpenModal = () => setOpenModal(true);
-  const handleCloseModal = () => setOpenModal(false);
-
-  const handleSaveSettings = () => {
-    setLoading(true);
-    setOpenModal(false);
-  };
-
-  const router = useSimpleRouter("/dashboard");
-  useEffect(() => {
-    router.navigate("/dashboard");
-  }, []);
 
   return (
     <StyledEngineProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {loading && <LoadingSpinner />}
-        <SettingsButton onClick={handleOpenModal} />
-        <ModalSettings
-          open={openModal}
-          onClose={handleCloseModal}
-          connectionSettings={connectionSettings}
-          setConnectionSettings={setConnectionSettings}
-          onSave={handleSaveSettings}
-        />
-        {connectionStatus && <Dashboard router={router} />}
+        {router.pathname === "/settings" ? (
+          <SettingsPage setConnectionSettings={setConnectionSettings} />
+        ) : (
+          connectionStatus && <Dashboard router={router} />
+        )}
+        <SettingsButton onClick={() => router.navigate("/settings")} />
       </ThemeProvider>
     </StyledEngineProvider>
   );
