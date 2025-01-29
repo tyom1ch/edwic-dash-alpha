@@ -9,6 +9,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import DashboardContent from "./DashboardContent";
 import { Fab, IconButton, Menu } from "@mui/material";
 import ModalDashSettings from "../components/ModalDashSettings";
+import SettingsPage from "./SettingsPage";
 
 const demoTheme = createTheme({
   cssVariables: {
@@ -155,7 +156,7 @@ function MainDashboard({ router, ...props }) {
       return updatedDashboards;
     });
   };
-  
+
   // Отримуємо ID дашборду з роута
   // Заміна на router.pathname
   const currentDashboardId = router.pathname.split("/")[1] || "dashboard";
@@ -200,7 +201,22 @@ function MainDashboard({ router, ...props }) {
           ),
         }}
       >
-        <DashboardContent
+        {currentDashboardId === "settings" ? (
+          <SettingsPage />
+        ) : (
+          <DashboardContent
+            router={router}
+            lockMode={lockMode}
+            dashboards={dashboards}
+            currentDashboardId={currentDashboardId}
+            onAddComponent={handleAddComponent}
+            onEditComponent={handleEditComponent}
+            onDeleteComponent={handleDeleteComponent}
+            onAddDashboard={handleAddDashboard}
+          />
+        )}
+
+        {/* <DashboardContent
           router={router}
           lockMode={lockMode}
           dashboards={dashboards}
@@ -209,7 +225,7 @@ function MainDashboard({ router, ...props }) {
           onEditComponent={handleEditComponent}
           onDeleteComponent={handleDeleteComponent}
           onAddDashboard={handleAddDashboard}
-        />
+        /> */}
       </DashboardLayout>
       <ComponentDialog
         isOpen={isModalOpen}
