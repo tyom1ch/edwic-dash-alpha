@@ -13,11 +13,13 @@ class MQTTCore {
   async connect(host, username, password) {
     try {
       console.log("✅ Підключення до брокера...");
-      await this.tryConnect(host, username, password);
+      await MQTTService.connect(host, username, password);
     } catch (error) {
       console.error("❌ Помилка підключення:", error.message);
+      throw error; // Прокидуємо оригінальну помилку без створення нового Error
     }
   }
+  
 
   // Спроба підключення до брокера з повторними спробами
   async tryConnect(host, username, password) {
@@ -37,6 +39,7 @@ class MQTTCore {
         );
       } else {
         console.error("❌ Перевищено кількість спроб підключення");
+        throw new Error("Перевищено кількість спроб підключення"); // Прокидуємо помилку наверх
       }
     }
   }
@@ -135,7 +138,7 @@ class MQTTCore {
 
   // Перевірка підключення
   isConnected() {
-    return MQTTService.isConnected(); // Метод для перевірки статусу підключення в MQTTService
+    return MQTTService.isConnected; // Метод для перевірки статусу підключення в MQTTService
   }
 }
 

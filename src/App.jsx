@@ -15,7 +15,10 @@ import useSimpleRouter from "./hooks/useSimpleRouter";
 
 const App = () => {
   const [themeMode] = useLocalStorage("themeMode", "light");
-  const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
+  const theme = useMemo(
+    () => createTheme({ palette: { mode: themeMode } }),
+    [themeMode]
+  );
 
   const [connectionSettings, setConnectionSettings] = useLocalStorage(
     "mqttConnectionSettings",
@@ -54,12 +57,8 @@ const App = () => {
     <StyledEngineProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {loading && <LoadingSpinner />}
-        {router.pathname === "/settings" ? (
-          <SettingsPage setConnectionSettings={setConnectionSettings} />
-        ) : (
-          connectionStatus && <Dashboard router={router} />
-        )}
+        {/* {loading && <LoadingSpinner />} */}
+        <Dashboard router={router} connectionStatus={connectionStatus}/>
         <SettingsButton onClick={() => router.navigate("/settings")} />
       </ThemeProvider>
     </StyledEngineProvider>

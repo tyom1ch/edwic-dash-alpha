@@ -5,6 +5,8 @@ import Grid from "@mui/material/Grid2";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CustomComponent from "../customComponent/CustomComponent";
 import AddDashboardPage from "./AddDashboardPage";
+import { Settings } from "@mui/icons-material";
+import SettingsPage from "./SettingsPage";
 
 function DashboardContent({
   dashboards,
@@ -29,12 +31,20 @@ function DashboardContent({
 
   const currentDashboard = dashboards[currentDashboardId];
 
-  if (!currentDashboard) {
-    if (Object.keys(dashboards).length < 1) {
-      router.navigate(`/${dashboards[0]}`); // Змінити маршрут на новий поточний дашборд
-    }
+  switch (router.pathname) {
+    case "/settings":
+      return <SettingsPage router={router}/>;
 
-    return <AddDashboardPage onAddDashboard={onAddDashboard} router={router} />;
+    case "/add-dash":
+      return (
+        <AddDashboardPage onAddDashboard={onAddDashboard} router={router} />
+      );
+
+    default:
+      if (!currentDashboard && Object.keys(dashboards).length > 0) {
+        router.navigate(`/${dashboards[0]}`); // Перенаправлення на перший доступний дашборд
+      }
+      break;
   }
 
   return (

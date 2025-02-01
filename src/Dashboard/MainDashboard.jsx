@@ -18,7 +18,7 @@ const demoTheme = createTheme({
   colorSchemes: { light: true, dark: true },
 });
 
-function MainDashboard({ router, ...props }) {
+function MainDashboard({ router, connectionStatus, ...props }) {
   const handleSaveComponent = (updatedComponent) => {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
@@ -201,20 +201,17 @@ function MainDashboard({ router, ...props }) {
           ),
         }}
       >
-        {currentDashboardId === "settings" ? (
-          <SettingsPage />
-        ) : (
-          <DashboardContent
-            router={router}
-            lockMode={lockMode}
-            dashboards={dashboards}
-            currentDashboardId={currentDashboardId}
-            onAddComponent={handleAddComponent}
-            onEditComponent={handleEditComponent}
-            onDeleteComponent={handleDeleteComponent}
-            onAddDashboard={handleAddDashboard}
-          />
-        )}
+        <DashboardContent
+          connectionStatus={connectionStatus}
+          router={router}
+          lockMode={lockMode}
+          dashboards={dashboards}
+          currentDashboardId={currentDashboardId}
+          onAddComponent={handleAddComponent}
+          onEditComponent={handleEditComponent}
+          onDeleteComponent={handleDeleteComponent}
+          onAddDashboard={handleAddDashboard}
+        />
 
         {/* <DashboardContent
           router={router}

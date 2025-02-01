@@ -9,22 +9,23 @@ import {
   CircularProgress,
 } from "@mui/material";
 import useLocalStorage from "../hooks/useLocalStorage";
-import useSimpleRouter from "../hooks/useSimpleRouter";
 import MQTTCore from "../core/MQTTCore";
 
-function SettingsPage({ setConnectionSettings }) {
-  const [brokerConfig, setBrokerConfig] = useLocalStorage("mqttConnectionSettings", {
-    host: "",
-    port: "",
-    username: "",
-    password: "",
-    main_topic: "",
-  });
+function SettingsPage({router, setConnectionSettings}) {
+  const [brokerConfig, setBrokerConfig] = useLocalStorage(
+    "mqttConnectionSettings",
+    {
+      host: "",
+      port: "",
+      username: "",
+      password: "",
+      main_topic: "",
+    }
+  );
 
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useSimpleRouter("/settings");
 
   const handleBrokerConfigChange = (e) => {
     setBrokerConfig({ ...brokerConfig, [e.target.name]: e.target.value });
@@ -35,16 +36,20 @@ function SettingsPage({ setConnectionSettings }) {
     setError("");
 
     try {
+      await MQTTCore.disconnect();
       await MQTTCore.connect(
         `ws://${brokerConfig.host}:${brokerConfig.port}`,
         brokerConfig.username,
         brokerConfig.password
       );
-
-      setConnectionSettings(brokerConfig);
+      console.log("INFO: ", MQTTCore.isConnected())
       router.navigate("/dashboard"); // Після успішного підключення переходимо в дашборд
     } catch (error) {
-      setError("Не вдалося підключитися до MQTT брокера. Перевірте налаштування.");
+      console.error(error);
+      setError(
+        error.message ||
+          "Не вдалося підключитися до MQTT брокера. Перевірте налаштування."
+      );
     }
 
     setLoading(false);
@@ -125,8 +130,17 @@ function SettingsPage({ setConnectionSettings }) {
             </Typography>
           )}
 
-          <Button variant="contained" fullWidth onClick={handleSave} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : "Зберегти та підключитися"}
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? (
+              <CircularProgress size={24} />
+            ) : (
+              "Зберегти та підключитися"
+            )}
           </Button>
 
           <Button
