@@ -8,10 +8,26 @@ import {
 import MQTTCore from "./core/MQTTCore";
 import useLocalStorage from "./hooks/useLocalStorage";
 import Dashboard from "./Dashboard/MainDashboard";
-import SettingsPage from "./Dashboard/SettingsPage"; // Імпортуємо сторінку налаштувань
-import LoadingSpinner from "./components/LoadingSpinner";
 import SettingsButton from "./components/SettingsButton";
 import useSimpleRouter from "./hooks/useSimpleRouter";
+import { StatusBar } from "@capacitor/status-bar";
+
+// iOS only
+window.addEventListener("statusTap", function () {
+  console.log("statusbar tapped");
+});
+
+// Display content under transparent status bar
+StatusBar.setOverlaysWebView({ overlay: false });
+
+const hideStatusBar = async () => {
+  await StatusBar.hide();
+};
+
+const showStatusBar = async () => {
+  await StatusBar.show();
+};
+
 
 const App = () => {
   const [themeMode] = useLocalStorage("themeMode", "light");
@@ -30,11 +46,13 @@ const App = () => {
   const router = useSimpleRouter("/dashboard");
 
   useEffect(() => {
+    hideStatusBar();
+
     if (!connectionSettings.host || !connectionSettings.port) {
       router.navigate("/settings");
       return;
     }
-  
+
     setLoading(true);
     MQTTCore.disconnect() // Спочатку відключимо попереднє підключення
       .then(() =>
@@ -53,14 +71,19 @@ const App = () => {
       })
       .finally(() => setLoading(false));
   }, [connectionSettings]);
-  
 
   return (
     <StyledEngineProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {<Dashboard router={router} setConnectionSettings={setConnectionSettings} connectionStatus={connectionStatus}/>}
-        
+        {
+          <Dashboard
+            router={router}
+            setConnectionSettings={setConnectionSettings}
+            connectionStatus={connectionStatus}
+          />
+        }
+
         <SettingsButton onClick={() => router.navigate("/settings")} />
       </ThemeProvider>
     </StyledEngineProvider>
