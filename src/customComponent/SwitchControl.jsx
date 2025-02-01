@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Typography, Card, CardContent, ButtonBase } from "@mui/material";
 import MQTTCore from "../core/MQTTCore";
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+
+const hapticsImpactLight = async () => {
+  await Haptics.impact({ style: ImpactStyle.Light });
+};
 
 const SwitchControl = ({ stateTopic, commandTopic, label }) => {
   const [state, setState] = useState(null); // Локальний стан
@@ -29,6 +34,7 @@ const SwitchControl = ({ stateTopic, commandTopic, label }) => {
   }, [stateTopic]);
 
   const handleToggle = () => {
+    hapticsImpactLight();
     const newState = state === "ON" ? "OFF" : "ON";
     setState(newState); // Локальне оновлення стану для миттєвого відображення
     MQTTCore.sendMessage(commandTopic, newState); // Відправляємо команду через ядро
