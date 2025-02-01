@@ -11,20 +11,26 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import EntityManager from "./EntityManager";
+import useLocalStorage from "../hooks/useLocalStorage";
 
 const EntityManagerDebug = ({ onAddComponent }) => {
   const [entities, setEntities] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState("");
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState(null); // Для збереження вибраної сутності
+  const [connectionSettings] = useLocalStorage(
+    "mqttConnectionSettings",
+    { host: "", port: "", username: "", password: "", main_topic: "" }
+  );
 
   useEffect(() => {
+    EntityManager.clearEntities();
+
     const fetchEntities = () => {
       setEntities([...EntityManager.getEntities()]); // Оновлюємо стан із поточного списку сутностей
     };
-
     // Ініціалізуємо сутності
-    EntityManager.initializeEntities("");
+    EntityManager.initializeEntities(connectionSettings.main_topic);
 
     // Підписуємось на зміни
     EntityManager.subscribeToAllEntities(fetchEntities);

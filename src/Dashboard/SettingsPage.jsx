@@ -32,28 +32,20 @@ function SettingsPage({router, setConnectionSettings}) {
   };
 
   const handleSave = async () => {
-    setLoading(true);
     setError("");
-
-    try {
-      await MQTTCore.disconnect();
-      await MQTTCore.connect(
-        `ws://${brokerConfig.host}:${brokerConfig.port}`,
-        brokerConfig.username,
-        brokerConfig.password
-      );
-      console.log("INFO: ", MQTTCore.isConnected())
-      router.navigate("/dashboard"); // Після успішного підключення переходимо в дашборд
-    } catch (error) {
-      console.error(error);
-      setError(
-        error.message ||
-          "Не вдалося підключитися до MQTT брокера. Перевірте налаштування."
-      );
-    }
-
-    setLoading(false);
+    setLoading(true); // Запускаємо повторне підключення в App
+  
+    setConnectionSettings({
+      host: brokerConfig.host,
+      port: brokerConfig.port,
+      username: brokerConfig.username,
+      password: brokerConfig.password,
+      main_topic: brokerConfig.main_topic,
+    });
+  
+    router.navigate("/dashboard"); // Перекидаємо на дашборд
   };
+  
 
   return (
     <Box sx={{ maxWidth: 600, margin: "auto", padding: 2 }}>

@@ -18,7 +18,7 @@ const demoTheme = createTheme({
   colorSchemes: { light: true, dark: true },
 });
 
-function MainDashboard({ router, connectionStatus, ...props }) {
+function MainDashboard({ router, connectionStatus, setConnectionSettings, ...props }) {
   const handleSaveComponent = (updatedComponent) => {
     setDashboards((prevState) => {
       const updatedDashboards = { ...prevState };
@@ -203,6 +203,7 @@ function MainDashboard({ router, connectionStatus, ...props }) {
       >
         <DashboardContent
           connectionStatus={connectionStatus}
+          setConnectionSettings={setConnectionSettings}
           router={router}
           lockMode={lockMode}
           dashboards={dashboards}

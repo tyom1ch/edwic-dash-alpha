@@ -7,6 +7,8 @@ import CustomComponent from "../customComponent/CustomComponent";
 import AddDashboardPage from "./AddDashboardPage";
 import { Settings } from "@mui/icons-material";
 import SettingsPage from "./SettingsPage";
+import MQTTCore from "../core/MQTTCore";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function DashboardContent({
   dashboards,
@@ -14,6 +16,7 @@ function DashboardContent({
   onEditComponent,
   onDeleteComponent,
   onAddDashboard,
+  setConnectionSettings,
   router,
   lockMode,
 }) {
@@ -33,7 +36,12 @@ function DashboardContent({
 
   switch (router.pathname) {
     case "/settings":
-      return <SettingsPage router={router}/>;
+      return (
+        <SettingsPage
+          setConnectionSettings={setConnectionSettings}
+          router={router}
+        />
+      );
 
     case "/add-dash":
       return (
@@ -46,71 +54,75 @@ function DashboardContent({
       }
       break;
   }
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-      }}
-    >
-      <Box sx={{ width: "100%" }}>
-        <Grid
-          container
-          spacing={2}
-          padding={2}
-          justifyContent={"center"}
-          alignItems={"flex-end"}
-        >
-          {currentDashboard.components.map((component) => (
-            <Grid
-              item
-              xs={12}
-              sm={6}
-              md={4}
-              key={component.id}
-              style={{ position: "relative" }}
-              sx={{ width: { xs: "1", sm: "auto", md: "auto" } }}
-            >
-              <CustomComponent type={component.type} props={component} />
-              {lockMode ? (
-                <IconButton
-                  onClick={(e) => handleMenuOpen(e, component.id)}
-                  sx={{ position: "absolute", top: 8, right: 8 }}
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              ) : (
-                true
-              )}
-              <Menu
-                anchorEl={anchorEl}
-                open={selectedComponentId === component.id && anchorEl !== null}
-                onClose={handleMenuClose}
-                anchorOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
+  if (MQTTCore.isConnected()) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
+        <Box sx={{ width: "100%" }}>
+          <Grid
+            container
+            spacing={2}
+            padding={2}
+            justifyContent={"center"}
+            alignItems={"flex-end"}
+          >
+            {currentDashboard.components.map((component) => (
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={4}
+                key={component.id}
+                style={{ position: "relative" }}
+                sx={{ width: { xs: "1", sm: "auto", md: "auto" } }}
               >
-                <MenuItem onClick={() => onEditComponent(component.id)}>
-                  Редагувати
-                </MenuItem>
-                <MenuItem onClick={() => onDeleteComponent(component.id)}>
-                  Видалити
-                </MenuItem>
-              </Menu>
-            </Grid>
-          ))}
-        </Grid>
+                <CustomComponent type={component.type} props={component} />
+                {lockMode ? (
+                  <IconButton
+                    onClick={(e) => handleMenuOpen(e, component.id)}
+                    sx={{ position: "absolute", top: 8, right: 8 }}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                ) : (
+                  true
+                )}
+                <Menu
+                  anchorEl={anchorEl}
+                  open={
+                    selectedComponentId === component.id && anchorEl !== null
+                  }
+                  onClose={handleMenuClose}
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "right",
+                  }}
+                  transformOrigin={{
+                    vertical: "top",
+                    horizontal: "right",
+                  }}
+                >
+                  <MenuItem onClick={() => onEditComponent(component.id)}>
+                    Редагувати
+                  </MenuItem>
+                  <MenuItem onClick={() => onDeleteComponent(component.id)}>
+                    Видалити
+                  </MenuItem>
+                </Menu>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       </Box>
-    </Box>
-  );
+    );
+  } else {
+    return <LoadingSpinner/>
+  }
 }
-
 export default DashboardContent;

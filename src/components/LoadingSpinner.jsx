@@ -1,18 +1,19 @@
 import React from "react";
-import { CircularProgress } from "@mui/material";
+import { CircularProgress, Box } from "@mui/material";
 
 const LoadingSpinner = () => {
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100%",
+        width: "100%",
       }}
     >
       <CircularProgress />
-    </div>
+    </Box>
   );
 };
 

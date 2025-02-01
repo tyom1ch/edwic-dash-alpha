@@ -31,34 +31,36 @@ const App = () => {
 
   useEffect(() => {
     if (!connectionSettings.host || !connectionSettings.port) {
-      router.navigate("/settings"); // Якщо брокер не налаштований, відкриваємо сторінку налаштувань
+      router.navigate("/settings");
       return;
     }
-
-    if (loading) {
-      MQTTCore.connect(
-        `ws://${connectionSettings.host}:${connectionSettings.port}`,
-        connectionSettings.username,
-        connectionSettings.password
+  
+    setLoading(true);
+    MQTTCore.disconnect() // Спочатку відключимо попереднє підключення
+      .then(() =>
+        MQTTCore.connect(
+          `ws://${connectionSettings.host}:${connectionSettings.port}`,
+          connectionSettings.username,
+          connectionSettings.password
+        )
       )
-        .then(() => {
-          setConnectionStatus(true);
-          setLoading(false);
-        })
-        .catch(() => {
-          setConnectionStatus(false);
-          setLoading(false);
-          router.navigate("/settings"); // Якщо помилка підключення – перекидаємо на /settings
-        });
-    }
-  }, [loading, connectionSettings]);
+      .then(() => {
+        setConnectionStatus(true);
+      })
+      .catch(() => {
+        setConnectionStatus(false);
+        router.navigate("/settings"); // Якщо помилка — повертаємо на налаштування
+      })
+      .finally(() => setLoading(false));
+  }, [connectionSettings]);
+  
 
   return (
     <StyledEngineProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {/* {loading && <LoadingSpinner />} */}
-        <Dashboard router={router} connectionStatus={connectionStatus}/>
+        {<Dashboard router={router} setConnectionSettings={setConnectionSettings} connectionStatus={connectionStatus}/>}
+        
         <SettingsButton onClick={() => router.navigate("/settings")} />
       </ThemeProvider>
     </StyledEngineProvider>

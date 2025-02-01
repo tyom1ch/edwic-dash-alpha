@@ -105,6 +105,10 @@ class EntityManager {
   getEntities() {
     return this.entities;
   }
+
+  clearEntities() {
+    this.entities = [];
+  }
 }
 
 export default new EntityManager();
