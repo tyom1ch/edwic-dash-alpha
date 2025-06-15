@@ -1,5 +1,4 @@
-// frontend/src/services/HistoryService.js
-// !!! ВСТАНОВИТИ DEXIE: npm install dexie !!!
+
 import Dexie from 'dexie'; // Імпортуємо Dexie
 import eventBus from '../core/EventBus'; // Singleton
 
