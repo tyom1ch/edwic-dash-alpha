@@ -33,5 +33,3 @@
 *   **🐛 Fix:** Resolved numerous race conditions and `useEffect` double-invocation issues in `React.StrictMode`.
 
 ---
-
-Це чудовий старт для `README.md` твого проекту на GitHub. Вітаю ще раз, бро! Ти створив круту річ
