@@ -1,38 +1,46 @@
 // src/hooks/useEntity.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Додаємо useCallback
 import deviceRegistry from '../core/DeviceRegistry';
 import eventBus from '../core/EventBus';
 
-/**
- * Хук для отримання та відстеження стану однієї сутності (entity).
- * @param {string} entityId - ID сутності, за якою потрібно стежити.
- * @returns {object | null} - Об'єкт сутності або null, якщо її ще не знайдено.
- */
 const useEntity = (entityId) => {
-  // 1. Отримуємо початковий стан сутності напряму з реєстру.
-  const [entity, setEntity] = useState(() => deviceRegistry.getEntity(entityId));
+  // Функція для отримання початкового стану.
+  // Вона буде викликатися тільки один раз при першому рендері.
+  const getInitialState = () => {
+    const initialState = deviceRegistry.getEntity(entityId);
+    console.log(`[useEntity] Getting initial state for ${entityId}:`, initialState);
+    return initialState;
+  };
+  
+  const [entity, setEntity] = useState(getInitialState);
+
+  // Використовуємо useCallback, щоб функція handleUpdate не створювалася заново на кожному рендері.
+  const handleUpdate = useCallback((updatedEntity) => {
+    if (updatedEntity && String(updatedEntity.id) === String(entityId)) {
+      // console.log(`[useEntity] Matched and updating component for entityId: ${entityId}`);
+      setEntity(updatedEntity);
+    }
+  }, [entityId]); // Залежність тільки від entityId
 
   useEffect(() => {
-    // Функція, яка буде викликатись при оновленні будь-якої сутності
-    const handleUpdate = (updatedEntity) => {
-      // 2. Перевіряємо, чи це оновлення саме тієї сутності, яка нам потрібна.
-      if (updatedEntity && updatedEntity.id === entityId) {
-        // 3. Оновлюємо стан компонента. React зробить ре-рендер.
-        setEntity(updatedEntity);
-      }
-    };
-
-    // 4. Підписуємось на подію 'entity:update' на глобальній шині подій.
+    // --- ВАЖЛИВА ПЕРЕВІРКА ---
+    // Коли компонент монтується знову, його початковий стан може бути застарілим.
+    // Отримаємо найсвіжіший стан ще раз, на випадок якщо він оновився,
+    // поки компонента не було на екрані.
+    const currentState = deviceRegistry.getEntity(entityId);
+    if (currentState && currentState.value !== entity?.value) {
+      setEntity(currentState);
+    }
+    
+    // Підписуємось на майбутні оновлення.
     eventBus.on('entity:update', handleUpdate);
 
-    // 5. Дуже важливо! Прибираємо слухача, коли компонент розмонтовується,
-    // щоб уникнути витоків пам'яті.
+    // Прибираємо слухача, коли компонент розмонтовується.
     return () => {
       eventBus.off('entity:update', handleUpdate);
     };
-  }, [entityId]); // Ефект буде перезапускатись, тільки якщо зміниться entityId.
+  }, [entityId, handleUpdate, entity?.value]); // Додаємо залежності
 
-  // 6. Повертаємо поточний стан сутності.
   return entity;
 };
 
