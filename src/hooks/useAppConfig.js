@@ -1,5 +1,5 @@
 // src/hooks/useAppConfig.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Додаємо useRef
 import useLocalStorage from "./useLocalStorage";
 import connectionManager from "../core/ConnectionManager";
 import deviceRegistry from "../core/DeviceRegistry";
@@ -15,30 +15,17 @@ const useAppConfig = () => {
   });
   const [globalConnectionStatus, setGlobalConnectionStatus] = useState("offline");
 
+  // --- ЕФЕКТ №1: КЕРУВАННЯ МЕРЕЖЕВИМИ З'ЄДНАННЯМИ ---
+  // Цей ефект залежить ТІЛЬКИ від конфігурації брокерів.
   useEffect(() => {
-    let isEffectActive = true;
-    console.log("[useAppConfig] >>>> USE EFFECT START");
+    console.log("[useAppConfig | Network] Brokers config changed. Re-initializing connections.");
+    
+    // 1. Ініціалізуємо і запускаємо підключення
+    connectionManager.initializeFromBrokersConfig(appConfig.brokers);
+    connectionManager.connectAll();
 
-    const initializeApp = async () => {
-      // Крок 1: Ініціалізуємо мережу. Це має бути швидка, синхронна операція
-      // яка просто створює об'єкти клієнтів, але не підключає їх.
-      connectionManager.initializeFromBrokersConfig(appConfig.brokers);
-      
-      console.log("[useAppConfig] ConnectionManager configured. Proceeding...");
-
-      // Крок 2: Ініціалізуємо логіку.
-      deviceRegistry.syncFromAppConfig(appConfig);
-      alertService.loadRules(appConfig.alertRules);
-      historyService.init();
-
-      // Крок 3: Запускаємо підключення.
-      // Цей виклик асинхронний, але ми не будемо його чекати тут.
-      connectionManager.connectAll();
-    };
-
-    // Обробник для оновлення статусу в UI.
+    // 2. Налаштовуємо слухача для оновлення UI статусу
     const updateStatus = () => {
-        if (!isEffectActive) return; 
         const allBrokers = connectionManager.getAllBrokers();
         if (!Array.isArray(allBrokers)) {
             setGlobalConnectionStatus("Loading...");
@@ -53,21 +40,34 @@ const useAppConfig = () => {
 
     const events = ["connected", "disconnected", "error", "removed", "added"];
     events.forEach(e => eventBus.on(`broker:${e}`, updateStatus));
-    
-    // Запускаємо весь процес.
-    initializeApp();
-    updateStatus(); // Початковий виклик
+    updateStatus();
 
-    // Головна функція очищення.
+    // 3. Функція очищення, яка буде викликана тільки при зміні брокерів
     return () => {
-      console.log("[useAppConfig] <<<< CLEANUP RUNNING");
-      isEffectActive = false; 
-
+      console.log("[useAppConfig | Network] Cleanup. Disconnecting all brokers.");
       events.forEach(e => eventBus.off(e, updateStatus));
       connectionManager.disconnectAll();
     };
     
-  }, [appConfig]);
+  }, [appConfig.brokers]); // <-- КЛЮЧОВА ЗМІНА!
+
+  // --- ЕФЕКТ №2: КЕРУВАННЯ ПІДПИСКАМИ ТА ЛОГІКОЮ ---
+  // Цей ефект залежить від дашбордів та правил. Він не викликає перепідключення.
+  useEffect(() => {
+    console.log("[useAppConfig | Logic] Dashboards or rules changed. Re-syncing logic.");
+
+    // 1. Синхронізуємо реєстр пристроїв. Це оновить підписки.
+    deviceRegistry.syncFromAppConfig(appConfig);
+    
+    // 2. Синхронізуємо правила алертів.
+    alertService.loadRules(appConfig.alertRules);
+
+    // Ініціалізуємо історію, якщо ще не зроблено
+    historyService.init();
+
+  }, [appConfig.dashboards, appConfig.alertRules]); // <-- КЛЮЧОВА ЗМІНА!
+
+  
   // Решта коду хука без змін...
   const handleSetBrokers = (brokers) => setAppConfig(p => ({ ...p, brokers }));
   const handleSetAlertRules = (rules) => setAppConfig(p => ({ ...p, alertRules: rules }));
