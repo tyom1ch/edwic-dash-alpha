@@ -1,7 +1,7 @@
 // src/components/AppLayout.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { Box, IconButton, Typography, createTheme } from "@mui/material";
+import { createTheme, Box, IconButton, Typography } from "@mui/material";
 import { AppProvider, DashboardLayout } from "@toolpad/core";
 import { Add, AddBox, MoreVert, Settings, Dashboard as DashboardIcon } from "@mui/icons-material";
 
@@ -38,15 +38,26 @@ function DashIcons({ lockMode, setLockMode, onAddClick, onDeleteDashboard }) {
 function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handlers }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const router = useMemo(() => ({ navigate, pathname: location.pathname }), [navigate, location.pathname]);
-
+  // --- ОСЬ ЦЕЙ БЛОК ОНОВЛЕНО ---
+  const router = useMemo(() => {
+    // Створюємо об'єкт URLSearchParams з рядка location.search.
+    const searchParams = new URLSearchParams(location.search);
+    return {
+      navigate: (path) => navigate(path),
+      pathname: location.pathname,
+      // Додаємо відсутню властивість, яку очікує AppProvider.
+      searchParams: searchParams,
+    };
+    // Додаємо location.search до масиву залежностей.
+  }, [navigate, location.pathname, location.search]);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editComponent, setEditComponent] = useState(null);
-  const [lockMode, setLockMode] = useState(false);
+  const [lockMode, setLockMode] = useState(true);
 
   const currentDashboardId = location.pathname.split("/")[1] || Object.keys(appConfig.dashboards)[0] || "dashboard";
 
-  // --- Навігація та керування дашбордами ---
+  // Навігація та керування дашбордами
   useEffect(() => {
     if (location.pathname === "/add-dash") {
       const title = prompt("Введіть назву нового дашборду:");
@@ -85,6 +96,38 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
     setIsModalOpen(true);
   };
 
+  // --- ОБРОБНИК ДЛЯ ЗБЕРЕЖЕННЯ РОЗКЛАДКИ (ПОВНА РЕАЛІЗАЦІЯ) ---
+  const handleLayoutChange = (newLayout) => {
+    setAppConfig(prev => {
+      if (!prev.dashboards[currentDashboardId]) {
+        return prev;
+      }
+      
+      const updatedDashboards = { ...prev.dashboards };
+      const updatedDashboard = { ...updatedDashboards[currentDashboardId] };
+
+      updatedDashboard.components = updatedDashboard.components.map(component => {
+        const layoutItem = newLayout.find(item => String(item.i) === String(component.id));
+        if (layoutItem) {
+          return {
+            ...component,
+            layout: {
+              x: layoutItem.x,
+              y: layoutItem.y,
+              w: layoutItem.w,
+              h: layoutItem.h,
+            }
+          };
+        }
+        return component;
+      });
+
+      updatedDashboards[currentDashboardId] = updatedDashboard;
+      
+      return { ...prev, dashboards: updatedDashboards };
+    });
+  };
+
   return (
     <AppProvider
       theme={demoTheme}
@@ -119,7 +162,20 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
       >
         <Routes>
           {Object.keys(appConfig.dashboards).map(id => (
-            <Route key={id} path={`/${id}`} element={<DashboardPage dashboard={appConfig.dashboards[id]} onEditComponent={handleEditComponentClick} onDeleteComponent={handlers.handleDeleteComponent} lockMode={lockMode} />} />
+            <Route 
+              key={id} 
+              path={`/${id}`} 
+              element={
+                <DashboardPage 
+                  dashboard={appConfig.dashboards[id]} 
+                  onEditComponent={handleEditComponentClick} 
+                  onDeleteComponent={handlers.handleDeleteComponent}
+                  // --- ОСЬ ТУТ МИ ПЕРЕДАЄМО ФУНКЦІЮ ---
+                  onLayoutChange={handleLayoutChange} 
+                  lockMode={lockMode} 
+                />
+              } 
+            />
           ))}
           <Route path="/settings" element={<SettingsPage brokers={appConfig.brokers} setBrokers={handlers.handleSetBrokers} />} />
           <Route path="/settings/alerts" element={<AlertRulesPage alertRules={appConfig.alertRules} onSetAlertRules={handlers.handleSetAlertRules} />} />
