@@ -11,7 +11,7 @@ import {
   Select,
 } from "@mui/material";
 import { ExpandMore, ExpandLess } from "@mui/icons-material";
-import EntityManagerDebug from "../entities/EntityManagerDebug";
+// import EntityManagerDebug from "../entities/EntityManagerDebug";
 
 function ComponentDialog({
   isOpen,
@@ -123,9 +123,9 @@ function ComponentDialog({
           {/* Додаємо новий тип для InputBox */}
         </Select>
 
-        <EntityManagerDebug
+        {/* <EntityManagerDebug
           onAddComponent={(component) => setLocalComponent(component)}
-        />
+        /> */}
 
         <Button
           sx={{ mb: 2 }}

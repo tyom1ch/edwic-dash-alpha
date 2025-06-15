@@ -12,10 +12,6 @@ import {
 } from "@mui/material";
 import { useNavigate } from 'react-router-dom';
 
-// Імпорт ConnectionManager не потрібен тут, оскільки App.jsx керує цим
-// import connectionManager from "../core/ConnectionManager";
-
-
 // Очікувані пропси з App.jsx:
 // brokers: Array (наприклад, appConfig.brokers)
 // setBrokers: Function (функція для оновлення appConfig.brokers у localStorage)
