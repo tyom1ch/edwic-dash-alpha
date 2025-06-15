@@ -3,29 +3,24 @@ import React from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Paper } from "@mui/material";
 
-// --- ДОДАЙТЕ ЦЕЙ ІМПОРТ ---
+import WidgetWrapper from "../components/WidgetWrapper";
 import SensorComponent from "../components/widgets/SensorComponent";
+import SwitchComponent from "../components/widgets/SwitchComponent";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// Функція для рендерингу віджетів на основі їх типу
-const renderWidget = (component) => {
+// Тепер ця функція повертає тільки "начинку" віджета
+const renderWidgetContent = (component) => {
   switch (component.type) {
     case 'sensor':
       return <SensorComponent componentConfig={component} />;
     
-    // Тут можна буде додати інші типи віджетів
-    // case 'switch':
-    //   return <SwitchComponent componentConfig={component} />;
+    case 'switch':
+      return <SwitchComponent componentConfig={component} />;
 
     default:
-      return (
-        <Paper sx={{ p: 2, height: '100%' }}>
-          Unknown component type: {component.type}
-        </Paper>
-      );
+      return <div>Unknown component type: {component.type}</div>;
   }
 };
 
@@ -33,21 +28,22 @@ const DashboardPage = ({
   dashboard,
   onEditComponent,
   onDeleteComponent,
+  // --- ДОДАНО ЗНАЧЕННЯ ЗА ЗАМОВЧУВАННЯМ ---
+  onLayoutChange = () => {}, 
   lockMode,
 }) => {
   if (!dashboard) {
     return <div>Dashboard not found.</div>;
   }
 
-  // Створюємо layout для react-grid-layout
+  // Генерація початкової розкладки з урахуванням збережених даних
   const layouts = {
     lg: dashboard.components.map((comp, i) => ({
       i: String(comp.id),
-      x: (i % 4) * 3, // Базове розміщення
-      y: Math.floor(i / 4) * 2,
-      w: 3,
-      h: 2,
-      ...comp.layout,
+      x: comp.layout?.x ?? (i % 4) * 3,
+      y: comp.layout?.y ?? Math.floor(i / 4) * 2,
+      w: comp.layout?.w ?? 3,
+      h: comp.layout?.h ?? 2,
     })),
   };
 
@@ -55,16 +51,26 @@ const DashboardPage = ({
     <ResponsiveGridLayout
       className="layout"
       layouts={layouts}
+      // Тепер onLayoutChange ніколи не буде undefined, тому помилки не виникне
+      onLayoutChange={(layout) => onLayoutChange(layout)}
       breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
       cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
       rowHeight={100}
       isDraggable={!lockMode}
       isResizable={!lockMode}
+      draggableCancel=".widget-no-drag"
+      draggableHandle=".widget-header"
     >
       {dashboard.components.map((component) => (
         <div key={String(component.id)}>
-          {/* --- ВИКОРИСТОВУЄМО ФУНКЦІЮ-РЕНДЕРЕР --- */}
-          {renderWidget(component)}
+          <WidgetWrapper
+            component={component}
+            onEdit={onEditComponent}
+            onDelete={onDeleteComponent}
+            lockMode={lockMode}
+          >
+            {renderWidgetContent(component)}
+          </WidgetWrapper>
         </div>
       ))}
     </ResponsiveGridLayout>

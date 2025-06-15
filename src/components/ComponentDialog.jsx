@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/components/ComponentDialog.jsx
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogActions,
@@ -6,175 +7,178 @@ import {
   DialogTitle,
   Button,
   TextField,
-  Collapse,
   MenuItem,
   Select,
-} from "@mui/material";
-import { ExpandMore, ExpandLess } from "@mui/icons-material";
-// import EntityManagerDebug from "../entities/EntityManagerDebug";
+  FormControl,
+  InputLabel,
+  Box,
+  Typography,
+} from '@mui/material';
+import useAppConfig from '../hooks/useAppConfig'; // Нам потрібен доступ до брокерів
 
-function ComponentDialog({
-  isOpen,
-  onClose,
-  onSave,
-  onAdd,
-  component,
-  isEdit,
-}) {
-  const [localComponent, setLocalComponent] = useState(component || {});
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+// Початковий стан для нового компонента
+const getInitialState = () => ({
+  label: '',
+  type: '',
+  brokerId: '',
+  state_topic: '',
+  command_topic: '',
+  unit_of_measurement: '',
+});
 
+function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) {
+  // Використовуємо наш головний хук, щоб отримати список доступних брокерів
+  const { appConfig } = useAppConfig();
+  const availableBrokers = appConfig.brokers || [];
+
+  const [localComponent, setLocalComponent] = useState(getInitialState());
+
+  // Ефект для заповнення форми при редагуванні або очищення при додаванні
   useEffect(() => {
-    if (isEdit && component) {
-      setLocalComponent(component);
-      console.log(component);
-    } else if (!isEdit) {
-      setLocalComponent({}); // Clear fields for "Add Component"
+    if (isOpen) {
+      if (isEdit && component) {
+        // Заповнюємо форму даними існуючого компонента
+        setLocalComponent({ ...getInitialState(), ...component });
+      } else {
+        // Скидаємо форму до початкового стану для нового компонента
+        setLocalComponent(getInitialState());
+      }
     }
-  }, [isEdit, component]);
+  }, [isOpen, isEdit, component]);
+
+  // Перевіряємо, чи можна натискати кнопку "Зберегти"
+  const isSaveDisabled = useMemo(() => {
+    if (!localComponent.label || !localComponent.type || !localComponent.brokerId) {
+      return true; // Основні поля мають бути заповнені
+    }
+    if (!localComponent.state_topic && !localComponent.command_topic) {
+      return true; // Хоча б один топік має бути
+    }
+    return false;
+  }, [localComponent]);
 
   const handleSave = () => {
-    const title = localComponent.label?.split("/").slice(-1)[0] || ""; // Значення за замовчуванням
-    // Якщо поле пусте, автоматично заповнити його
-    if (!localComponent.label || localComponent.label.trim() === "") {
-      setLocalComponent((prev) => ({
-        ...prev,
-        label: title, // Присвоєння значення за замовчуванням
-      }));
+    if (isEdit) {
+      onSave(localComponent);
+    } else {
+      onAdd(localComponent);
     }
-
-    if (isEdit && onSave && localComponent) {
-      onSave(localComponent); // Зберегти зміни для існуючого компонента
-    } else if (!isEdit && onAdd && localComponent) {
-      onAdd(localComponent); // Додати новий компонент
-    }
-
-    onClose(); // Закрити діалог
+    onClose();
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setLocalComponent((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setLocalComponent((prev) => ({ ...prev, [name]: value }));
   };
-
-  const toggleAdvanced = () => {
-    setAdvancedOpen((prev) => !prev);
-  };
+  
+  // Визначаємо, які поля показувати на основі обраного типу компонента
+  const showStateTopic = ['sensor', 'switch'].includes(localComponent.type);
+  const showCommandTopic = ['switch', 'input', 'slider'].includes(localComponent.type);
+  const showUnit = localComponent.type === 'sensor';
 
   return (
-    <Dialog open={isOpen} onClose={onClose}>
-      <DialogTitle>{isEdit ? "Редагувати" : "Додати"}</DialogTitle>
+    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{isEdit ? 'Редагувати віджет' : 'Додати новий віджет'}</DialogTitle>
       <DialogContent>
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Назва картки"
-          placeholder="Введіть назву картки"
-          type="text"
-          fullWidth
-          name="label"
-          // value={localComponent.label?.split("/").slice(-1) || ""}
-          onChange={handleChange}
-          sx={{ mb: 2 }}
-        />
-        {localComponent.type === "sensor" ? (
-          <Select
-            fullWidth
-            name="unit"
-            value={localComponent.unit || ""}
-            onChange={handleChange}
-            displayEmpty
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="">
-              Виберіть символ
-            </MenuItem>
-            <MenuItem value="°C">°C (градуси Цельсія)</MenuItem>
-            <MenuItem value="%">% (відсотки)</MenuItem>
-            <MenuItem value="m">m (метри)</MenuItem>
-            <MenuItem value="kg">kg (кілограми)</MenuItem>
-            <MenuItem value="W">W (вати)</MenuItem>
-            <MenuItem value="kWh">kWh (кіловат-години)</MenuItem>
-            <MenuItem value="Pa">Pa (паскалі)</MenuItem>
-            <MenuItem value="ppm">ppm (частки на мільйон)</MenuItem>
-            <MenuItem value="V">V (вольти)</MenuItem>
-          </Select>
-        ) : (
-          false
-        )}
-        <Select
-          fullWidth
-          value={localComponent.type || ""}
-          displayEmpty
-          name="type"
-          onChange={(e) => handleChange(e)}
-          sx={{ mb: 2 }}
-        >
-          <MenuItem value="">Виберіть тип</MenuItem>
-
-          <MenuItem value="sensor">Сенсор</MenuItem>
-          <MenuItem value="switch">Перемикач</MenuItem>
-          <MenuItem value="input">Введення</MenuItem>
-          <MenuItem value="input">Слайдер</MenuItem>
-          <MenuItem value="climate">Термостат</MenuItem>
-          {/* Додаємо новий тип для InputBox */}
-        </Select>
-
-        {/* <EntityManagerDebug
-          onAddComponent={(component) => setLocalComponent(component)}
-        /> */}
-
-        <Button
-          sx={{ mb: 2 }}
-          fullWidth
-          onClick={toggleAdvanced}
-          endIcon={advancedOpen ? <ExpandLess /> : <ExpandMore />}
-        >
-          Просунуте налаштування
-        </Button>
-        <Collapse in={advancedOpen}>
-          {/* <TextField
-            margin="dense"
-            label="Type"
-            placeholder="Enter type (e.g., sensor, switch)"
-            type="text"
-            fullWidth
-            name="type"
-            value={localComponent.type || ""}
-            onChange={handleChange}
-          /> */}
-
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField
-            margin="dense"
-            label="State Topic"
-            placeholder="Введіть state topic (e.g., home/sensor/state)"
-            type="text"
-            fullWidth
-            name="stateTopic"
-            value={localComponent.stateTopic || ""}
+            autoFocus
+            required
+            label="Назва віджета"
+            name="label"
+            value={localComponent.label}
             onChange={handleChange}
           />
-          <TextField
-            margin="dense"
-            label="Command Topic"
-            placeholder="Введіть command topic (e.g., home/sensor/command)"
-            type="text"
-            fullWidth
-            name="commandTopic"
-            value={localComponent.commandTopic || ""}
-            onChange={handleChange}
-          />
-        </Collapse>
+
+          <FormControl fullWidth required>
+            <InputLabel id="type-select-label">Тип віджета</InputLabel>
+            <Select
+              labelId="type-select-label"
+              label="Тип віджета"
+              name="type"
+              value={localComponent.type}
+              onChange={handleChange}
+            >
+              <MenuItem value="sensor">Сенсор (тільки читання)</MenuItem>
+              <MenuItem value="switch">Перемикач (ON/OFF)</MenuItem>
+              <MenuItem value="input">Поле вводу (текст/число)</MenuItem>
+              <MenuItem value="slider">Слайдер</MenuItem>
+            </Select>
+          </FormControl>
+          
+          {/* --- НАЙВАЖЛИВІШЕ: ВИБІР БРОКЕРА --- */}
+          <FormControl fullWidth required>
+            <InputLabel id="broker-select-label">MQTT Брокер</InputLabel>
+            <Select
+              labelId="broker-select-label"
+              label="MQTT Брокер"
+              name="brokerId"
+              value={localComponent.brokerId}
+              onChange={handleChange}
+              disabled={availableBrokers.length === 0}
+            >
+              {availableBrokers.length === 0 && (
+                  <MenuItem disabled>Спочатку додайте брокера в налаштуваннях</MenuItem>
+              )}
+              {availableBrokers.map((broker) => (
+                <MenuItem key={broker.id} value={broker.id}>
+                  {broker.name || broker.host}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+            Налаштування топіків
+          </Typography>
+
+          {showStateTopic && (
+            <TextField
+              label="Топік стану (State Topic)"
+              placeholder="home/sensor/temperature"
+              name="state_topic"
+              value={localComponent.state_topic}
+              onChange={handleChange}
+            />
+          )}
+
+          {showCommandTopic && (
+            <TextField
+              label="Топік команд (Command Topic)"
+              placeholder="home/light/set"
+              name="command_topic"
+              value={localComponent.command_topic}
+              onChange={handleChange}
+            />
+          )}
+
+          {showUnit && (
+             <FormControl fullWidth>
+                <InputLabel id="unit-select-label">Одиниці виміру</InputLabel>
+                <Select
+                  labelId="unit-select-label"
+                  label="Одиниці виміру"
+                  name="unit_of_measurement"
+                  value={localComponent.unit_of_measurement}
+                  onChange={handleChange}
+                >
+                  <MenuItem value=""><em>Не вказано</em></MenuItem>
+                  <MenuItem value="°C">°C (градуси Цельсія)</MenuItem>
+                  <MenuItem value="%">% (відсотки)</MenuItem>
+                  <MenuItem value="W">W (вати)</MenuItem>
+                  <MenuItem value="V">V (вольти)</MenuItem>
+                  <MenuItem value="Pa">Pa (паскалі)</MenuItem>
+                  <MenuItem value="ppm">ppm (частки на мільйон)</MenuItem>
+                </Select>
+              </FormControl>
+          )}
+
+        </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
-          Відмінити
-        </Button>
-        <Button onClick={handleSave} color="primary">
-          {isEdit ? "Зберегти" : "Додати"}
+        <Button onClick={onClose}>Відмінити</Button>
+        <Button onClick={handleSave} variant="contained" disabled={isSaveDisabled}>
+          {isEdit ? 'Зберегти' : 'Додати'}
         </Button>
       </DialogActions>
     </Dialog>
