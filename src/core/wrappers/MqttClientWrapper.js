@@ -29,8 +29,8 @@ class MqttClientWrapper extends EventEmitter {
             // path: brokerConfig.basepath, // ЦЕЙ РЯДОК БІЛЬШЕ НЕ ПОТРІБЕН
         };
 
-        console.log("MqttClientWrapper: Final URL for connection:", this.mqttUrl); // Цей лог повинен показати повний URL
-        console.log("MqttClientWrapper: Options for connection (excluding path):", this.options);
+        // console.log("MqttClientWrapper: Final URL for connection:", this.mqttUrl); // Цей лог повинен показати повний URL
+        // console.log("MqttClientWrapper: Options for connection (excluding path):", this.options);
     }
 
     async connect() {
@@ -40,7 +40,7 @@ class MqttClientWrapper extends EventEmitter {
                 return resolve();
             }
 
-            console.log(`[MQTT] Connecting to ${this.mqttUrl} (ID: ${this.config.id})...`);
+            // console.log(`[MQTT] Connecting to ${this.mqttUrl} (ID: ${this.config.id})...`);
             // Передаємо повний URL як перший аргумент
             this.client = mqtt.connect(this.mqttUrl, this.options);
 
@@ -84,8 +84,8 @@ class MqttClientWrapper extends EventEmitter {
     subscribe(topic) {
         if (this.client && this.client.connected) {
             this.client.subscribe(topic, (err) => {
-                if (err) console.error(`[MQTT] Error subscribing to ${topic} for ${this.config.id}:`, err.message);
-                else console.log(`[MQTT] Subscribed to ${topic} for ${this.config.id}`);
+                // if (err) console.error(`[MQTT] Error subscribing to ${topic} for ${this.config.id}:`, err.message);
+                // else console.log(`[MQTT] Subscribed to ${topic} for ${this.config.id}`);
             });
         } else {
             console.warn(`[MQTT] Not connected to ${this.config.id}. Cannot subscribe to ${topic}.`);

@@ -28,14 +28,15 @@ class ConnectionManager {
         this.mqttClients.clear();
         
         if (!Array.isArray(brokersConfig) || brokersConfig.length === 0) {
-            console.log("ConnectionManager: No brokers configured or array is empty. Skipping connection setup.");
+            // console.log("ConnectionManager: No brokers configured or array is empty. Skipping connection setup.");
+            
             // Можливо, емітувати подію, що брокерів немає, щоб UI міг оновитися
             // eventBus.emit('brokers:list_updated', this.getAllBrokers());
             return;
         }
 
         brokersConfig.forEach(brokerConfig => {
-            console.log("ConnectionManager: Processing broker from config:", brokerConfig.id, "Host:", brokerConfig.host);
+            // console.log("ConnectionManager: Processing broker from config:", brokerConfig.id, "Host:", brokerConfig.host);
             const client = new MqttClientWrapper(brokerConfig);
             this.mqttClients.set(brokerConfig.id, client);
             
@@ -109,10 +110,10 @@ class ConnectionManager {
      * Спроба підключитися до всіх ініціалізованих брокерів.
      */
     async connectAll() {
-        console.log("[ConnectionManager] Initiating connections for all configured brokers...");
+        // console.log("[ConnectionManager] Initiating connections for all configured brokers...");
         const connectPromises = Array.from(this.mqttClients.values()).map(client => client.connect().catch(e => console.error(`[ConnectionManager] Failed to connect to ${client.config.id} (${client.config.host}):`, e.message)));
         await Promise.allSettled(connectPromises); // Чекаємо на всі спроби, навіть якщо деякі невдалі
-        console.log("[ConnectionManager] All initial connection attempts finished.");
+        // console.log("[ConnectionManager] All initial connection attempts finished.");
     }
 
     /**

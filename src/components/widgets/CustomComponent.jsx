@@ -1,3 +1,4 @@
+//src/components/widgets/CustomComponent.jsx
 import React from "react";
 import { Card, CardContent, Typography } from "@mui/material";
 import SwitchControl from "./SwitchComponent";

@@ -8,6 +8,8 @@ import { StatusBar } from "@capacitor/status-bar";
 import useLocalStorage from "./hooks/useLocalStorage";
 import useAppConfig from "./hooks/useAppConfig";
 import AppLayout from "./components/AppLayout";
+
+import './core/DiscoveryService'; // Імпортуємо DiscoveryService для ініціалізації
 import AlertNotification from "./components/AlertNotification";
 
 // --- Функції Capacitor ---

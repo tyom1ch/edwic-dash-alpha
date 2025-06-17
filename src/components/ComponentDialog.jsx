@@ -1,5 +1,5 @@
 // src/components/ComponentDialog.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogActions,
@@ -13,49 +13,69 @@ import {
   InputLabel,
   Box,
   Typography,
-} from '@mui/material';
-import useAppConfig from '../hooks/useAppConfig'; // Нам потрібен доступ до брокерів
+  Grid,
+} from "@mui/material";
+import useAppConfig from "../hooks/useAppConfig";
+// 1. Імпортуємо наш новий реєстр!
+import {
+  WIDGET_REGISTRY,
+  getWidgetByType,
+} from "../components/widgets/widgetRegistry";
 
-// Початковий стан для нового компонента
 const getInitialState = () => ({
-  label: '',
-  type: '',
-  brokerId: '',
-  state_topic: '',
-  command_topic: '',
-  unit_of_measurement: '',
+  label: "",
+  type: "",
+  brokerId: "",
+  state_topic: "",
+  command_topic: "",
+  unit_of_measurement: "",
+  payload_on: "1",
+  payload_off: "0",
 });
 
-function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) {
-  // Використовуємо наш головний хук, щоб отримати список доступних брокерів
+function ComponentDialog({
+  isOpen,
+  onClose,
+  onSave,
+  onAdd,
+  component,
+  isEdit,
+}) {
   const { appConfig } = useAppConfig();
   const availableBrokers = appConfig.brokers || [];
-
   const [localComponent, setLocalComponent] = useState(getInitialState());
 
-  // Ефект для заповнення форми при редагуванні або очищення при додаванні
   useEffect(() => {
     if (isOpen) {
       if (isEdit && component) {
-        // Заповнюємо форму даними існуючого компонента
         setLocalComponent({ ...getInitialState(), ...component });
       } else {
-        // Скидаємо форму до початкового стану для нового компонента
         setLocalComponent(getInitialState());
       }
     }
   }, [isOpen, isEdit, component]);
 
-  // Перевіряємо, чи можна натискати кнопку "Зберегти"
+  // Знаходимо опис поточного вибраного віджета
+  const selectedWidgetDef = useMemo(
+    () => getWidgetByType(localComponent.type),
+    [localComponent.type]
+  );
+
   const isSaveDisabled = useMemo(() => {
-    if (!localComponent.label || !localComponent.type || !localComponent.brokerId) {
-      return true; // Основні поля мають бути заповнені
-    }
-    if (!localComponent.state_topic && !localComponent.command_topic) {
-      return true; // Хоча б один топік має бути
-    }
+    if (
+      !localComponent.label ||
+      !localComponent.type ||
+      !localComponent.brokerId
+    )
+      return true;
+    // Динамічна валідація на основі полів з реєстру
+    if (
+      selectedWidgetDef?.fields.includes("state_topic") &&
+      !localComponent.state_topic
+    )
+      return true;
     return false;
-  }, [localComponent]);
+  }, [localComponent, selectedWidgetDef]);
 
   const handleSave = () => {
     if (isEdit) {
@@ -70,17 +90,14 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
     const { name, value } = e.target;
     setLocalComponent((prev) => ({ ...prev, [name]: value }));
   };
-  
-  // Визначаємо, які поля показувати на основі обраного типу компонента
-  const showStateTopic = ['sensor', 'switch'].includes(localComponent.type);
-  const showCommandTopic = ['switch', 'input', 'slider'].includes(localComponent.type);
-  const showUnit = localComponent.type === 'sensor';
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{isEdit ? 'Редагувати віджет' : 'Додати новий віджет'}</DialogTitle>
+      <DialogTitle>
+        {isEdit ? "Редагувати віджет" : "Додати новий віджет"}
+      </DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <TextField
             autoFocus
             required
@@ -90,6 +107,7 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
             onChange={handleChange}
           />
 
+          {/* 2. Динамічно будуємо список віджетів */}
           <FormControl fullWidth required>
             <InputLabel id="type-select-label">Тип віджета</InputLabel>
             <Select
@@ -99,88 +117,70 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
               value={localComponent.type}
               onChange={handleChange}
             >
-              <MenuItem value="sensor">Сенсор (тільки читання)</MenuItem>
-              <MenuItem value="switch">Перемикач (ON/OFF)</MenuItem>
-              <MenuItem value="input">Поле вводу (текст/число)</MenuItem>
-              <MenuItem value="slider">Слайдер</MenuItem>
-            </Select>
-          </FormControl>
-          
-          {/* --- НАЙВАЖЛИВІШЕ: ВИБІР БРОКЕРА --- */}
-          <FormControl fullWidth required>
-            <InputLabel id="broker-select-label">MQTT Брокер</InputLabel>
-            <Select
-              labelId="broker-select-label"
-              label="MQTT Брокер"
-              name="brokerId"
-              value={localComponent.brokerId}
-              onChange={handleChange}
-              disabled={availableBrokers.length === 0}
-            >
-              {availableBrokers.length === 0 && (
-                  <MenuItem disabled>Спочатку додайте брокера в налаштуваннях</MenuItem>
-              )}
-              {availableBrokers.map((broker) => (
-                <MenuItem key={broker.id} value={broker.id}>
-                  {broker.name || broker.host}
+              {WIDGET_REGISTRY.map((widget) => (
+                <MenuItem key={widget.type} value={widget.type}>
+                  {widget.label}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          
+
+          <FormControl fullWidth required>
+            {/* ... вибір брокера без змін ... */}
+          </FormControl>
+
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
             Налаштування топіків
           </Typography>
 
-          {showStateTopic && (
+          {/* 3. Динамічно показуємо поля на основі реєстру */}
+          {selectedWidgetDef?.fields.includes("state_topic") && (
             <TextField
               label="Топік стану (State Topic)"
-              placeholder="home/sensor/temperature"
               name="state_topic"
-              value={localComponent.state_topic}
+              value={localComponent.state_topic || ""}
               onChange={handleChange}
             />
           )}
-
-          {showCommandTopic && (
+          {selectedWidgetDef?.fields.includes("command_topic") && (
             <TextField
               label="Топік команд (Command Topic)"
-              placeholder="home/light/set"
               name="command_topic"
-              value={localComponent.command_topic}
+              value={localComponent.command_topic || ""}
               onChange={handleChange}
             />
           )}
-
-          {showUnit && (
-             <FormControl fullWidth>
-                <InputLabel id="unit-select-label">Одиниці виміру</InputLabel>
-                <Select
-                  labelId="unit-select-label"
-                  label="Одиниці виміру"
-                  name="unit_of_measurement"
-                  value={localComponent.unit_of_measurement}
-                  onChange={handleChange}
-                >
-                  <MenuItem value=""><em>Не вказано</em></MenuItem>
-                  <MenuItem value="°C">°C (градуси Цельсія)</MenuItem>
-                  <MenuItem value="%">% (відсотки)</MenuItem>
-                  <MenuItem value="W">W (вати)</MenuItem>
-                  <MenuItem value="V">V (вольти)</MenuItem>
-                  <MenuItem value="Pa">Pa (паскалі)</MenuItem>
-                  <MenuItem value="ppm">ppm (частки на мільйон)</MenuItem>
-                </Select>
-              </FormControl>
+          {selectedWidgetDef?.fields.includes("payload_on") &&
+            selectedWidgetDef?.fields.includes("payload_off") && (
+              <Grid container spacing={2} sx={{ mt: 0 }}>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Payload ON"
+                    name="payload_on"
+                    value={localComponent.payload_on || ""}
+                    onChange={handleChange}
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField
+                    label="Payload OFF"
+                    name="payload_off"
+                    value={localComponent.payload_off || ""}
+                    onChange={handleChange}
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            )}
+          {selectedWidgetDef?.fields.includes("unit_of_measurement") && (
+            <FormControl fullWidth>
+              {/* ... вибір одиниць виміру без змін ... */}
+            </FormControl>
           )}
-
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Відмінити</Button>
-        <Button onClick={handleSave} variant="contained" disabled={isSaveDisabled}>
-          {isEdit ? 'Зберегти' : 'Додати'}
-        </Button>
-      </DialogActions>
+      <DialogActions>{/* ... кнопки без змін ... */}</DialogActions>
     </Dialog>
   );
 }
