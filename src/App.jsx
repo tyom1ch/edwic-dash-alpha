@@ -1,67 +1,46 @@
-import React, { useEffect, useState, useMemo } from "react";
-import {
-  createTheme,
-  ThemeProvider,
-  CssBaseline,
-  StyledEngineProvider,
-} from "@mui/material";
-import MQTTCore from "./core/MQTTCore";
+// src/App.jsx
+import React, { useMemo } from "react";
+import { createTheme, ThemeProvider, CssBaseline, StyledEngineProvider } from "@mui/material";
+import { BrowserRouter as Router } from "react-router-dom";
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from "@capacitor/status-bar";
+
 import useLocalStorage from "./hooks/useLocalStorage";
-import Dashboard from "./Dashboard/MainDashboard";
-import SettingsPage from "./Dashboard/SettingsPage"; // Імпортуємо сторінку налаштувань
-import LoadingSpinner from "./components/LoadingSpinner";
-import SettingsButton from "./components/SettingsButton";
-import useSimpleRouter from "./hooks/useSimpleRouter";
+import useAppConfig from "./hooks/useAppConfig";
+import AppLayout from "./components/AppLayout";
+
+import './core/DiscoveryService'; // Імпортуємо DiscoveryService для ініціалізації
+import AlertNotification from "./components/AlertNotification";
+
+// --- Функції Capacitor ---
+if (Capacitor.isNativePlatform()) {
+  try {
+    StatusBar.hide();
+  } catch (e) {
+    console.warn("StatusBar.hide() failed:", e);
+  }
+}
 
 const App = () => {
   const [themeMode] = useLocalStorage("themeMode", "light");
-  const theme = useMemo(
-    () => createTheme({ palette: { mode: themeMode } }),
-    [themeMode]
-  );
+  const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 
-  const [connectionSettings, setConnectionSettings] = useLocalStorage(
-    "mqttConnectionSettings",
-    { host: "", port: "", username: "", password: "", main_topic: "" }
-  );
-
-  const [connectionStatus, setConnectionStatus] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const router = useSimpleRouter("/dashboard");
-
-  useEffect(() => {
-    if (!connectionSettings.host || !connectionSettings.port) {
-      router.navigate("/settings");
-      return;
-    }
-  
-    setLoading(true);
-    MQTTCore.disconnect() // Спочатку відключимо попереднє підключення
-      .then(() =>
-        MQTTCore.connect(
-          `ws://${connectionSettings.host}:${connectionSettings.port}`,
-          connectionSettings.username,
-          connectionSettings.password
-        )
-      )
-      .then(() => {
-        setConnectionStatus(true);
-      })
-      .catch(() => {
-        setConnectionStatus(false);
-        router.navigate("/settings"); // Якщо помилка — повертаємо на налаштування
-      })
-      .finally(() => setLoading(false));
-  }, [connectionSettings]);
-  
+  // Вся складна логіка тепер інкапсульована в цьому хуці
+  const { appConfig, setAppConfig, globalConnectionStatus, ...handlers } = useAppConfig();
 
   return (
-    <StyledEngineProvider>
+    <StyledEngineProvider injectFirst>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {<Dashboard router={router} setConnectionSettings={setConnectionSettings} connectionStatus={connectionStatus}/>}
-        
-        <SettingsButton onClick={() => router.navigate("/settings")} />
+        <Router>
+          <AppLayout
+            appConfig={appConfig}
+            setAppConfig={setAppConfig}
+            globalConnectionStatus={globalConnectionStatus}
+            {...handlers}
+          />
+        </Router>
+        {/* <AlertNotification /> */}
       </ThemeProvider>
     </StyledEngineProvider>
   );
