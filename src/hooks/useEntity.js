@@ -8,7 +8,7 @@ const useEntity = (entityId) => {
   // Вона буде викликатися тільки один раз при першому рендері.
   const getInitialState = () => {
     const initialState = deviceRegistry.getEntity(entityId);
-    console.log(`[useEntity] Getting initial state for ${entityId}:`, initialState);
+    // console.log(`[useEntity] Getting initial state for ${entityId}:`, initialState);
     return initialState;
   };
   

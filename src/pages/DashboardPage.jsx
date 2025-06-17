@@ -5,38 +5,22 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import WidgetWrapper from "../components/WidgetWrapper";
-import SensorComponent from "../components/widgets/SensorComponent";
-import SwitchComponent from "../components/widgets/SwitchComponent";
+import { getWidgetByType } from "../components/widgets/widgetRegistry"; 
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-
-// Тепер ця функція повертає тільки "начинку" віджета
-const renderWidgetContent = (component) => {
-  switch (component.type) {
-    case 'sensor':
-      return <SensorComponent componentConfig={component} />;
-    
-    case 'switch':
-      return <SwitchComponent componentConfig={component} />;
-
-    default:
-      return <div>Unknown component type: {component.type}</div>;
-  }
-};
 
 const DashboardPage = ({
   dashboard,
   onEditComponent,
   onDeleteComponent,
-  // --- ДОДАНО ЗНАЧЕННЯ ЗА ЗАМОВЧУВАННЯМ ---
-  onLayoutChange = () => {}, 
+  onLayoutChange = () => {},
   lockMode,
 }) => {
   if (!dashboard) {
     return <div>Dashboard not found.</div>;
   }
 
-  // Генерація початкової розкладки з урахуванням збережених даних
+  // Генерація розкладки залишається без змін
   const layouts = {
     lg: dashboard.components.map((comp, i) => ({
       i: String(comp.id),
@@ -51,7 +35,6 @@ const DashboardPage = ({
     <ResponsiveGridLayout
       className="layout"
       layouts={layouts}
-      // Тепер onLayoutChange ніколи не буде undefined, тому помилки не виникне
       onLayoutChange={(layout) => onLayoutChange(layout)}
       breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
       cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
@@ -61,18 +44,28 @@ const DashboardPage = ({
       draggableCancel=".widget-no-drag"
       draggableHandle=".widget-header"
     >
-      {dashboard.components.map((component) => (
-        <div key={String(component.id)}>
-          <WidgetWrapper
-            component={component}
-            onEdit={onEditComponent}
-            onDelete={onDeleteComponent}
-            lockMode={lockMode}
-          >
-            {renderWidgetContent(component)}
-          </WidgetWrapper>
-        </div>
-      ))}
+      {dashboard.components.map((component) => {
+        // 3. Динамічно знаходимо компонент для рендерингу
+        const WidgetToRender = getWidgetByType(component.type)?.component;
+
+        return (
+          <div key={String(component.id)}>
+            <WidgetWrapper
+              component={component}
+              onEdit={() => onEditComponent(component.id)} // Передаємо ID для обробника
+              onDelete={() => onDeleteComponent(component.id)} // Передаємо ID для обробника
+              lockMode={lockMode}
+            >
+              {/* 4. Рендеримо знайдений компонент або заглушку */}
+              {WidgetToRender ? (
+                <WidgetToRender componentConfig={component} />
+              ) : (
+                <div>Unknown component type: {component.type}</div>
+              )}
+            </WidgetWrapper>
+          </div>
+        );
+      })}
     </ResponsiveGridLayout>
   );
 };

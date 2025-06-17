@@ -1,10 +1,9 @@
 // src/hooks/useAppConfig.js
-import { useState, useEffect, useRef } from "react"; // Додаємо useRef
+import { useState, useEffect } from "react";
 import useLocalStorage from "./useLocalStorage";
 import connectionManager from "../core/ConnectionManager";
 import deviceRegistry from "../core/DeviceRegistry";
 import eventBus from "../core/EventBus";
-import historyService from "../services/HistoryService";
 import alertService from "../services/AlertService";
 
 const useAppConfig = () => {
@@ -15,16 +14,12 @@ const useAppConfig = () => {
   });
   const [globalConnectionStatus, setGlobalConnectionStatus] = useState("offline");
 
-  // --- ЕФЕКТ №1: КЕРУВАННЯ МЕРЕЖЕВИМИ З'ЄДНАННЯМИ ---
-  // Цей ефект залежить ТІЛЬКИ від конфігурації брокерів.
+  // Ефект для керування мережевими з'єднаннями
   useEffect(() => {
     console.log("[useAppConfig | Network] Brokers config changed. Re-initializing connections.");
-    
-    // 1. Ініціалізуємо і запускаємо підключення
     connectionManager.initializeFromBrokersConfig(appConfig.brokers);
     connectionManager.connectAll();
 
-    // 2. Налаштовуємо слухача для оновлення UI статусу
     const updateStatus = () => {
         const allBrokers = connectionManager.getAllBrokers();
         if (!Array.isArray(allBrokers)) {
@@ -42,54 +37,79 @@ const useAppConfig = () => {
     events.forEach(e => eventBus.on(`broker:${e}`, updateStatus));
     updateStatus();
 
-    // 3. Функція очищення, яка буде викликана тільки при зміні брокерів
     return () => {
       console.log("[useAppConfig | Network] Cleanup. Disconnecting all brokers.");
-      events.forEach(e => eventBus.off(e, updateStatus));
+      events.forEach(e => eventBus.off(`broker:${e}`, updateStatus));
       connectionManager.disconnectAll();
     };
-    
-  }, [appConfig.brokers]); // <-- КЛЮЧОВА ЗМІНА!
+  }, [appConfig.brokers]);
 
-  // --- ЕФЕКТ №2: КЕРУВАННЯ ПІДПИСКАМИ ТА ЛОГІКОЮ ---
-  // Цей ефект залежить від дашбордів та правил. Він не викликає перепідключення.
+  // Ефект для керування логікою та підписками
   useEffect(() => {
     console.log("[useAppConfig | Logic] Dashboards or rules changed. Re-syncing logic.");
-
-    // 1. Синхронізуємо реєстр пристроїв. Це оновить підписки.
     deviceRegistry.syncFromAppConfig(appConfig);
-    
-    // 2. Синхронізуємо правила алертів.
     alertService.loadRules(appConfig.alertRules);
-
-    // Ініціалізуємо історію, якщо ще не зроблено
-    historyService.init();
-
-  }, [appConfig.dashboards, appConfig.alertRules]); // <-- КЛЮЧОВА ЗМІНА!
+  }, [appConfig.dashboards, appConfig.alertRules]);
 
   
-  // Решта коду хука без змін...
+  // --- ОБРОБНИКИ ЗМІНИ ДАНИХ ---
   const handleSetBrokers = (brokers) => setAppConfig(p => ({ ...p, brokers }));
   const handleSetAlertRules = (rules) => setAppConfig(p => ({ ...p, alertRules: rules }));
-  const handleAddComponent = (newComponent, dashboardId) => setAppConfig(p => {
-    const dashboards = {...p.dashboards};
-    if (dashboards[dashboardId]) dashboards[dashboardId].components.push({...newComponent, id: Date.now()});
-    return {...p, dashboards};
-  });
-  const handleSaveComponent = (updatedComponent) => setAppConfig(p => {
-    const dashboards = {...p.dashboards};
-    Object.keys(dashboards).forEach(id => {
-      dashboards[id].components = dashboards[id].components.map(c => c.id === updatedComponent.id ? {...c, ...updatedComponent} : c);
+
+  const handleAddComponent = (newComponentData, dashboardId) => {
+    const newComponent = {
+      ...newComponentData,
+      id: newComponentData.id || `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      layout: { x: 0, y: 0, w: 2, h: 2 },
+    };
+    
+    deviceRegistry.addEntityAndSubscribe(newComponent);
+    
+    setAppConfig(prev => {
+      const updatedConfig = { ...prev };
+      const targetDashboard = updatedConfig.dashboards[dashboardId];
+      if (targetDashboard) {
+        targetDashboard.components = [...targetDashboard.components, newComponent];
+      }
+      return updatedConfig;
     });
-    return {...p, dashboards};
-  });
-  const handleDeleteComponent = (componentId) => setAppConfig(p => {
-    const dashboards = {...p.dashboards};
-    Object.keys(dashboards).forEach(id => {
-      dashboards[id].components = dashboards[id].components.filter(c => c.id !== componentId);
+  };
+
+  const handleSaveComponent = (updatedComponent) => {
+    let oldComponent = null;
+    Object.values(appConfig.dashboards).forEach(d => {
+        const found = d.components.find(c => c.id === updatedComponent.id);
+        if (found) oldComponent = found;
     });
-    return {...p, dashboards};
-  });
+
+    if (oldComponent && oldComponent.state_topic !== updatedComponent.state_topic) {
+        console.log(`[useAppConfig] Topic changed for ${updatedComponent.id}. Resubscribing.`);
+        deviceRegistry.removeEntityAndUnsubscribe(oldComponent.id);
+        deviceRegistry.addEntityAndSubscribe(updatedComponent);
+    } else if (oldComponent) {
+        deviceRegistry.addEntity(updatedComponent);
+    }
+    
+    setAppConfig(p => {
+        const dashboards = { ...p.dashboards };
+        Object.keys(dashboards).forEach(id => {
+          dashboards[id].components = dashboards[id].components.map(c => c.id === updatedComponent.id ? { ...c, ...updatedComponent } : c);
+        });
+        return { ...p, dashboards };
+    });
+  };
+
+  const handleDeleteComponent = (componentId) => {
+    deviceRegistry.removeEntityAndUnsubscribe(componentId);
+    
+    setAppConfig(p => {
+      const dashboards = { ...p.dashboards };
+      Object.keys(dashboards).forEach(id => {
+        dashboards[id].components = dashboards[id].components.filter(c => c.id !== componentId);
+      });
+      return { ...p, dashboards };
+    });
+  };
 
   return {
     appConfig,
