@@ -18,7 +18,6 @@ import { Add, AddBox, MoreVert, Settings, Dashboard as DashboardIcon, TravelExpl
 
 import DashboardPage from "../pages/DashboardPage";
 import SettingsPage from "../pages/SettingsPage";
-import AlertRulesPage from "../pages/AlertRulesPage";
 import ComponentDialog from "./ComponentDialog";
 import ModalDashSettings from "./ModalDashSettings";
 import DiscoveryDialog from "./DiscoveryDialog";
@@ -197,7 +196,6 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
             <Route key={id} path={`/${id}`} element={<DashboardPage dashboard={appConfig.dashboards[id]} onEditComponent={handleEditComponentClick} onDeleteComponent={handlers.handleDeleteComponent} onLayoutChange={handleLayoutChange} lockMode={lockMode} />} />
           ))}
           <Route path="/settings" element={<SettingsPage brokers={appConfig.brokers} setBrokers={handlers.handleSetBrokers} />} />
-          <Route path="/settings/alerts" element={<AlertRulesPage alertRules={appConfig.alertRules} onSetAlertRules={handlers.handleSetAlertRules} />} />
           <Route path="*" element={<div>404 - Сторінку не знайдено</div>} />
         </Routes>
       </DashboardLayout>
