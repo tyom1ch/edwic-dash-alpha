@@ -10,7 +10,6 @@ import useAppConfig from "./hooks/useAppConfig";
 import AppLayout from "./components/AppLayout";
 
 import './core/DiscoveryService'; // Імпортуємо DiscoveryService для ініціалізації
-import AlertNotification from "./components/AlertNotification";
 
 // --- Функції Capacitor ---
 if (Capacitor.isNativePlatform()) {

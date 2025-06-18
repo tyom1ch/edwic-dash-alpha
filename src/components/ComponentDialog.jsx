@@ -20,7 +20,7 @@ import useAppConfig from "../hooks/useAppConfig";
 import {
   WIDGET_REGISTRY,
   getWidgetByType,
-} from "../components/widgets/widgetRegistry";
+} from "../core/widgetRegistry";
 
 const getInitialState = () => ({
   label: "",
