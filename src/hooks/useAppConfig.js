@@ -1,125 +1,157 @@
-// src/hooks/useAppConfig.js
-import { useState, useEffect } from "react";
-import useLocalStorage from "./useLocalStorage";
-import connectionManager from "../core/ConnectionManager";
-import deviceRegistry from "../core/DeviceRegistry";
-import eventBus from "../core/EventBus";
-import alertService from "../services/AlertService";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import useLocalStorage from './useLocalStorage';
+import eventBus from '../core/EventBus';
+import connectionManager from '../core/ConnectionManager'; // Імпортуємо для отримання статусу
+
+// Початкова конфігурація, яка буде використана, якщо в localStorage нічого немає
+const initialConfig = {
+  brokers: [],
+  dashboards: {
+    // Створюємо один дашборд за замовчуванням для нових користувачів
+    'dashboard-1': { 
+      title: 'Головний', 
+      components: [] 
+    },
+  },
+};
 
 const useAppConfig = () => {
-  const [appConfig, setAppConfig] = useLocalStorage("edwic_app_config", {
-    brokers: [],
-    dashboards: { dashboard: { title: "Головна", components: [] } },
-    alertRules: [],
-  });
-  const [globalConnectionStatus, setGlobalConnectionStatus] = useState("offline");
+  const [storedConfig, setStoredConfig] = useLocalStorage('appConfig', initialConfig);
+  const [appConfig, setAppConfigState] = useState(storedConfig);
 
-  // Ефект для керування мережевими з'єднаннями
-  useEffect(() => {
-    console.log("[useAppConfig | Network] Brokers config changed. Re-initializing connections.");
-    connectionManager.initializeFromBrokersConfig(appConfig.brokers);
-    connectionManager.connectAll();
+  // --- Стан для зберігання статусів брокерів, які ми отримуємо з ConnectionManager ---
+  const [brokerStatuses, setBrokerStatuses] = useState({});
 
-    const updateStatus = () => {
-        const allBrokers = connectionManager.getAllBrokers();
-        if (!Array.isArray(allBrokers)) {
-            setGlobalConnectionStatus("Loading...");
-            return;
-        }
-        const connected = allBrokers.filter(b => b.status === "online").length;
-        if (allBrokers.length === 0) setGlobalConnectionStatus("No brokers");
-        else if (connected === allBrokers.length) setGlobalConnectionStatus("All online");
-        else if (connected > 0) setGlobalConnectionStatus("Some offline");
-        else setGlobalConnectionStatus("All offline");
-    };
-
-    const events = ["connected", "disconnected", "error", "removed", "added"];
-    events.forEach(e => eventBus.on(`broker:${e}`, updateStatus));
-    updateStatus();
-
-    return () => {
-      console.log("[useAppConfig | Network] Cleanup. Disconnecting all brokers.");
-      events.forEach(e => eventBus.off(`broker:${e}`, updateStatus));
-      connectionManager.disconnectAll();
-    };
-  }, [appConfig.brokers]);
-
-  // Ефект для керування логікою та підписками
-  useEffect(() => {
-    console.log("[useAppConfig | Logic] Dashboards or rules changed. Re-syncing logic.");
-    deviceRegistry.syncFromAppConfig(appConfig);
-    alertService.loadRules(appConfig.alertRules);
-  }, [appConfig.dashboards, appConfig.alertRules]);
-
-  
-  // --- ОБРОБНИКИ ЗМІНИ ДАНИХ ---
-  const handleSetBrokers = (brokers) => setAppConfig(p => ({ ...p, brokers }));
-  const handleSetAlertRules = (rules) => setAppConfig(p => ({ ...p, alertRules: rules }));
-
-  const handleAddComponent = (newComponentData, dashboardId) => {
-    const newComponent = {
-      ...newComponentData,
-      id: newComponentData.id || `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      layout: { x: 0, y: 0, w: 2, h: 2 },
-    };
+  // --- МОДИФІКОВАНА ФУНКЦІЯ ОНОВЛЕННЯ КОНФІГУРАЦІЇ ---
+  // useCallback гарантує, що функція не буде перестворюватися при кожному рендері
+  const setAppConfig = useCallback((value) => {
+    // Дозволяє передавати як нове значення, так і функцію-оновлювач (як у useState)
+    const newConfig = typeof value === 'function' ? value(appConfig) : value;
     
-    deviceRegistry.addEntityAndSubscribe(newComponent);
+    // Оновлюємо внутрішній стан React
+    setAppConfigState(newConfig);
     
-    setAppConfig(prev => {
-      const updatedConfig = { ...prev };
-      const targetDashboard = updatedConfig.dashboards[dashboardId];
-      if (targetDashboard) {
-        targetDashboard.components = [...targetDashboard.components, newComponent];
-      }
-      return updatedConfig;
-    });
-  };
+    // Зберігаємо нову конфігурацію в localStorage
+    setStoredConfig(newConfig); 
+    
+    // --- ВІДПРАВЛЯЄМО ПОДІЮ, ЩО КОНФІГУРАЦІЯ ЗБЕРЕЖЕНА ---
+    // Це дозволяє ConnectionManager та іншим сервісам реагувати на зміни
+    eventBus.emit('config:saved', newConfig);
+    
+  }, [appConfig, setStoredConfig]);
 
-  const handleSaveComponent = (updatedComponent) => {
-    let oldComponent = null;
-    Object.values(appConfig.dashboards).forEach(d => {
-        const found = d.components.find(c => c.id === updatedComponent.id);
-        if (found) oldComponent = found;
-    });
 
-    if (oldComponent && oldComponent.state_topic !== updatedComponent.state_topic) {
-        console.log(`[useAppConfig] Topic changed for ${updatedComponent.id}. Resubscribing.`);
-        deviceRegistry.removeEntityAndUnsubscribe(oldComponent.id);
-        deviceRegistry.addEntityAndSubscribe(updatedComponent);
-    } else if (oldComponent) {
-        deviceRegistry.addEntity(updatedComponent);
+  // --- Логіка для визначення глобального статусу з'єднання ---
+  const globalConnectionStatus = useMemo(() => {
+    if (!appConfig.brokers || appConfig.brokers.length === 0) {
+      return "Not Configured";
+    }
+
+    const statuses = appConfig.brokers.map(b => brokerStatuses[b.id] || 'offline');
+    
+    if (statuses.every(s => s === 'online')) {
+      return "All online";
+    }
+    if (statuses.some(s => s === 'online')) {
+      return "Partially online";
+    }
+    return "All offline";
+    
+  }, [appConfig.brokers, brokerStatuses]);
+
+
+  // --- Ефект для підписки на події від ConnectionManager ---
+  useEffect(() => {
+    const updateStatusForBroker = (brokerId) => {
+        // Отримуємо актуальний статус від менеджера
+        const status = connectionManager.isConnected(brokerId) ? 'online' : 'offline';
+        setBrokerStatuses(prev => ({ ...prev, [brokerId]: status }));
+    };
+
+    const handleConnect = (brokerId) => updateStatusForBroker(brokerId);
+    const handleDisconnect = (brokerId) => updateStatusForBroker(brokerId);
+    
+    // Підписуємось на події
+    eventBus.on('broker:connected', handleConnect);
+    eventBus.on('broker:disconnected', handleDisconnect);
+
+    // Ініціалізуємо початкові статуси
+    if (appConfig.brokers) {
+        const initialStatuses = {};
+        appConfig.brokers.forEach(b => {
+            initialStatuses[b.id] = connectionManager.isConnected(b.id) ? 'online' : 'offline';
+        });
+        setBrokerStatuses(initialStatuses);
     }
     
-    setAppConfig(p => {
-        const dashboards = { ...p.dashboards };
-        Object.keys(dashboards).forEach(id => {
-          dashboards[id].components = dashboards[id].components.map(c => c.id === updatedComponent.id ? { ...c, ...updatedComponent } : c);
-        });
-        return { ...p, dashboards };
-    });
-  };
+    // Відписуємось при розмонтуванні компонента
+    return () => {
+        eventBus.off('broker:connected', handleConnect);
+        eventBus.off('broker:disconnected', handleDisconnect);
+    };
+}, [appConfig.brokers]); // Пере-підписуємось, якщо список брокерів змінився
 
-  const handleDeleteComponent = (componentId) => {
-    deviceRegistry.removeEntityAndUnsubscribe(componentId);
-    
-    setAppConfig(p => {
-      const dashboards = { ...p.dashboards };
-      Object.keys(dashboards).forEach(id => {
-        dashboards[id].components = dashboards[id].components.filter(c => c.id !== componentId);
-      });
-      return { ...p, dashboards };
-    });
-  };
 
+  // --- Обробники для маніпуляції конфігурацією (CRUD операції) ---
+  // Залишаються в цьому хуці, оскільки вони є бізнес-логікою, пов'язаною з appConfig
+
+  const handleSetBrokers = useCallback((newBrokers) => {
+    setAppConfig(prev => ({ ...prev, brokers: newBrokers }));
+  }, [setAppConfig]);
+
+  const handleAddComponent = useCallback((newComponent, dashboardId) => {
+    // Генеруємо унікальний ID для нового компонента
+    const componentToAdd = { ...newComponent, id: `comp-${Date.now()}` };
+    setAppConfig(prev => {
+      const newDashboards = { ...prev.dashboards };
+      if (newDashboards[dashboardId]) {
+        newDashboards[dashboardId].components.push(componentToAdd);
+      } else {
+        // Якщо раптом дашборда не існує, можна або створити його, або видати помилку
+        console.warn(`Dashboard with id ${dashboardId} not found. Component not added.`);
+      }
+      return { ...prev, dashboards: newDashboards };
+    });
+  }, [setAppConfig]);
+
+  const handleDeleteComponent = useCallback((componentId) => {
+    setAppConfig(prev => {
+      const newDashboards = { ...prev.dashboards };
+      for (const dashId in newDashboards) {
+        newDashboards[dashId].components = newDashboards[dashId].components.filter(c => c.id !== componentId);
+      }
+      return { ...prev, dashboards: newDashboards };
+    });
+  }, [setAppConfig]);
+
+  const handleSaveComponent = useCallback((updatedComponent) => {
+    setAppConfig(prev => {
+      const newDashboards = { ...prev.dashboards };
+      for (const dashId in newDashboards) {
+        const index = newDashboards[dashId].components.findIndex(c => c.id === updatedComponent.id);
+        if (index !== -1) {
+          newDashboards[dashId].components[index] = updatedComponent;
+          break; // Виходимо з циклу, як тільки знайшли та оновили компонент
+        }
+      }
+      return { ...prev, dashboards: newDashboards };
+    });
+  }, [setAppConfig]);
+
+
+  // Повертаємо все, що потрібно компонентам
   return {
     appConfig,
     setAppConfig,
     globalConnectionStatus,
-    handleSetBrokers,
-    handleSetAlertRules,
-    handleAddComponent,
-    handleSaveComponent,
-    handleDeleteComponent,
+    
+    // Передаємо обробники в одному об'єкті для зручності
+    handlers: {
+      handleSetBrokers,
+      handleAddComponent,
+      handleDeleteComponent,
+      handleSaveComponent,
+    }
   };
 };
 

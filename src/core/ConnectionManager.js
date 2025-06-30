@@ -1,67 +1,44 @@
+// src/core/ConnectionManager.js
 import MqttClientWrapper from './wrappers/MqttClientWrapper';
 import eventBus from './EventBus';
 
 class ConnectionManager {
     constructor() {
         this.mqttClients = new Map(); // key: brokerId, value: MqttClientWrapper instance
-        this.brokersConfig = [];      // Локальний кеш конфігурації брокерів
-
         console.log("[ConnectionManager] Initialized.");
-        // setupGlobalListeners() не викликається тут, він буде налаштований App.jsx,
-        // коли він підпишеться на події broker:connected/disconnected.
-        // MqttClientWrapper вже емітує події напряму на EventBus.
     }
 
     /**
-     * Ініціалізує та запускає підключення до брокерів на основі наданої конфігурації.
-     * Відключає існуючі підключення, якщо конфігурація змінюється.
-     * @param {Array<Object>} brokersConfig - Масив об'єктів конфігурації брокерів.
+     * Оновлює конфігурацію брокерів, підключаючи нові, відключаючи видалені
+     * та оновлюючи існуючі без розриву з'єднання, якщо це можливо.
+     * @param {Array<Object>} newBrokersConfig - Новий масив конфігурації брокерів.
      */
-    async initializeFromBrokersConfig(brokersConfig) {
-        console.log("ConnectionManager.initializeFromBrokersConfig called with:", brokersConfig);
-        
-        // Оновлюємо локальний кеш конфігурації брокерів
-        this.brokersConfig = brokersConfig;
+    async updateBrokers(newBrokersConfig) {
+        console.log("[ConnectionManager] Updating brokers configuration...");
+        const newBrokerIds = new Set(newBrokersConfig.map(b => b.id));
+        const oldBrokerIds = new Set(this.mqttClients.keys());
 
-        // Відключити та очистити всі існуючі клієнти перед створенням нових
-        await Promise.all(Array.from(this.mqttClients.values()).map(client => client.disconnect().catch(() => {})));
-        this.mqttClients.clear();
-        
-        if (!Array.isArray(brokersConfig) || brokersConfig.length === 0) {
-            // console.log("ConnectionManager: No brokers configured or array is empty. Skipping connection setup.");
-            
-            // Можливо, емітувати подію, що брокерів немає, щоб UI міг оновитися
-            // eventBus.emit('brokers:list_updated', this.getAllBrokers());
-            return;
+        // 1. Відключити та видалити брокери, яких більше немає в конфігурації
+        const brokersToRemove = [...oldBrokerIds].filter(id => !newBrokerIds.has(id));
+        for (const brokerId of brokersToRemove) {
+            await this.removeBroker(brokerId);
         }
 
-        brokersConfig.forEach(brokerConfig => {
-            // console.log("ConnectionManager: Processing broker from config:", brokerConfig.id, "Host:", brokerConfig.host);
-            const client = new MqttClientWrapper(brokerConfig);
-            this.mqttClients.set(brokerConfig.id, client);
-            
-            // Перенаправлення подій від цього конкретного клієнта на EventBus
-            // Це те, що App.jsx та інші модулі будуть слухати
-            client.on('connect', (id) => {
-                console.log(`[ConnectionManager] Event: broker ${id} connected.`);
-                eventBus.emit('broker:connected', id);
-            });
-            client.on('disconnect', (id) => {
-                console.log(`[ConnectionManager] Event: broker ${id} disconnected.`);
-                eventBus.emit('broker:disconnected', id);
-            });
-            client.on('error', (id, err) => {
-                console.error(`[ConnectionManager] Event: broker ${id} error:`, err.message);
-                eventBus.emit('broker:error', id, err);
-            });
-            client.on('message', (id, topic, message) => {
-                // console.log(`[ConnectionManager] Event: raw MQTT message from ${id} on ${topic}`); // Може бути забагато логів
-                eventBus.emit('mqtt:raw_message', id, topic, message);
-            });
-        });
-        
-        await this.connectAll(); // Спроба підключитися до всіх ініціалізованих брокерів
-        // eventBus.emit('brokers:list_updated', this.getAllBrokers()); // Оновити UI після всіх спроб
+        // 2. Додати нові або оновити існуючі брокери
+        for (const brokerConfig of newBrokersConfig) {
+            const existingClient = this.mqttClients.get(brokerConfig.id);
+
+            if (existingClient) {
+                // Брокер вже існує, перевіряємо, чи змінилася конфігурація
+                if (JSON.stringify(existingClient.config) !== JSON.stringify(brokerConfig)) {
+                    console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
+                    await existingClient.reconnect(brokerConfig);
+                }
+            } else {
+                // Це новий брокер, додаємо його
+                await this.addBroker(brokerConfig);
+            }
+        }
     }
 
     /**
@@ -76,17 +53,15 @@ class ConnectionManager {
 
         const client = new MqttClientWrapper(brokerConfig);
         this.mqttClients.set(brokerConfig.id, client);
-        this.brokersConfig.push(brokerConfig); // Додати до локального кешу конфігурації
 
         // Перенаправлення подій від нового клієнта
-        client.on('connect', (id) => { eventBus.emit('broker:connected', id); });
-        client.on('disconnect', (id) => { eventBus.emit('broker:disconnected', id); });
-        client.on('error', (id, err) => { eventBus.emit('broker:error', id, err); });
-        client.on('message', (id, topic, message) => { eventBus.emit('mqtt:raw_message', id, topic, message); });
+        client.on('connect', (id) => eventBus.emit('broker:connected', id, client.config));
+        client.on('disconnect', (id) => eventBus.emit('broker:disconnected', id));
+        client.on('error', (id, err) => eventBus.emit('broker:error', id, err));
+        client.on('message', (id, topic, message) => eventBus.emit('mqtt:raw_message', id, topic, message));
 
-        console.log(`[ConnectionManager] Adding new broker: ${brokerConfig.id}`);
-        await client.connect(); // Спробувати підключитися одразу
-        eventBus.emit('broker:added', brokerConfig.id); // Повідомляємо, що додано новий брокер
+        console.log(`[ConnectionManager] Adding new broker and connecting: ${brokerConfig.id}`);
+        await client.connect();
     }
 
     /**
@@ -99,38 +74,11 @@ class ConnectionManager {
             console.log(`[ConnectionManager] Removing broker: ${brokerId}`);
             await client.disconnect();
             this.mqttClients.delete(brokerId);
-            this.brokersConfig = this.brokersConfig.filter(b => b.id !== brokerId); // Видалити з локального кешу
-            eventBus.emit('broker:removed', brokerId); // Повідомити, що брокер видалено
-        } else {
-            console.warn(`[ConnectionManager] Broker with ID ${brokerId} not found for removal.`);
         }
     }
+    
+    // --- ЗАЛИШАЄМО ВСІ ІНШІ МЕТОДИ БЕЗ ЗМІН ---
 
-    /**
-     * Спроба підключитися до всіх ініціалізованих брокерів.
-     */
-    async connectAll() {
-        // console.log("[ConnectionManager] Initiating connections for all configured brokers...");
-        const connectPromises = Array.from(this.mqttClients.values()).map(client => client.connect().catch(e => console.error(`[ConnectionManager] Failed to connect to ${client.config.id} (${client.config.host}):`, e.message)));
-        await Promise.allSettled(connectPromises); // Чекаємо на всі спроби, навіть якщо деякі невдалі
-        // console.log("[ConnectionManager] All initial connection attempts finished.");
-    }
-
-    /**
-     * Відключає всі активні MQTT-з'єднання.
-     */
-    async disconnectAll() {
-        console.log("[ConnectionManager] Disconnecting all brokers...");
-        const disconnectPromises = Array.from(this.mqttClients.values()).map(client => client.disconnect());
-        await Promise.allSettled(disconnectPromises);
-        console.log("[ConnectionManager] All brokers disconnected.");
-    }
-
-    /**
-     * Підписує MQTT-клієнта на певний топік.
-     * @param {string} brokerId - ID брокера.
-     * @param {string} topic - Топік для підписки.
-     */
     subscribeToTopic(brokerId, topic) {
         const client = this.mqttClients.get(brokerId);
         if (client) {
@@ -140,11 +88,6 @@ class ConnectionManager {
         }
     }
 
-    /**
-     * Відписує MQTT-клієнта від певного топіка.
-     * @param {string} brokerId - ID брокера.
-     * @param {string} topic - Топік для відписки.
-     */
     unsubscribeFromTopic(brokerId, topic) {
         const client = this.mqttClients.get(brokerId);
         if (client) {
@@ -154,12 +97,6 @@ class ConnectionManager {
         }
     }
 
-    /**
-     * Публікує повідомлення на певний топік через брокера.
-     * @param {string} brokerId - ID брокера.
-     * @param {string} topic - Топік для публікації.
-     * @param {string|Buffer} message - Повідомлення.
-     */
     publishToTopic(brokerId, topic, message) {
         const client = this.mqttClients.get(brokerId);
         if (client) {
@@ -169,27 +106,12 @@ class ConnectionManager {
         }
     }
 
-    /**
-     * Отримує статус підключення конкретного брокера.
-     * @param {string} brokerId - ID брокера.
-     * @returns {string} 'online', 'offline', 'not_configured'.
-     */
-    getBrokerStatus(brokerId) {
+    isConnected(brokerId) {
         const client = this.mqttClients.get(brokerId);
-        return client ? (client.isConnected() ? 'online' : 'offline') : 'not_configured';
-    }
-
-    /**
-     * Отримує список усіх сконфігурованих брокерів з їхнім поточним статусом.
-     * @returns {Array<Object>} Масив об'єктів брокерів.
-     */
-    getAllBrokers() {
-        // Повертаємо копію brokersConfig і додаємо статус для кожного
-        return this.brokersConfig.map(config => ({
-            ...config,
-            status: this.getBrokerStatus(config.id)
-        }));
+        return client ? client.isConnected() : false;
     }
 }
 
-export default new ConnectionManager(); // Експортуємо синглтон
+// Експортуємо єдиний екземпляр (синглтон)
+const connectionManagerInstance = new ConnectionManager();
+export default connectionManagerInstance;
