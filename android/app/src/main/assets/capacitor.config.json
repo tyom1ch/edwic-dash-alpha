@@ -1,0 +1,14 @@
+{
+	"appId": "com.edwic.dashboard",
+	"appName": "EdwIC.Dash [beta]",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "http",
+		"cleartext": true
+	},
+	"PluginsConfig": {
+		"CapacitorHttp": {
+			"enabled": true
+		}
+	}
+}

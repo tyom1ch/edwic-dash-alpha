@@ -1,0 +1,160 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.edwic.dashboard"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="23"
+9        android:targetSdkVersion="35" />
+10
+11    <!-- Permissions -->
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:39:5-67
+12-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:39:22-64
+13    <uses-permission android:name="android.permission.VIBRATE" />
+13-->[:capacitor-haptics] /home/tyom1ch/Work/Pet/mqtt-dashboard/node_modules/@capacitor/haptics/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:7:5-66
+13-->[:capacitor-haptics] /home/tyom1ch/Work/Pet/mqtt-dashboard/node_modules/@capacitor/haptics/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:7:22-63
+14
+15    <permission
+15-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+16        android:name="com.edwic.dashboard.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+16-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+17        android:protectionLevel="signature" />
+17-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+18
+19    <uses-permission android:name="com.edwic.dashboard.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+19-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+19-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+20
+21    <application
+21-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:4:5-36:19
+22        android:allowBackup="true"
+22-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:5:9-35
+23        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+23-->[androidx.core:core:1.15.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/5f51ed623ec66baebfa6a053fe8a8b2a/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+24        android:debuggable="true"
+25        android:extractNativeLibs="false"
+26        android:icon="@mipmap/ic_launcher"
+26-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:6:9-43
+27        android:label="@string/app_name"
+27-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:7:9-41
+28        android:roundIcon="@mipmap/ic_launcher_round"
+28-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:8:9-54
+29        android:supportsRtl="true"
+29-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:9:9-35
+30        android:testOnly="true"
+31        android:theme="@style/AppTheme"
+31-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:10:9-40
+32        android:usesCleartextTraffic="true" >
+32-->[:capacitor-cordova-android-plugins] /home/tyom1ch/Work/Pet/mqtt-dashboard/android/capacitor-cordova-android-plugins/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:18-53
+33        <activity
+33-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:12:9-25:20
+34            android:name="com.edwic.dashboard.MainActivity"
+34-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:14:13-41
+35            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+35-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:13:13-140
+36            android:exported="true"
+36-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:18:13-36
+37            android:label="@string/title_activity_main"
+37-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:15:13-56
+38            android:launchMode="singleTask"
+38-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:17:13-44
+39            android:theme="@style/AppTheme.NoActionBarLaunch" >
+39-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:16:13-62
+40            <intent-filter>
+40-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:20:13-23:29
+41                <action android:name="android.intent.action.MAIN" />
+41-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:21:17-69
+41-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:21:25-66
+42
+43                <category android:name="android.intent.category.LAUNCHER" />
+43-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:22:17-77
+43-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:22:27-74
+44            </intent-filter>
+45        </activity>
+46
+47        <provider
+48            android:name="androidx.core.content.FileProvider"
+48-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:28:13-62
+49            android:authorities="com.edwic.dashboard.fileprovider"
+49-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:29:13-64
+50            android:exported="false"
+50-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:30:13-37
+51            android:grantUriPermissions="true" >
+51-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:31:13-47
+52            <meta-data
+52-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:32:13-34:64
+53                android:name="android.support.FILE_PROVIDER_PATHS"
+53-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:33:17-67
+54                android:resource="@xml/file_paths" />
+54-->/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/AndroidManifest.xml:34:17-51
+55        </provider>
+56        <provider
+56-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+57            android:name="androidx.startup.InitializationProvider"
+57-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+58            android:authorities="com.edwic.dashboard.androidx-startup"
+58-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+59            android:exported="false" >
+59-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+60            <meta-data
+60-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+61                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+61-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+62                android:value="androidx.startup" />
+62-->[androidx.emoji2:emoji2:1.3.0] /home/tyom1ch/.gradle/caches/8.11.1/transforms/455628e39230ce08b70f281b4ac99c3c/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+63            <meta-data
+63-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/tyom1ch/.gradle/caches/8.11.1/transforms/2086035d7e747a32c2be40e6ed7f404e/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
+64                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+64-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/tyom1ch/.gradle/caches/8.11.1/transforms/2086035d7e747a32c2be40e6ed7f404e/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
+65                android:value="androidx.startup" />
+65-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/tyom1ch/.gradle/caches/8.11.1/transforms/2086035d7e747a32c2be40e6ed7f404e/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
+66            <meta-data
+66-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+67                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+67-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+68                android:value="androidx.startup" />
+68-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+69        </provider>
+70
+71        <receiver
+71-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+72            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+72-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+73            android:directBootAware="false"
+73-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+74            android:enabled="true"
+74-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+75            android:exported="true"
+75-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+76            android:permission="android.permission.DUMP" >
+76-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+77            <intent-filter>
+77-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+78                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+78-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+78-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+79            </intent-filter>
+80            <intent-filter>
+80-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+81                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+81-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+81-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+82            </intent-filter>
+83            <intent-filter>
+83-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+84                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+84-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+84-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+85            </intent-filter>
+86            <intent-filter>
+86-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+87                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+87-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+87-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/tyom1ch/.gradle/caches/8.11.1/transforms/0f3d68271fd414f74f11a6a9c308b287/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+88            </intent-filter>
+89        </receiver>
+90    </application>
+91
+92</manifest>
