@@ -17,10 +17,7 @@ import {
 } from "@mui/material";
 import useAppConfig from "../hooks/useAppConfig";
 // 1. Імпортуємо наш новий реєстр!
-import {
-  WIDGET_REGISTRY,
-  getWidgetByType,
-} from "../core/widgetRegistry";
+import { WIDGET_REGISTRY, getWidgetByType } from "../core/widgetRegistry";
 
 const getInitialState = () => ({
   label: "",
@@ -125,8 +122,26 @@ function ComponentDialog({
             </Select>
           </FormControl>
 
+          {/* --- НАЙВАЖЛИВІШЕ: ВИБІР БРОКЕРА --- */}
           <FormControl fullWidth required>
-            {/* ... вибір брокера без змін ... */}
+            <InputLabel id="broker-select-label">MQTT Брокер</InputLabel>
+            <Select
+              labelId="broker-select-label"
+              label="MQTT Брокер"
+              name="brokerId"
+              value={localComponent.brokerId}
+              onChange={handleChange}
+              disabled={availableBrokers.length === 0}
+            >
+              {availableBrokers.length === 0 && (
+                  <MenuItem disabled>Спочатку додайте брокера в налаштуваннях</MenuItem>
+              )}
+              {availableBrokers.map((broker) => (
+                <MenuItem key={broker.id} value={broker.id}>
+                  {broker.name || broker.host}
+                </MenuItem>
+              ))}
+            </Select>
           </FormControl>
 
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
@@ -175,12 +190,33 @@ function ComponentDialog({
             )}
           {selectedWidgetDef?.fields.includes("unit_of_measurement") && (
             <FormControl fullWidth>
-              {/* ... вибір одиниць виміру без змін ... */}
+              <InputLabel id="unit-select-label">Одиниці виміру</InputLabel>
+              <Select
+                labelId="unit-select-label"
+                label="Одиниці виміру"
+                name="unit_of_measurement"
+                value={localComponent.unit_of_measurement}
+                onChange={handleChange}
+              >
+                <MenuItem value="">
+                  <em>Не вказано</em>
+                </MenuItem>
+                <MenuItem value="°C">°C (градуси Цельсія)</MenuItem>
+                <MenuItem value="%">% (відсотки)</MenuItem>
+                <MenuItem value="W">W (вати)</MenuItem>
+                <MenuItem value="V">V (вольти)</MenuItem>
+                <MenuItem value="Pa">Pa (паскалі)</MenuItem>
+              </Select>
             </FormControl>
           )}
         </Box>
       </DialogContent>
-      <DialogActions>{/* ... кнопки без змін ... */}</DialogActions>
+      <DialogActions>
+        <Button onClick={onClose}>Відмінити</Button>
+        <Button onClick={handleSave} variant="contained" disabled={isSaveDisabled}>
+          {isEdit ? 'Зберегти' : 'Додати'}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
