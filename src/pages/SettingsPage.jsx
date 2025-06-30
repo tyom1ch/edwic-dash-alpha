@@ -27,7 +27,7 @@ function SettingsPage({ brokers, setBrokers }) {
     port: "",
     username: "",
     password: "",
-    main_topic: "", // Це поле більше не використовується ядром для підключення, лише для зручності UI
+    discovery_topic: "", // Це поле більше не використовується ядром для підключення, лише для зручності UI
     secure: false, // Для wss://
     basepath: "", // Для шляху в URL, напр. /ws
   };
@@ -45,7 +45,7 @@ function SettingsPage({ brokers, setBrokers }) {
     } else {
       // Якщо брокерів немає, скинути форму або показати дефолтний порожній стан
       setCurrentBrokerConfig({
-        id: '', name: 'Основний брокер', host: '', port: '', username: '', password: '', main_topic: '', secure: false, basepath: '',
+        id: '', name: 'Основний брокер', host: '', port: '', username: '', password: '', discovery_topic: '', secure: false, basepath: '',
       });
     }
   }, [brokers]); // Залежить від зміни пропса 'brokers'
@@ -180,9 +180,9 @@ function SettingsPage({ brokers, setBrokers }) {
           />
           <TextField
             fullWidth
-            label="Основний топік (не використовується ядром)"
-            name="main_topic"
-            value={currentBrokerConfig.main_topic}
+            label="Основний топік (homeassistant discovery)"
+            name="discovery_topic"
+            value={currentBrokerConfig.discovery_topic}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
             helperText="Це поле більше не використовується ядром для підключення. Воно залишається для вашої зручності."

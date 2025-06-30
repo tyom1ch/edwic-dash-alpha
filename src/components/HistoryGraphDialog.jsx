@@ -39,7 +39,7 @@ ChartJS.register(
 );
 
 // Конфігурація базового URL для вашого FastAPI API
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "http://192.168.1.209:8000";
 
 function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const [data, setData] = useState([]);
