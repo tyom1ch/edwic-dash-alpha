@@ -41,9 +41,7 @@ const mapHaTypeToDashboardType = (haType) => {
   switch (haType) {
     case "switch": return "switch";
     case "sensor": return "sensor";
-    // --- ДОДАЄМО НОВИЙ ТИП ---
     case "fan": return "fan";
-    // -----------------------
     default: return "sensor";
   }
 };
@@ -56,18 +54,15 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      // Отримуємо поточний список при першому відкритті
       const initialDevices = discoveryService.getDiscoveredDevices();
       setDiscovered(initialDevices);
       setLoading(false);
 
-      // Підписуємось на оновлення
       const handleUpdate = (devices) => {
-        setDiscovered(devices);
+        setDiscovered([...devices]); // Використовуємо спред для оновлення
       };
       eventBus.on("discovery:updated", handleUpdate);
 
-      // Відписуємось при закритті компонента
       return () => {
         eventBus.off("discovery:updated", handleUpdate);
       };
@@ -90,7 +85,6 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
       payload_off: entity.payload_off,
     };
     onAddEntity(newComponent);
-    // Можна додати сповіщення про успішне додавання
   };
 
   return (
@@ -106,7 +100,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
         {!loading && discovered.length === 0 && (
           <Typography sx={{ p: 4, textAlign: "center" }}>
             Пристроїв не знайдено. Переконайтесь, що на ваших пристроях
-            увімкнено Home Assistant Discovery і вони підключені до брокера.
+            увімкнено Discovery і вони підключені до брокера з правильним топіком.
           </Typography>
         )}
 

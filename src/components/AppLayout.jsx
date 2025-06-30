@@ -22,12 +22,7 @@ import ComponentDialog from "./ComponentDialog";
 import ModalDashSettings from "./ModalDashSettings";
 import DiscoveryDialog from "./DiscoveryDialog";
 
-const demoTheme = createTheme({
-    cssVariables: { colorSchemeSelector: 'data-toolpad-color-scheme' },
-    colorSchemes: { light: true, dark: true },
-});
-
-// Міні-компонент для іконок в тулбарі (без змін)
+// Цей компонент не потребує змін
 function DashIcons({ lockMode, setLockMode, onAddClick, onDiscoveryClick, onDeleteDashboard }) {
     const [anchorEl, setAnchorEl] = useState(null);
     return (
@@ -47,7 +42,7 @@ function DashIcons({ lockMode, setLockMode, onAddClick, onDiscoveryClick, onDele
     );
 }
 
-function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handlers }) {
+function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, handlers }) { // <--- 'handlers' тепер тут
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -59,13 +54,10 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
   const [isAddDashDialogOpen, setAddDashDialogOpen] = useState(false);
   const [newDashTitle, setNewDashTitle] = useState("");
 
-  // --- ЗМІНА 1: Створюємо кастомний обробник навігації ---
   const handleNavigation = (path) => {
-    // Якщо це наш спеціальний шлях, не переходимо по URL, а відкриваємо діалог
     if (path === '/add-dash') {
       setAddDashDialogOpen(true);
     } else {
-      // Для всіх інших шляхів - стандартна навігація
       navigate(path);
     }
   };
@@ -73,21 +65,15 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
   const router = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
     return {
-      // Передаємо нашу нову функцію замість стандартної `navigate`
       navigate: handleNavigation,
       pathname: location.pathname,
       searchParams: searchParams,
     };
-    // Додаємо navigate в залежності, оскільки він використовується в handleNavigation
   }, [navigate, location.pathname, location.search]);
   
-  // --- ЗМІНА 2: Видаляємо useEffect, який реагував на URL /add-dash ---
-  // useEffect(() => { if (location.pathname === "/add-dash") ... }, [location.pathname]); // Цей блок більше не потрібен
-
   const handleCloseAddDashDialog = () => {
     setAddDashDialogOpen(false);
     setNewDashTitle("");
-    // Тепер не потрібно робити navigate(-1), бо URL не змінювався
   };
 
   const handleAddDashboard = () => {
@@ -100,15 +86,11 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
           [newId]: { title: newDashTitle.trim(), components: [] } 
         } 
       }));
-      
-      // Навігуємо на щойно створений дашборд
       navigate(`/${newId}`);
-      // Закриваємо діалог ПІСЛЯ навігації
       handleCloseAddDashDialog();
     }
   };
 
-  // Решта логіки (без змін)
   useEffect(() => {
     if (location.pathname === '/' && Object.keys(appConfig.dashboards).length > 0) {
         navigate(`/${Object.keys(appConfig.dashboards)[0]}`);
@@ -117,8 +99,10 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
     }
   }, [appConfig.dashboards, navigate, location.pathname]);
 
+  const currentDashboardId = location.pathname.split("/")[1] || Object.keys(appConfig.dashboards)[0] || null;
+
   const handleDeleteDashboard = () => {
-    if (Object.keys(appConfig.dashboards).length > 1) {
+    if (currentDashboardId && Object.keys(appConfig.dashboards).length > 1) {
         setAppConfig(prev => {
             const updated = { ...prev.dashboards };
             delete updated[currentDashboardId];
@@ -135,6 +119,8 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
   };
 
   const handleLayoutChange = (newLayout) => {
+    if (!currentDashboardId) return;
+
     setAppConfig(prev => {
       if (!prev.dashboards[currentDashboardId]) return prev;
       
@@ -153,15 +139,18 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
       return { ...prev, dashboards: updatedDashboards };
     });
   };
-
-  const currentDashboardId = location.pathname.split("/")[1] || Object.keys(appConfig.dashboards)[0] || "dashboard";
+  
+  // Визначаємо демо-тему всередині AppLayout, оскільки AppProvider тут
+  const demoTheme = createTheme({
+    cssVariables: { colorSchemeSelector: 'data-toolpad-color-scheme' },
+    colorSchemes: { light: true, dark: true },
+  });
 
   return (
     <AppProvider
       theme={demoTheme}
       router={router}
       branding={{ logo: <img src="https://mui.com/static/logo.png" alt="MUI logo" />, title: "EdwIC" }}
-      // --- ЗМІНА 3: Пункт меню залишається таким самим, але тепер він викликає нашу логіку ---
       navigation={[
         { kind: "header", title: "Мої дашборди" },
         ...Object.entries(appConfig.dashboards).map(([id, { title }]) => ({ segment: id, icon: <DashboardIcon />, title })),
@@ -190,23 +179,65 @@ function AppLayout({ appConfig, setAppConfig, globalConnectionStatus, ...handler
           ),
         }}
       >
-        {/* ... Routes ... (без змін) */}
         <Routes>
           {Object.keys(appConfig.dashboards).map(id => (
-            <Route key={id} path={`/${id}`} element={<DashboardPage dashboard={appConfig.dashboards[id]} onEditComponent={handleEditComponentClick} onDeleteComponent={handlers.handleDeleteComponent} onLayoutChange={handleLayoutChange} lockMode={lockMode} />} />
+            <Route 
+              key={id} 
+              path={`/${id}`} 
+              element={
+                <DashboardPage 
+                  dashboard={appConfig.dashboards[id]} 
+                  onEditComponent={handleEditComponentClick} 
+                  onDeleteComponent={handlers.handleDeleteComponent} 
+                  onLayoutChange={handleLayoutChange} 
+                  lockMode={lockMode} 
+                />
+              } 
+            />
           ))}
-          <Route path="/settings" element={<SettingsPage brokers={appConfig.brokers} setBrokers={handlers.handleSetBrokers} />} />
+          {/* --- ЗМІНА ТУТ --- */}
+          <Route 
+            path="/settings" 
+            element={
+              <SettingsPage 
+                brokers={appConfig.brokers} 
+                // Передаємо функцію handleSetBrokers з об'єкта handlers
+                setBrokers={handlers.handleSetBrokers} 
+              />
+            } 
+          />
+          {/* --- КІНЕЦЬ ЗМІНИ --- */}
           <Route path="*" element={<div>404 - Сторінку не знайдено</div>} />
         </Routes>
       </DashboardLayout>
 
-      {/* Діалоги (без змін) */}
-      <ComponentDialog isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditComponent(null); }} onSave={handlers.handleSaveComponent} onAdd={(newComp) => handlers.handleAddComponent(newComp, currentDashboardId)} component={editComponent} isEdit={!!editComponent} />
-      <DiscoveryDialog isOpen={isDiscoveryOpen} onClose={() => setIsDiscoveryOpen(false)} onAddEntity={(entity) => handlers.handleAddComponent(entity, currentDashboardId)} />
+      <ComponentDialog 
+        isOpen={isModalOpen} 
+        onClose={() => { setIsModalOpen(false); setEditComponent(null); }} 
+        onSave={handlers.handleSaveComponent} 
+        onAdd={(newComp) => handlers.handleAddComponent(newComp, currentDashboardId)} 
+        component={editComponent} 
+        isEdit={!!editComponent} 
+      />
+      <DiscoveryDialog 
+        isOpen={isDiscoveryOpen} 
+        onClose={() => setIsDiscoveryOpen(false)} 
+        onAddEntity={(entity) => handlers.handleAddComponent(entity, currentDashboardId)} 
+      />
       <Dialog open={isAddDashDialogOpen} onClose={handleCloseAddDashDialog} fullWidth maxWidth="xs">
         <DialogTitle>Додати новий дашборд</DialogTitle>
         <DialogContent>
-          <TextField autoFocus margin="dense" label="Назва дашборду" type="text" fullWidth variant="standard" value={newDashTitle} onChange={(e) => setNewDashTitle(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddDashboard()} />
+          <TextField 
+            autoFocus 
+            margin="dense" 
+            label="Назва дашборду" 
+            type="text" 
+            fullWidth 
+            variant="standard" 
+            value={newDashTitle} 
+            onChange={(e) => setNewDashTitle(e.target.value)} 
+            onKeyPress={(e) => e.key === 'Enter' && handleAddDashboard()} 
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAddDashDialog}>Відмінити</Button>

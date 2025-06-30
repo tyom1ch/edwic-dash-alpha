@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
@@ -11,45 +11,43 @@ import {
   FormControlLabel
 } from "@mui/material";
 import { useNavigate } from 'react-router-dom';
+import useAppConfig from "../hooks/useAppConfig";
 
-// Очікувані пропси з App.jsx:
-// brokers: Array (наприклад, appConfig.brokers)
-// setBrokers: Function (функція для оновлення appConfig.brokers у localStorage)
+// --- ЗМІНА В ПРОПСАХ ---
+// Тепер компонент очікує `setBrokers` як єдиний пропс для оновлення,
+// а не `handlers`. Це простіше.
 function SettingsPage({ brokers, setBrokers }) {
   const navigate = useNavigate();
+  // `useAppConfig` потрібен лише для експорту/імпорту повного конфігу
+  const { appConfig, setAppConfig } = useAppConfig();
+  const fileInputRef = useRef(null);
 
-  // Локальний стан для форми брокера
-  // Ми працюємо з першим брокером у масиві 'brokers' або створюємо заглушку
   const initialBrokerState = brokers && brokers.length > 0 ? { ...brokers[0] } : {
-    id: '', // Буде згенеровано при першому збереженні
-    name: 'Основний брокер', // Дефолтна назва
+    id: '',
+    name: 'Основний брокер',
     host: "",
     port: "",
     username: "",
     password: "",
-    main_topic: "", // Це поле більше не використовується ядром для підключення, лише для зручності UI
-    secure: false, // Для wss://
-    basepath: "", // Для шляху в URL, напр. /ws
+    discovery_topic: "homeassistant",
+    secure: false,
+    basepath: "",
   };
+
   const [currentBrokerConfig, setCurrentBrokerConfig] = useState(initialBrokerState);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [tabIndex, setTabIndex] = useState(0); // 0: Резервне копіювання, 1: Конфігурація Брокера
-  const [loading, setLoading] = useState(false); // Для індикації збереження
-  const [error, setError] = useState(""); // Для відображення помилок збереження
-
-  // useEffect для синхронізації локального стану форми з пропсом 'brokers'
-  // Це потрібно, щоб форма оновлювалася, якщо 'brokers' змінився ззовні (наприклад, після перезавантаження App)
   useEffect(() => {
     if (brokers && brokers.length > 0) {
       setCurrentBrokerConfig({ ...brokers[0] });
     } else {
-      // Якщо брокерів немає, скинути форму або показати дефолтний порожній стан
       setCurrentBrokerConfig({
-        id: '', name: 'Основний брокер', host: '', port: '', username: '', password: '', main_topic: '', secure: false, basepath: '',
+        id: '', name: 'Основний брокер', host: '', port: '', username: '', password: '', discovery_topic: 'homeassistant', secure: false, basepath: '',
       });
     }
-  }, [brokers]); // Залежить від зміни пропса 'brokers'
-
+  }, [brokers]);
 
   const handleBrokerConfigChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -68,28 +66,24 @@ function SettingsPage({ brokers, setBrokers }) {
         throw new Error("Host та Port брокера є обов'язковими.");
       }
 
-      let updatedBrokers = [];
-      const newBrokerId = currentBrokerConfig.id || `broker-${Date.now()}`; // Генеруємо ID, якщо його немає
-
+      const newBrokerId = currentBrokerConfig.id || `broker-${Date.now()}`;
       const brokerToSave = {
         ...currentBrokerConfig,
         id: newBrokerId,
-        port: parseInt(currentBrokerConfig.port), // Перетворюємо порт в число
-        basepath: currentBrokerConfig.basepath, // Зберігаємо basepath
+        port: parseInt(currentBrokerConfig.port, 10),
+        basepath: currentBrokerConfig.basepath || "",
+        discovery_topic: currentBrokerConfig.discovery_topic?.trim() || "homeassistant",
       };
 
-      if (brokers && brokers.length > 0 && brokers[0].id) {
-        // Якщо брокер вже існує (оновлюємо перший брокер у масиві)
-        updatedBrokers = brokers.map((b, index) => index === 0 ? brokerToSave : b);
-      } else {
-        // Якщо брокерів немає, додаємо новий брокер як перший елемент масиву
-        updatedBrokers = [brokerToSave];
-      }
-
-      setBrokers(updatedBrokers); // Викликаємо функцію з App.jsx, щоб оновити appConfig.brokers в localStorage
-
-      // navigate("/dashboard"); 
-      // // Перекидаємо на дашборд
+      // Оновлюємо лише першого брокера в масиві або додаємо, якщо масив порожній
+      const updatedBrokers = brokers && brokers.length > 0
+        ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
+        : [brokerToSave];
+      
+      // --- ВИКОРИСТОВУЄМО ПРОПС `setBrokers` ---
+      setBrokers(updatedBrokers);
+      alert("Налаштування брокера збережено. З'єднання буде оновлено автоматично.");
+      
     } catch (err) {
       setError(err.message);
       console.error("Помилка збереження налаштувань брокера:", err);
@@ -98,6 +92,56 @@ function SettingsPage({ brokers, setBrokers }) {
     }
   };
 
+  const handleExport = () => {
+    try {
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(appConfig, null, 2))}`;
+      const link = document.createElement("a");
+      link.href = jsonString;
+      link.download = `edwic-backup-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+    } catch (err) {
+      setError("Не вдалося експортувати налаштування.");
+      console.error("Export error:", err);
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedConfig = JSON.parse(e.target.result);
+        if (importedConfig && importedConfig.brokers && importedConfig.dashboards) {
+          if (window.confirm("Ви впевнені, що хочете імпортувати нові налаштування? Поточні налаштування будуть перезаписані.")) {
+            setAppConfig(importedConfig);
+            alert("Налаштування успішно імпортовано! Додаток буде перезавантажено.");
+            window.location.reload();
+          }
+        } else {
+          throw new Error("Некоректний формат файлу конфігурації.");
+        }
+      } catch (err) {
+        setError(`Помилка імпорту: ${err.message}`);
+        console.error("Import error:", err);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = null;
+  };
+  
+  const handleReset = () => {
+    if (window.confirm("ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування брокера. Відмінити це буде неможливо.")) {
+      localStorage.removeItem("appConfig");
+      alert("Всі налаштування скинуто. Додаток буде перезавантажено.");
+      window.location.reload();
+    }
+  };
 
   return (
     <Box sx={{ maxWidth: 600, margin: "auto", padding: 2 }}>
@@ -108,35 +152,41 @@ function SettingsPage({ brokers, setBrokers }) {
       <Tabs value={tabIndex} onChange={(e, newIndex) => setTabIndex(newIndex)} sx={{ mb: 2 }}>
         <Tab label="Резервне копіювання" />
         <Tab label="Конфігурація Брокера" />
-        {/* Вкладка для InfluxDB конфігурації видалена, так як її не потрібно вводити користувачу */}
       </Tabs>
 
-      {tabIndex === 0 && ( // Вкладка: Резервне копіювання
+      {tabIndex === 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom>Резервне копіювання та відновлення</Typography>
-          <Button variant="contained" fullWidth sx={{ mb: 1 }}>
+          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleExport}>
             Експорт Налаштувань (JSON)
           </Button>
-          <Button variant="contained" fullWidth sx={{ mb: 1 }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            accept=".json"
+          />
+          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleImportClick}>
             Імпорт Налаштувань (JSON)
           </Button>
-          <Button variant="contained" color="error" fullWidth>
+          <Button variant="contained" color="error" fullWidth onClick={handleReset}>
             Скинути Всі Налаштування
           </Button>
           <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-            Це скине всі брокери, дашборди та правила алертів!
+            Це скине всі брокери, дашборди та віджети!
           </Typography>
         </Box>
       )}
 
-      {tabIndex === 1 && ( // Вкладка: Конфігурація Брокера
+      {tabIndex === 1 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom>Конфігурація Основного MQTT Брокера</Typography>
           <TextField
             fullWidth
             label="IP брокера / Hostname"
             name="host"
-            value={currentBrokerConfig.host}
+            value={currentBrokerConfig.host || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
             required
@@ -145,7 +195,7 @@ function SettingsPage({ brokers, setBrokers }) {
             fullWidth
             label="Порт брокера (WebSockets, напр. 8083)"
             name="port"
-            value={currentBrokerConfig.port}
+            value={currentBrokerConfig.port || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
             type="number"
@@ -155,7 +205,7 @@ function SettingsPage({ brokers, setBrokers }) {
             fullWidth
             label="Логін"
             name="username"
-            value={currentBrokerConfig.username}
+            value={currentBrokerConfig.username || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
           />
@@ -164,31 +214,30 @@ function SettingsPage({ brokers, setBrokers }) {
             label="Пароль"
             type="password"
             name="password"
-            value={currentBrokerConfig.password}
+            value={currentBrokerConfig.password || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
           />
-          {/* Нове поле для Basepath */}
           <TextField
             fullWidth
             label="Базовий шлях (Basepath, напр. /ws)"
             name="basepath"
-            value={currentBrokerConfig.basepath}
+            value={currentBrokerConfig.basepath || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
             helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)"
           />
           <TextField
             fullWidth
-            label="Основний топік (не використовується ядром)"
-            name="main_topic"
-            value={currentBrokerConfig.main_topic}
+            label="Топік для Discovery"
+            name="discovery_topic"
+            value={currentBrokerConfig.discovery_topic || ""}
             onChange={handleBrokerConfigChange}
             sx={{ mb: 2 }}
-            helperText="Це поле більше не використовується ядром для підключення. Воно залишається для вашої зручності."
+            helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'."
           />
           <FormControlLabel
-              control={<Checkbox checked={currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" />}
+              control={<Checkbox checked={!!currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" />}
               label="Використовувати Secure WebSockets (WSS)"
               sx={{ mb: 2 }}
           />
@@ -205,21 +254,16 @@ function SettingsPage({ brokers, setBrokers }) {
             onClick={handleSaveBroker}
             disabled={loading}
           >
-            {loading ? (
-              <CircularProgress size={24} />
-            ) : (
-              "Зберегти Налаштування Брокера"
-            )}
+            {loading ? <CircularProgress size={24} /> : "Зберегти Налаштування Брокера"}
           </Button>
         </Box>
       )}
 
-      {/* Кнопка "Повернутися на Дашборд" тепер окремо, не залежить від вкладки */}
       <Button
         variant="outlined"
         fullWidth
         sx={{ mt: 4 }}
-        onClick={() => navigate("/dashboard")}
+        onClick={() => navigate(`/${Object.keys(appConfig.dashboards)[0] || ''}`)}
       >
         Повернутися на Дашборд
       </Button>
