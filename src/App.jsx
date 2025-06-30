@@ -13,15 +13,6 @@ import eventBus from "./core/EventBus"; // Імпортуємо EventBus
 
 import './core/DiscoveryService'; // Імпортуємо DiscoveryService для ініціалізації
 
-// --- Функції Capacitor ---
-if (Capacitor.isNativePlatform()) {
-  try {
-    StatusBar.hide();
-  } catch (e) {
-    console.warn("StatusBar.hide() failed:", e);
-  }
-}
-
 // --- ВИНОСИМО ЛОГІКУ КЕРУВАННЯ З'ЄДНАННЯМИ ЗА МЕЖІ КОМПОНЕНТА ---
 let isInitialized = false; // Прапорець, щоб ініціалізація відбулася лише один раз
 
@@ -34,6 +25,31 @@ const initializeConnections = (config) => {
 };
 
 const App = () => {
+  // --- Функції Capacitor ---
+ useEffect(() => {
+    const setupNativeSettings = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Приховуємо статус-бар. На Android це працює надійно.
+          await StatusBar.hide();
+
+          // Для iOS можна додатково встановити стиль, якщо статус-бар частково видимий
+          if (Capacitor.getPlatform() === 'ios') {
+            await StatusBar.setStyle({ style: Style.Dark });
+          }
+
+          // Приховуємо сплеш-скрін, коли додаток готовий
+          await SplashScreen.hide();
+
+        } catch (e) {
+          console.error("Failed to apply native settings:", e);
+        }
+      }
+    };
+
+    setupNativeSettings();
+  }, []);
+  
   const [themeMode] = useLocalStorage("themeMode", "light");
   const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
 
