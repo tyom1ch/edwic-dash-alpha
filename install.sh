@@ -19,6 +19,7 @@ IP=$(ip route get 1 | awk '{print $7; exit}')
 URL="http://$IP:$PORT"
 
 echo "Перевірка доступності..."
+sleep 3
 
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:4173 | grep -q "200"; then
   echo "✅ Все гуд, сервер запущено!"
