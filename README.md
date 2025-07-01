@@ -45,9 +45,4 @@ http://<IP_машини_де_запущено>:4173
   ```bash
   docker restart edwic-dash
   ```
-
-* Зупинити Python-сервер:
-
-  > натисни `Ctrl+C` в терміналі
-
 ---
