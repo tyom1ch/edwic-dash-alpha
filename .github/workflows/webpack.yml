@@ -30,7 +30,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
       
       - name: Create 404.html for SPA routing
-        run: cp ./index.html ./404.html
+        run: cp ./build/index.html ./build/404.html
 
       - name: Deploy to GitHub Pages
         run: npm run deploy
