@@ -21,4 +21,4 @@ URL="http://$IP:$PORT"
 echo "Заходь сюди: $URL"
 echo "Перевірка доступності..."
 
-curl --fail $URL && echo "Все гуд)" || echo "Щось не так..."
+curl --fail http://localhost:$PORT && echo "Все гуд)" || echo "Щось не так..."
