@@ -4,7 +4,7 @@
 
 ---
 
-## ⚡ One-liner для запуску (Docker)
+## ⚡ One-liner для запуску
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/install.sh -o install.sh && bash install.sh
@@ -12,14 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/insta
 
 ---
 
-## 🐍 Альтернатива: запуск з `gh-pages` на Python (мінімально)
-
-```bash
-git clone --depth=1 --branch gh-pages https://github.com/tyom1ch/edwic-dash-alpha.git edwic-dash-ghpages && \
-cd edwic-dash-ghpages && python3 -m http.server 4173
-```
-
-> ⚠️ Потрібен встановлений **Python 3**
+> ⚠️ Потрібен встановлений **Docker**
 
 ---
 
