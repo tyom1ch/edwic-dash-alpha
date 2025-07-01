@@ -20,4 +20,4 @@ COPY --from=builder /app/dist .
 
 EXPOSE 4173
 
-CMD ["serve", "-s", ".", "-l", "4173", "--host", "0.0.0.0"]
+CMD ["serve", "-s", ".", "-l", "0.0.0.0:4173"]
