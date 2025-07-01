@@ -20,4 +20,4 @@ COPY --from=builder /app/dist .
 
 EXPOSE 4173
 
-CMD ["serve", "-s", ".", "-l", "4173"]
+CMD sh -c "echo '⚡Dash is running on: http://localhost:4173' && serve -s . -l 4173"
