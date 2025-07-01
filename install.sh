@@ -18,7 +18,11 @@ docker run -d -p $PORT:$PORT --name $CONTAINER_NAME $IMAGE
 IP=$(ip route get 1 | awk '{print $7; exit}')
 URL="http://$IP:$PORT"
 
-echo "Заходь сюди: $URL"
 echo "Перевірка доступності..."
 
-curl --fail http://localhost:$PORT && echo "Все гуд)" || echo "Щось не так..."
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:4173 | grep -q "200"; then
+  echo "✅ Все гуд, сервер запущено!"
+  echo "Заходь сюди: $URL"
+else
+  echo "❌ Щось не так, але можливо сервер ще не встиг стартанути"
+fi
