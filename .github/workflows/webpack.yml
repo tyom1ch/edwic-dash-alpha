@@ -31,6 +31,9 @@ jobs:
       
       - name: Create 404.html for SPA routing
         run: cp ./dist/index.html ./dist/404.html
+        
+      - name: Check dist contents after copying 404
+        run: ls -la ./dist
 
       - name: Deploy to GitHub Pages
         run: npm run deploy
