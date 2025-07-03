@@ -12,44 +12,16 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
-
 import { Capacitor } from "@capacitor/core";
 
-// --- ЗМІНА В ПРОПСАХ ---
-// Тепер компонент очікує `setBrokers` як єдиний пропс для оновлення,
-// а не `handlers`. Це простіше.
 function SettingsPage({ brokers, setBrokers }) {
   const navigate = useNavigate();
-  // `useAppConfig` потрібен лише для експорту/імпорту повного конфігу
   const { appConfig, setAppConfig } = useAppConfig();
   const fileInputRef = useRef(null);
 
-  const initialBrokerState =
-    brokers && brokers.length > 0
-      ? { ...brokers[0] }
-      : {
-          id: "",
-          name: "Основний брокер",
-          host: "",
-          port: "",
-          username: "",
-          password: "",
-          discovery_topic: "homeassistant",
-          secure: false,
-          basepath: "",
-        };
-
-  const [currentBrokerConfig, setCurrentBrokerConfig] =
-    useState(initialBrokerState);
-  const [tabIndex, setTabIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (brokers && brokers.length > 0) {
-      setCurrentBrokerConfig({ ...brokers[0] });
-    } else {
-      setCurrentBrokerConfig({
+  const initialBrokerState = brokers?.length
+    ? { ...brokers[0] }
+    : {
         id: "",
         name: "Основний брокер",
         host: "",
@@ -59,7 +31,18 @@ function SettingsPage({ brokers, setBrokers }) {
         discovery_topic: "homeassistant",
         secure: false,
         basepath: "",
-      });
+      };
+
+  const [currentBrokerConfig, setCurrentBrokerConfig] = useState(initialBrokerState);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (brokers?.length) {
+      setCurrentBrokerConfig({ ...brokers[0] });
+    } else {
+      setCurrentBrokerConfig(initialBrokerState);
     }
   }, [brokers]);
 
@@ -90,17 +73,12 @@ function SettingsPage({ brokers, setBrokers }) {
           currentBrokerConfig.discovery_topic?.trim() || "homeassistant",
       };
 
-      // Оновлюємо лише першого брокера в масиві або додаємо, якщо масив порожній
-      const updatedBrokers =
-        brokers && brokers.length > 0
-          ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
-          : [brokerToSave];
+      const updatedBrokers = brokers?.length
+        ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
+        : [brokerToSave];
 
-      // --- ВИКОРИСТОВУЄМО ПРОПС `setBrokers` ---
       setBrokers(updatedBrokers);
-      alert(
-        "Налаштування брокера збережено. З'єднання буде оновлено автоматично."
-      );
+      alert("Налаштування брокера збережено. З'єднання буде оновлено автоматично.");
     } catch (err) {
       setError(err.message);
       console.error("Помилка збереження налаштувань брокера:", err);
@@ -114,10 +92,10 @@ function SettingsPage({ brokers, setBrokers }) {
     const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
 
     if (Capacitor.isNativePlatform()) {
-      const Filesystem = Capacitor.Plugins.Filesystem;
-      const Share = Capacitor.Plugins.Share;
+      const Filesystem = Capacitor.Plugins?.Filesystem;
+      const Share = Capacitor.Plugins?.Share;
 
-      await Filesystem.writeFile({
+      const result = await Filesystem.writeFile({
         path: fileName,
         data: json,
         directory: "DOCUMENTS",
@@ -127,7 +105,7 @@ function SettingsPage({ brokers, setBrokers }) {
       await Share.share({
         title: "Експорт налаштувань",
         text: "Ваші налаштування EdWic",
-        url: `file://${fileName}`,
+        url: `file://${result.uri}`,
         dialogTitle: "Поділитись або зберегти файл",
       });
     } else {
@@ -141,9 +119,7 @@ function SettingsPage({ brokers, setBrokers }) {
     }
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current.click();
-  };
+  const handleImportClick = () => fileInputRef.current.click();
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -153,20 +129,14 @@ function SettingsPage({ brokers, setBrokers }) {
     reader.onload = (e) => {
       try {
         const importedConfig = JSON.parse(e.target.result);
-        if (
-          importedConfig &&
-          importedConfig.brokers &&
-          importedConfig.dashboards
-        ) {
+        if (importedConfig?.brokers && importedConfig?.dashboards) {
           if (
             window.confirm(
               "Ви впевнені, що хочете імпортувати нові налаштування? Поточні налаштування будуть перезаписані."
             )
           ) {
             setAppConfig(importedConfig);
-            alert(
-              "Налаштування успішно імпортовано! Додаток буде перезавантажено."
-            );
+            alert("Налаштування успішно імпортовано! Додаток буде перезавантажено.");
             window.location.reload();
           }
         } else {
@@ -199,161 +169,42 @@ function SettingsPage({ brokers, setBrokers }) {
         Налаштування EdWic
       </Typography>
 
-      <Tabs
-        value={tabIndex}
-        onChange={(e, newIndex) => setTabIndex(newIndex)}
-        sx={{ mb: 2 }}
-      >
+      <Tabs value={tabIndex} onChange={(e, newIndex) => setTabIndex(newIndex)} sx={{ mb: 2 }}>
         <Tab label="Резервне копіювання" />
         <Tab label="Конфігурація Брокера" />
       </Tabs>
 
       {tabIndex === 0 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Резервне копіювання та відновлення
-          </Typography>
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mb: 1 }}
-            onClick={handleExport}
-          >
-            Експорт Налаштувань (JSON)
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-            accept=".json"
-          />
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mb: 1 }}
-            onClick={handleImportClick}
-          >
-            Імпорт Налаштувань (JSON)
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            fullWidth
-            onClick={handleReset}
-          >
-            Скинути Всі Налаштування
-          </Button>
-          <Typography
-            variant="caption"
-            display="block"
-            sx={{ mt: 1, color: "text.secondary" }}
-          >
-            Це скине всі брокери, дашборди та віджети!
-          </Typography>
+          <Typography variant="h6" gutterBottom>Резервне копіювання та відновлення</Typography>
+          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleExport}>Експорт Налаштувань (JSON)</Button>
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} accept=".json" />
+          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleImportClick}>Імпорт Налаштувань (JSON)</Button>
+          <Button variant="contained" color="error" fullWidth onClick={handleReset}>Скинути Всі Налаштування</Button>
+          <Typography variant="caption" display="block" sx={{ mt: 1, color: "text.secondary" }}>Це скине всі брокери, дашборди та віджети!</Typography>
         </Box>
       )}
 
       {tabIndex === 1 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Конфігурація Основного MQTT Брокера
-          </Typography>
-          <TextField
-            fullWidth
-            label="IP брокера / Hostname"
-            name="host"
-            value={currentBrokerConfig.host || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            required
-          />
-          <TextField
-            fullWidth
-            label="Порт брокера (WebSockets, напр. 8083)"
-            name="port"
-            value={currentBrokerConfig.port || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            type="number"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Логін"
-            name="username"
-            value={currentBrokerConfig.username || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Пароль"
-            type="password"
-            name="password"
-            value={currentBrokerConfig.password || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Базовий шлях (Basepath, напр. /ws)"
-            name="basepath"
-            value={currentBrokerConfig.basepath || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)"
-          />
-          <TextField
-            fullWidth
-            label="Топік для Discovery"
-            name="discovery_topic"
-            value={currentBrokerConfig.discovery_topic || ""}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'."
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={!!currentBrokerConfig.secure}
-                onChange={handleBrokerConfigChange}
-                name="secure"
-              />
-            }
-            label="Використовувати Secure WebSockets (WSS)"
-            sx={{ mb: 2 }}
-          />
+          <Typography variant="h6" gutterBottom>Конфігурація Основного MQTT Брокера</Typography>
+          <TextField fullWidth label="IP брокера / Hostname" name="host" value={currentBrokerConfig.host} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} required />
+          <TextField fullWidth label="Порт брокера (WebSockets, напр. 8083)" name="port" value={currentBrokerConfig.port} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} type="number" required />
+          <TextField fullWidth label="Логін" name="username" value={currentBrokerConfig.username} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Пароль" type="password" name="password" value={currentBrokerConfig.password} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Базовий шлях (Basepath, напр. /ws)" name="basepath" value={currentBrokerConfig.basepath} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)" />
+          <TextField fullWidth label="Топік для Discovery" name="discovery_topic" value={currentBrokerConfig.discovery_topic} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'." />
+          <FormControlLabel control={<Checkbox checked={!!currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" />} label="Використовувати Secure WebSockets (WSS)" sx={{ mb: 2 }} />
 
-          {error && (
-            <Typography color="error" sx={{ mb: 2 }}>
-              {error}
-            </Typography>
-          )}
+          {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleSaveBroker}
-            disabled={loading}
-          >
-            {loading ? (
-              <CircularProgress size={24} />
-            ) : (
-              "Зберегти Налаштування Брокера"
-            )}
+          <Button variant="contained" fullWidth onClick={handleSaveBroker} disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : "Зберегти Налаштування Брокера"}
           </Button>
         </Box>
       )}
 
-      <Button
-        variant="outlined"
-        fullWidth
-        sx={{ mt: 4 }}
-        onClick={() =>
-          navigate(`/${Object.keys(appConfig.dashboards)[0] || ""}`)
-        }
-      >
+      <Button variant="outlined" fullWidth sx={{ mt: 4 }} onClick={() => navigate(`/${Object.keys(appConfig.dashboards)[0] || ""}`)}>
         Повернутися на Дашборд
       </Button>
     </Box>
