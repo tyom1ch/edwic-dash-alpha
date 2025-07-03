@@ -925,6 +925,7 @@ int layout select_dialog_singlechoice_material 0x7f0b002b
 int layout splash_screen_view 0x7f0b002c
 int layout support_simple_spinner_dropdown_item 0x7f0b002d
 int mipmap ic_launcher 0x7f0c0000
+int mipmap ic_launcher_background 0x7f0c0003
 int mipmap ic_launcher_foreground 0x7f0c0001
 int mipmap ic_launcher_round 0x7f0c0002
 int string abc_action_bar_home_description 0x7f0d0000
