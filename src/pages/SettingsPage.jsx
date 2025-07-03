@@ -14,8 +14,6 @@ import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
 
 import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
 
 // --- ЗМІНА В ПРОПСАХ ---
 // Тепер компонент очікує `setBrokers` як єдиний пропс для оновлення,
@@ -112,38 +110,34 @@ function SettingsPage({ brokers, setBrokers }) {
   };
 
   const handleExport = async () => {
-    try {
-      const exportData = JSON.stringify(appConfig, null, 2);
-      const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
+    const json = JSON.stringify(appConfig, null, 2);
+    const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
 
-      if (Capacitor.isNativePlatform()) {
-        // 📱 На мобілках: зберігаємо файл і ділимося ним
-        await Filesystem.writeFile({
-          path: fileName,
-          data: exportData,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8,
-        });
+    if (Capacitor.isNativePlatform()) {
+      const Filesystem = Capacitor.Plugins.Filesystem;
+      const Share = Capacitor.Plugins.Share;
 
-        await Share.share({
-          title: "Експорт налаштувань",
-          text: "Ось ваші налаштування EdWic",
-          url: `file://${fileName}`,
-          dialogTitle: "Поділитись або зберегти файл",
-        });
-      } else {
-        // 💻 У браузері: класичне завантаження
-        const blob = new Blob([exportData], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      setError("Не вдалося експортувати налаштування.");
-      console.error("Export error:", err);
+      await Filesystem.writeFile({
+        path: fileName,
+        data: json,
+        directory: "DOCUMENTS",
+        encoding: "utf8",
+      });
+
+      await Share.share({
+        title: "Експорт налаштувань",
+        text: "Ваші налаштування EdWic",
+        url: `file://${fileName}`,
+        dialogTitle: "Поділитись або зберегти файл",
+      });
+    } else {
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
     }
   };
 
