@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.edwic.dashboard.app-mergeDebugResources-25:/values/values.xml",
+            "outputFile": "com.edwic.dashboard.app-mergeDebugResources-29:/values/values.xml",
             "map": [
                 {
                     "source": "/home/tyom1ch/Work/Pet/mqtt-dashboard/android/app/src/main/res/values/styles.xml",
@@ -201,6 +201,23 @@
                     }
                 },
                 {
+                    "source": "/home/tyom1ch/.gradle/caches/8.11.1/transforms/d8c531c2afb462bf72eed5fcccc5521b/transformed/activity-1.9.3/res/values/values.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,97",
+                        "endColumns": "41,59",
+                        "endOffsets": "92,152"
+                    },
+                    "to": {
+                        "startLines": "259,280",
+                        "startColumns": "4,4",
+                        "startOffsets": "17155,18242",
+                        "endColumns": "41,59",
+                        "endOffsets": "17192,18297"
+                    }
+                },
+                {
                     "source": "/home/tyom1ch/.gradle/caches/8.11.1/transforms/75881b531e34911967ea794bd3408c30/transformed/coordinatorlayout-1.2.0/res/values/values.xml",
                     "from": {
                         "startLines": "2,3,6,16",
@@ -234,23 +251,6 @@
                         "startOffsets": "3637",
                         "endColumns": "56",
                         "endOffsets": "3689"
-                    }
-                },
-                {
-                    "source": "/home/tyom1ch/.gradle/caches/8.11.1/transforms/b5af023aa879967c1b3537c24628d5a4/transformed/activity-1.9.2/res/values/values.xml",
-                    "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,97",
-                        "endColumns": "41,59",
-                        "endOffsets": "92,152"
-                    },
-                    "to": {
-                        "startLines": "259,280",
-                        "startColumns": "4,4",
-                        "startOffsets": "17155,18242",
-                        "endColumns": "41,59",
-                        "endOffsets": "17192,18297"
                     }
                 },
                 {

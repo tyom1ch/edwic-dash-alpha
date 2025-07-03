@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.edwic.dashboard.app-mergeDebugResources-25:/values-v27/values-v27.xml",
+            "outputFile": "com.edwic.dashboard.app-mergeDebugResources-29:/values-v27/values-v27.xml",
             "map": [
                 {
                     "source": "/home/tyom1ch/.gradle/caches/8.11.1/transforms/ef234481c09f01fb9f0508a5da2b1126/transformed/core-splashscreen-1.0.1/res/values-v27/values-v27.xml",

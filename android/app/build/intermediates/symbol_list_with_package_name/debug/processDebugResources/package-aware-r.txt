@@ -909,6 +909,7 @@ layout abc_select_dialog_material
 layout abc_tooltip
 layout activity_main
 layout bridge_layout_main
+layout capacitor_bridge_layout_main
 layout custom_dialog
 layout ime_base_split_test_activity
 layout ime_secondary_split_test_activity

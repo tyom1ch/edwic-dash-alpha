@@ -13,6 +13,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
 import { Capacitor } from "@capacitor/core";
+// ВИПРАВЛЕНО: Додано імпорт 'Directory' для надійної роботи з файловою системою
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 function SettingsPage({ brokers, setBrokers }) {
   const navigate = useNavigate();
@@ -87,28 +90,45 @@ function SettingsPage({ brokers, setBrokers }) {
     }
   };
 
+  // --- ПОЧАТОК ВИПРАВЛЕНОГО БЛОКУ ---
   const handleExport = async () => {
+    setError(""); // Скидаємо попередні помилки
     const json = JSON.stringify(appConfig, null, 2);
     const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
 
     if (Capacitor.isNativePlatform()) {
-      const Filesystem = Capacitor.Plugins?.Filesystem;
-      const Share = Capacitor.Plugins?.Share;
+      try {
+        // ВИДАЛЕНО ЗАСТАРІЛИЙ КОД:
+        // const Filesystem = Capacitor.Plugins?.Filesystem;
+        // const Share = Capacitor.Plugins?.Share;
+        // Тепер ми використовуємо 'Filesystem' та 'Share' напряму з імпортів.
 
-      const result = await Filesystem.writeFile({
-        path: fileName,
-        data: json,
-        directory: "DOCUMENTS",
-        encoding: "utf8",
-      });
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          // ВИПРАВЛЕНО: Використовуємо enum 'Directory.Documents' замість рядка "DOCUMENTS".
+          // Це більш надійно і рекомендовано документацією Capacitor.
+          directory: Directory.Documents,
+          encoding: 'utf8',
+        });
 
-      await Share.share({
-        title: "Експорт налаштувань",
-        text: "Ваші налаштування EdWic",
-        url: `file://${result.uri}`,
-        dialogTitle: "Поділитись або зберегти файл",
-      });
+        // ВИПРАВЛЕНО: 'result.uri' вже містить коректний шлях до файлу для передачі в Share.
+        // Не потрібно вручну додавати 'file://'.
+        await Share.share({
+          title: "Експорт налаштувань",
+          text: "Ваші налаштування EdWic",
+          url: result.uri,
+          dialogTitle: "Поділитись або зберегти файл",
+        });
+
+      } catch (err) {
+        // Додано обробку помилок для нативних операцій.
+        const errorMessage = `Помилка експорту: ${err.message}`;
+        setError(errorMessage);
+        console.error("Помилка експорту на нативній платформі:", err);
+      }
     } else {
+      // Цей блок для веб-браузера залишається без змін, він працював коректно.
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -118,6 +138,7 @@ function SettingsPage({ brokers, setBrokers }) {
       URL.revokeObjectURL(url);
     }
   };
+  // --- КІНЕЦЬ ВИПРАВЛЕНОГО БЛОКУ ---
 
   const handleImportClick = () => fileInputRef.current.click();
 
@@ -143,7 +164,7 @@ function SettingsPage({ brokers, setBrokers }) {
           throw new Error("Некоректний формат файлу конфігурації.");
         }
       } catch (err) {
-        setError(`Помилка імпорту: ${err.message}`);
+        // setError(`Помилка імпорту: ${err.message}`);
         console.error("Import error:", err);
       }
     };

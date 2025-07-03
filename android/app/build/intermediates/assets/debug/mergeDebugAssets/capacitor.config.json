@@ -1,6 +1,6 @@
 {
 	"appId": "com.edwic.dashboard",
-	"appName": "EdwIC.Dash [beta]",
+	"appName": "EdwIC [beta]",
 	"webDir": "dist",
 	"server": {
 		"androidScheme": "http",
