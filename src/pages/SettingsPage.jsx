@@ -8,10 +8,14 @@ import {
   Typography,
   CircularProgress,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
 } from "@mui/material";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
+
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 // --- ЗМІНА В ПРОПСАХ ---
 // Тепер компонент очікує `setBrokers` як єдиний пропс для оновлення,
@@ -22,19 +26,23 @@ function SettingsPage({ brokers, setBrokers }) {
   const { appConfig, setAppConfig } = useAppConfig();
   const fileInputRef = useRef(null);
 
-  const initialBrokerState = brokers && brokers.length > 0 ? { ...brokers[0] } : {
-    id: '',
-    name: 'Основний брокер',
-    host: "",
-    port: "",
-    username: "",
-    password: "",
-    discovery_topic: "homeassistant",
-    secure: false,
-    basepath: "",
-  };
+  const initialBrokerState =
+    brokers && brokers.length > 0
+      ? { ...brokers[0] }
+      : {
+          id: "",
+          name: "Основний брокер",
+          host: "",
+          port: "",
+          username: "",
+          password: "",
+          discovery_topic: "homeassistant",
+          secure: false,
+          basepath: "",
+        };
 
-  const [currentBrokerConfig, setCurrentBrokerConfig] = useState(initialBrokerState);
+  const [currentBrokerConfig, setCurrentBrokerConfig] =
+    useState(initialBrokerState);
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,16 +52,24 @@ function SettingsPage({ brokers, setBrokers }) {
       setCurrentBrokerConfig({ ...brokers[0] });
     } else {
       setCurrentBrokerConfig({
-        id: '', name: 'Основний брокер', host: '', port: '', username: '', password: '', discovery_topic: 'homeassistant', secure: false, basepath: '',
+        id: "",
+        name: "Основний брокер",
+        host: "",
+        port: "",
+        username: "",
+        password: "",
+        discovery_topic: "homeassistant",
+        secure: false,
+        basepath: "",
       });
     }
   }, [brokers]);
 
   const handleBrokerConfigChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCurrentBrokerConfig(prev => ({
+    setCurrentBrokerConfig((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -72,18 +88,21 @@ function SettingsPage({ brokers, setBrokers }) {
         id: newBrokerId,
         port: parseInt(currentBrokerConfig.port, 10),
         basepath: currentBrokerConfig.basepath || "",
-        discovery_topic: currentBrokerConfig.discovery_topic?.trim() || "homeassistant",
+        discovery_topic:
+          currentBrokerConfig.discovery_topic?.trim() || "homeassistant",
       };
 
       // Оновлюємо лише першого брокера в масиві або додаємо, якщо масив порожній
-      const updatedBrokers = brokers && brokers.length > 0
-        ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
-        : [brokerToSave];
-      
+      const updatedBrokers =
+        brokers && brokers.length > 0
+          ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
+          : [brokerToSave];
+
       // --- ВИКОРИСТОВУЄМО ПРОПС `setBrokers` ---
       setBrokers(updatedBrokers);
-      alert("Налаштування брокера збережено. З'єднання буде оновлено автоматично.");
-      
+      alert(
+        "Налаштування брокера збережено. З'єднання буде оновлено автоматично."
+      );
     } catch (err) {
       setError(err.message);
       console.error("Помилка збереження налаштувань брокера:", err);
@@ -92,13 +111,36 @@ function SettingsPage({ brokers, setBrokers }) {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(appConfig, null, 2))}`;
-      const link = document.createElement("a");
-      link.href = jsonString;
-      link.download = `edwic-backup-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
+      const exportData = JSON.stringify(appConfig, null, 2);
+      const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
+
+      if (Capacitor.isNativePlatform()) {
+        // 📱 На мобілках: зберігаємо файл і ділимося ним
+        await Filesystem.writeFile({
+          path: fileName,
+          data: exportData,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+        });
+
+        await Share.share({
+          title: "Експорт налаштувань",
+          text: "Ось ваші налаштування EdWic",
+          url: `file://${fileName}`,
+          dialogTitle: "Поділитись або зберегти файл",
+        });
+      } else {
+        // 💻 У браузері: класичне завантаження
+        const blob = new Blob([exportData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       setError("Не вдалося експортувати налаштування.");
       console.error("Export error:", err);
@@ -117,10 +159,20 @@ function SettingsPage({ brokers, setBrokers }) {
     reader.onload = (e) => {
       try {
         const importedConfig = JSON.parse(e.target.result);
-        if (importedConfig && importedConfig.brokers && importedConfig.dashboards) {
-          if (window.confirm("Ви впевнені, що хочете імпортувати нові налаштування? Поточні налаштування будуть перезаписані.")) {
+        if (
+          importedConfig &&
+          importedConfig.brokers &&
+          importedConfig.dashboards
+        ) {
+          if (
+            window.confirm(
+              "Ви впевнені, що хочете імпортувати нові налаштування? Поточні налаштування будуть перезаписані."
+            )
+          ) {
             setAppConfig(importedConfig);
-            alert("Налаштування успішно імпортовано! Додаток буде перезавантажено.");
+            alert(
+              "Налаштування успішно імпортовано! Додаток буде перезавантажено."
+            );
             window.location.reload();
           }
         } else {
@@ -134,9 +186,13 @@ function SettingsPage({ brokers, setBrokers }) {
     reader.readAsText(file);
     event.target.value = null;
   };
-  
+
   const handleReset = () => {
-    if (window.confirm("ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування брокера. Відмінити це буде неможливо.")) {
+    if (
+      window.confirm(
+        "ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування брокера. Відмінити це буде неможливо."
+      )
+    ) {
       localStorage.removeItem("appConfig");
       alert("Всі налаштування скинуто. Додаток буде перезавантажено.");
       window.location.reload();
@@ -149,31 +205,56 @@ function SettingsPage({ brokers, setBrokers }) {
         Налаштування EdWic
       </Typography>
 
-      <Tabs value={tabIndex} onChange={(e, newIndex) => setTabIndex(newIndex)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tabIndex}
+        onChange={(e, newIndex) => setTabIndex(newIndex)}
+        sx={{ mb: 2 }}
+      >
         <Tab label="Резервне копіювання" />
         <Tab label="Конфігурація Брокера" />
       </Tabs>
 
       {tabIndex === 0 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>Резервне копіювання та відновлення</Typography>
-          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleExport}>
+          <Typography variant="h6" gutterBottom>
+            Резервне копіювання та відновлення
+          </Typography>
+          <Button
+            variant="contained"
+            fullWidth
+            sx={{ mb: 1 }}
+            onClick={handleExport}
+          >
             Експорт Налаштувань (JSON)
           </Button>
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             accept=".json"
           />
-          <Button variant="contained" fullWidth sx={{ mb: 1 }} onClick={handleImportClick}>
+          <Button
+            variant="contained"
+            fullWidth
+            sx={{ mb: 1 }}
+            onClick={handleImportClick}
+          >
             Імпорт Налаштувань (JSON)
           </Button>
-          <Button variant="contained" color="error" fullWidth onClick={handleReset}>
+          <Button
+            variant="contained"
+            color="error"
+            fullWidth
+            onClick={handleReset}
+          >
             Скинути Всі Налаштування
           </Button>
-          <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+          <Typography
+            variant="caption"
+            display="block"
+            sx={{ mt: 1, color: "text.secondary" }}
+          >
             Це скине всі брокери, дашборди та віджети!
           </Typography>
         </Box>
@@ -181,7 +262,9 @@ function SettingsPage({ brokers, setBrokers }) {
 
       {tabIndex === 1 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>Конфігурація Основного MQTT Брокера</Typography>
+          <Typography variant="h6" gutterBottom>
+            Конфігурація Основного MQTT Брокера
+          </Typography>
           <TextField
             fullWidth
             label="IP брокера / Hostname"
@@ -237,9 +320,15 @@ function SettingsPage({ brokers, setBrokers }) {
             helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'."
           />
           <FormControlLabel
-              control={<Checkbox checked={!!currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" />}
-              label="Використовувати Secure WebSockets (WSS)"
-              sx={{ mb: 2 }}
+            control={
+              <Checkbox
+                checked={!!currentBrokerConfig.secure}
+                onChange={handleBrokerConfigChange}
+                name="secure"
+              />
+            }
+            label="Використовувати Secure WebSockets (WSS)"
+            sx={{ mb: 2 }}
           />
 
           {error && (
@@ -254,7 +343,11 @@ function SettingsPage({ brokers, setBrokers }) {
             onClick={handleSaveBroker}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={24} /> : "Зберегти Налаштування Брокера"}
+            {loading ? (
+              <CircularProgress size={24} />
+            ) : (
+              "Зберегти Налаштування Брокера"
+            )}
           </Button>
         </Box>
       )}
@@ -263,7 +356,9 @@ function SettingsPage({ brokers, setBrokers }) {
         variant="outlined"
         fullWidth
         sx={{ mt: 4 }}
-        onClick={() => navigate(`/${Object.keys(appConfig.dashboards)[0] || ''}`)}
+        onClick={() =>
+          navigate(`/${Object.keys(appConfig.dashboards)[0] || ""}`)
+        }
       >
         Повернутися на Дашборд
       </Button>
