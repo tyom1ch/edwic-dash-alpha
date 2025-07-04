@@ -1,21 +1,28 @@
-name: Update README on Release
+name: Update README on Branch Push
 
 on:
   push:
-    branches: [main, dev]
+    # Запускаємо на пуш в гілки main або dev
+    branches:
+      - main
+      - dev
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # потрібне для релізу
+      contents: write # Права на запис у репозиторій
 
     steps:
-      - name: Checkout
+      - name: Checkout correct branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Щоб git log працював повноцінно
+          # КЛЮЧОВА ЗМІНА:
+          # Вказуємо, яку саме гілку завантажувати.
+          # github.ref_name буде 'main' або 'dev' залежно від того, куди був пуш.
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0  # Залишаємо, щоб мати повну історію для git log
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,18 +30,28 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -q -U google-genai
+        run: pip install -q -U google-generativeai # Виправив назву пакета з genai на generativeai
 
-      - name: Generate README from release
+      - name: Generate README from branch history
         run: python .github/scripts/generate_readme.py
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Commit and push changes
         run: |
+          # Встановлюємо ім'я та email для бота
           git config user.name "readme-bot"
-          git config user.email "bot@example.com"
+          git config user.email "readme-bot@users.noreply.github.com"
+          
+          # Додаємо файл README.md до індексу
           git add README.md
-          # Змінюємо повідомлення коміту тут
-          git diff --cached --quiet || git commit -m "auto: update README for ${{ github.event.release.tag_name }} [skip ci]"
-          git push
+          
+          # Перевіряємо, чи є зміни, і комітимо, якщо є
+          # ВИПРАВЛЕННЯ: Використовуємо github.ref_name замість неіснуючої змінної
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: auto-update README for branch ${{ github.ref_name }} [skip ci]"
+            # Пушимо зміни в ту саму гілку, з якої почали
+            git push origin ${{ github.ref_name }}
+          else
+            echo "No changes to commit in README.md"
+          fi
