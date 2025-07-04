@@ -5,7 +5,7 @@ import connectionManager from './ConnectionManager';
 class DiscoveryService {
     constructor() {
         this.discoveredDevices = new Map();
-        this.currentDiscoveryTopic = null; // Зберігаємо поточний топік (з #)
+        this.currentDiscoveryTopic = null;
         this.setupListeners();
         console.log("[DiscoveryService] Initialized.");
     }
@@ -16,15 +16,11 @@ class DiscoveryService {
             this.updateDiscoverySubscription(brokerId, brokerConfig);
         });
 
-        // Слухаємо зміни конфігурації, щоб перепідписатися на льоту
         eventBus.on('config:updated', (newConfig) => {
             console.log("[DiscoveryService] App config updated, checking for discovery topic changes.");
             const mainBroker = newConfig.brokers?.[0];
-            if (mainBroker) {
-                // Перевіряємо, чи брокер підключений. Якщо так, оновлюємо підписку.
-                if (connectionManager.isConnected(mainBroker.id)) {
-                    this.updateDiscoverySubscription(mainBroker.id, mainBroker);
-                }
+            if (mainBroker && connectionManager.isConnected(mainBroker.id)) {
+                this.updateDiscoverySubscription(mainBroker.id, mainBroker);
             }
         });
 
@@ -32,30 +28,21 @@ class DiscoveryService {
     }
 
     updateDiscoverySubscription(brokerId, brokerConfig) {
-        // Визначаємо топік для Discovery. Якщо поле порожнє, використовуємо 'homeassistant'.
         const discoveryTopicBase = brokerConfig?.discovery_topic?.trim() || 'homeassistant';
         const newDiscoveryTopicWithWildcard = `${discoveryTopicBase}/#`;
 
-        // Якщо топік не змінився, нічого не робимо
         if (this.currentDiscoveryTopic === newDiscoveryTopicWithWildcard) {
-            console.log(`[DiscoveryService] Discovery topic '${newDiscoveryTopicWithWildcard}' has not changed. No action needed.`);
             return;
         }
 
-        // Відписуємось від старого топіка, якщо він був
         if (this.currentDiscoveryTopic) {
-            console.log(`[DiscoveryService] Unsubscribing from old discovery topic: ${this.currentDiscoveryTopic}`);
             connectionManager.unsubscribeFromTopic(brokerId, this.currentDiscoveryTopic);
         }
 
-        // Підписуємось на новий топік
         console.log(`[DiscoveryService] Subscribing to new discovery topic: ${newDiscoveryTopicWithWildcard}`);
         connectionManager.subscribeToTopic(brokerId, newDiscoveryTopicWithWildcard);
         
-        // Оновлюємо поточний топік
         this.currentDiscoveryTopic = newDiscoveryTopicWithWildcard;
-
-        // Очищуємо старі пристрої, оскільки топік змінився
         this.discoveredDevices.clear();
         eventBus.emit('discovery:updated', []);
         console.log("[DiscoveryService] Cleared old devices due to topic change.");
@@ -64,7 +51,6 @@ class DiscoveryService {
     handleMqttMessage(brokerId, topic, messageBuffer) {
         if (!this.currentDiscoveryTopic) return;
 
-        // Перевіряємо, чи повідомлення належить до поточного discovery топіка
         const baseTopic = this.currentDiscoveryTopic.replace('/#', '');
         if (!topic.startsWith(`${baseTopic}/`) || !topic.endsWith('/config')) {
             return;
@@ -86,33 +72,34 @@ class DiscoveryService {
             
             const baseTopicPrefix = config['~'] || null;
             const resolveTopic = (topicFragment) => {
-                if (!topicFragment) return null;
-                if (baseTopicPrefix && topicFragment.includes('~')) {
-                    return topicFragment.replace(/~/g, baseTopicPrefix);
-                }
-                return topicFragment;
+                if (!topicFragment || !baseTopicPrefix) return topicFragment;
+                return topicFragment.replace(/~/g, baseTopicPrefix);
             };
 
-            const stateTopic = resolveTopic(config.stat_t);
-            const commandTopic = resolveTopic(config.cmd_t);
-            const payloadOn = config.pl_on !== undefined ? String(config.pl_on) : 'ON';
-            const payloadOff = config.pl_off !== undefined ? String(config.pl_off) : 'OFF';
             const componentType = topic.split('/')[1];
-
+            
+            // --- ЗМІНА: Зберігаємо всі поля з конфігу, розгортаючи топіки ---
             const entity = {
                 id: config.uniq_id,
                 name: config.name || config.uniq_id,
                 componentType,
                 brokerId,
-                state_topic: stateTopic,
-                command_topic: commandTopic,
-                payload_on: payloadOn,
-                payload_off: payloadOff,
-                device_class: config.dev_cla || null,
-                unit_of_measurement: config.unit_of_measurement || '',
-                _config_topic: topic 
+                _config_topic: topic,
             };
-            
+
+            // Проходимо по всіх ключах конфігу і розгортаємо ті, що є топіками
+            for (const key in config) {
+                if (key.endsWith('_t') || key.endsWith('_topic')) { // Якщо ключ схожий на топік
+                    entity[key] = resolveTopic(config[key]);
+                } else if(key === 'dev') { // Обробляємо інформацію про пристрій
+                    continue; 
+                }
+                else {
+                    entity[key] = config[key]; // Копіюємо решту полів
+                }
+            }
+            // --- КІНЕЦЬ ЗМІНИ ---
+
             const deviceId = config.dev.ids[0];
             if (!this.discoveredDevices.has(deviceId)) {
                 this.discoveredDevices.set(deviceId, {
@@ -158,6 +145,5 @@ class DiscoveryService {
     }
 }
 
-// Створюємо єдиний екземпляр сервісу
 const discoveryServiceInstance = new DiscoveryService();
 export default discoveryServiceInstance;

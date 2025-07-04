@@ -1,42 +1,43 @@
 // src/core/CommandDispatcher.js
 import connectionManager from './ConnectionManager';
 import deviceRegistry from './DeviceRegistry';
+import { getWidgetByType } from './widgetRegistry'; // Імпортуємо наш реєстр
 
 class CommandDispatcher {
   /**
-   * Відправляє команду для певної сутності.
-   * @param {object} command - Об'єкт команди.
-   * @param {string} command.entityId - ID сутності, якій відправляється команда.
-   * @param {any} command.value - Нове значення, яке потрібно відправити.
+   * Відправляє команду на MQTT брокер.
+   * @param {string} entityId - ID сутності.
+   * @param {any} value - Значення для відправки.
+   * @param {string} [commandKey='default'] - Ключ команди, що відповідає опису в getCommandMappings.
    */
-  dispatch(command) {
-    const { entityId, value } = command;
-
-    if (!entityId) {
-      console.error("[CommandDispatcher] Cannot dispatch command: entityId is missing.");
+  dispatch({ entityId, value, commandKey = 'default' }) {
+    const componentConfig = deviceRegistry.getEntity(entityId);
+    if (!componentConfig) {
+      console.error(`[CommandDispatcher] Component with ID "${entityId}" not found.`);
       return;
     }
 
-    // 1. Отримуємо повну конфігурацію сутності з реєстру.
-    const entity = deviceRegistry.getEntity(entityId);
-
-    if (!entity) {
-      console.error(`[CommandDispatcher] Cannot dispatch command: Entity with id "${entityId}" not found.`);
+    const widgetDef = getWidgetByType(componentConfig.type);
+    if (!widgetDef?.getCommandMappings) {
+      console.error(`[CommandDispatcher] No command mappings found for widget type "${componentConfig.type}".`);
       return;
     }
 
-    // 2. Перевіряємо, чи є у сутності топік для команд.
-    const { command_topic, brokerId } = entity;
-    if (!command_topic) {
-      console.error(`[CommandDispatcher] Cannot dispatch command: Entity "${entityId}" has no 'command_topic' configured.`);
-      return;
-    }
+    const commandMappings = widgetDef.getCommandMappings(componentConfig);
+    const targetTopic = commandMappings[commandKey];
 
-    // 3. Відправляємо повідомлення через ConnectionManager.
-    console.log(`[CommandDispatcher] Dispatching to broker "${brokerId}", topic "${command_topic}", value: "${value}"`);
-    connectionManager.publishToTopic(brokerId, command_topic, String(value));
+    if (targetTopic) {
+      console.log(`[CommandDispatcher] Dispatching to broker '${componentConfig.brokerId}'. Topic: '${targetTopic}', Value: '${value}'`);
+      connectionManager.publishToTopic(
+        componentConfig.brokerId,
+        targetTopic,
+        String(value)
+      );
+    } else {
+      console.error(`[CommandDispatcher] No command topic found for entity "${entityId}" with commandKey "${commandKey}". Check widgetRegistry.`);
+    }
   }
 }
 
-// Експортуємо єдиний екземпляр
-export default new CommandDispatcher();
+const commandDispatcher = new CommandDispatcher();
+export default commandDispatcher;

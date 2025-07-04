@@ -38,8 +38,8 @@ ChartJS.register(
   TimeScale
 );
 
-// Конфігурація базового URL для вашого FastAPI API
-const API_BASE_URL = "http://192.168.1.209:8000";
+// Читаємо URL безпосередньо зі змінних середовища
+const API_BASE_URL = import.meta.env.VITE_HISTORY_API_URL;
 
 function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const [data, setData] = useState([]);
@@ -47,26 +47,17 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const [error, setError] = useState(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-
   const chartRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && sensorWidget) {
-      // --- НОВА ЛОГІКА ІНІЦІАЛІЗАЦІЇ ЧАСУ ---
-      const now = new Date(); // Поточна дата
-
-      // Початок діапазону: 00:00:00 вчорашнього дня
+      const now = new Date();
       const startOfDayYesterday = new Date(now);
-      startOfDayYesterday.setDate(now.getDate() - 1); // Встановлюємо вчорашню дату
-      startOfDayYesterday.setHours(0, 0, 0, 0); // Встановлюємо час на початок дня (00:00:00)
-
-      // Кінець діапазону: 23:59:59 сьогоднішнього дня
+      startOfDayYesterday.setDate(now.getDate() - 1);
+      startOfDayYesterday.setHours(0, 0, 0, 0);
       const endOfToday = new Date(now);
-      endOfToday.setHours(23, 59, 59, 999); // Встановлюємо час на кінець дня
+      endOfToday.setHours(23, 59, 59, 999);
 
-      // --- КІНЕЦЬ НОВОЇ ЛОГІКИ ---
-
-      // Функція для форматування дати для інпуту <input type="datetime-local">
       const formatForInput = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -79,7 +70,6 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
       setStartTime(formatForInput(startOfDayYesterday));
       setEndTime(formatForInput(endOfToday));
 
-      // Для API використовуємо повний ISO рядок
       fetchHistoryData(
         startOfDayYesterday.toISOString(),
         endOfToday.toISOString()
@@ -90,14 +80,20 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const fetchHistoryData = async (start, end) => {
     if (!sensorWidget || !start || !end) {
       setData([]);
+      return;
+    }
+
+    // Перевіряємо, чи була змінна середовища визначена
+    if (!API_BASE_URL) {
+      setError("URL для API історії не визначена у вашому .env файлі. Будь ласка, додайте змінну VITE_HISTORY_API_URL.");
       setLoading(false);
+      setData([]);
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      // Використовуємо наш FastAPI ендпоінт
       const params = new URLSearchParams({
         start_time: start,
         end_time: end,
@@ -108,21 +104,13 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
       const response = await fetch(url);
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status} - ${errorText}`
-        );
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
       const result = await response.json();
-
       const processedData = result.messages
-        .map((msg) => ({
-          x: new Date(msg.timestamp),
-          y: parseFloat(msg.payload), // Припускаємо, що payload - це число
-        }))
-        .filter((d) => !isNaN(d.y)); // Фільтруємо нечислові значення
-        
+        .map((msg) => ({ x: new Date(msg.timestamp), y: parseFloat(msg.payload) }))
+        .filter((d) => !isNaN(d.y));
       processedData.sort((a, b) => a.x - b.x);
-
       setData(processedData);
     } catch (e) {
       console.error("Failed to fetch history data:", e);
@@ -136,7 +124,6 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const handleApplyTimeRange = () => {
     const startIso = new Date(startTime).toISOString();
     const endIso = new Date(endTime).toISOString();
-
     if (startIso === "Invalid Date" || endIso === "Invalid Date") {
       setError("Будь ласка, введіть коректні дати та час.");
       return;
@@ -153,7 +140,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.5)",
         tension: 0.1,
-        pointRadius: 0, // Не показувати точки
+        pointRadius: 0,
         fill: false,
       },
     ],
@@ -161,111 +148,33 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
 
   const chartOptions = {
     responsive: true,
-    maintainAspectRatio: false, // Дозволяє керувати розміром за допомогою CSS
+    maintainAspectRatio: false,
     scales: {
-      x: {
-        type: "time",
-        time: {
-          unit: "minute", // Початкова одиниця
-          tooltipFormat: "dd.MM.yyyy HH:mm:ss",
-          displayFormats: {
-            minute: "HH:mm",
-            hour: "dd.MM HH:mm",
-            day: "dd.MM",
-            month: "MMM yyyy",
-          },
-        },
-        title: {
-          display: true,
-          text: "Час",
-        },
-      },
-      y: {
-        title: {
-          display: true,
-          text: "Значення",
-        },
-      },
+      x: { type: "time", time: { unit: "minute", tooltipFormat: "dd.MM.yyyy HH:mm:ss", displayFormats: { minute: "HH:mm", hour: "dd.MM HH:mm", day: "dd.MM", month: "MMM yyyy" } }, title: { display: true, text: "Час" } },
+      y: { title: { display: true, text: "Значення" } },
     },
-    plugins: {
-      legend: {
-        position: "top",
-      },
-      tooltip: {
-        mode: "index",
-        intersect: false,
-      },
-    },
-    hover: {
-      mode: "nearest",
-      intersect: true,
-    },
+    plugins: { legend: { position: "top" }, tooltip: { mode: "index", intersect: false } },
+    hover: { mode: "nearest", intersect: true },
   };
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>
         Історія віджета: {sensorWidget?.label}
-        <IconButton
-          aria-label="close"
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            right: 8,
-            top: 8,
-            color: (theme) => theme.palette.grey[500],
-          }}
-        >
-          <Close />
-        </IconButton>
+        <IconButton aria-label="close" onClick={onClose} sx={{ position: "absolute", right: 8, top: 8, color: (theme) => theme.palette.grey[500] }}><Close /></IconButton>
       </DialogTitle>
       <DialogContent dividers>
         <Box sx={{ mb: 2, display: "flex", gap: 2, alignItems: "center" }}>
-          <TextField
-            label="З"
-            type="datetime-local"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            label="До"
-            type="datetime-local"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            sx={{ flex: 1 }}
-          />
-          <Button variant="contained" onClick={handleApplyTimeRange}>
-            Застосувати
-          </Button>
+          <TextField label="З" type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1 }} />
+          <TextField label="До" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1 }} />
+          <Button variant="contained" onClick={handleApplyTimeRange}>Застосувати</Button>
         </Box>
-
-        {loading && (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-            <CircularProgress />
-          </Box>
-        )}
-        {error && (
-          <Typography color="error" sx={{ textAlign: "center", p: 4 }}>
-            {error}
-          </Typography>
-        )}
-        {!loading && !error && data.length === 0 && (
-          <Typography sx={{ textAlign: "center", p: 4 }}>
-            Немає даних для відображення в обраному діапазоні.
-          </Typography>
-        )}
-        {!loading && !error && data.length > 0 && (
-          <Box sx={{ height: 400 }}>
-            <Line ref={chartRef} options={chartOptions} data={chartData} />
-          </Box>
-        )}
+        {loading && <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}><CircularProgress /></Box>}
+        {error && <Typography color="error" sx={{ textAlign: "center", p: 4 }}>{error}</Typography>}
+        {!loading && !error && data.length === 0 && <Typography sx={{ textAlign: "center", p: 4 }}>Немає даних для відображення в обраному діапазоні.</Typography>}
+        {!loading && !error && data.length > 0 && <Box sx={{ height: 400 }}><Line ref={chartRef} options={chartOptions} data={chartData} /></Box>}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Закрити</Button>
-      </DialogActions>
+      <DialogActions><Button onClick={onClose}>Закрити</Button></DialogActions>
     </Dialog>
   );
 }

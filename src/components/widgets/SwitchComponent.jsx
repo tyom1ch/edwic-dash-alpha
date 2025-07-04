@@ -16,8 +16,8 @@ const SwitchComponent = ({ componentConfig }) => {
   
   // --- ЗМІНА: Використовуємо payload_on/off з конфігу, з надійними значеннями за замовчуванням ---
   const { 
-    payload_on = '1', // Якщо в конфігу немає, вважаємо '1'
-    payload_off = '0' // Якщо в конфігу немає, вважаємо '0'
+    payload_on = 'ON', // Якщо в конфігу немає, вважаємо '1'
+    payload_off = 'OFF' // Якщо в конфігу немає, вважаємо '0'
   } = componentConfig;
   
   const state = entity?.value;

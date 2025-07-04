@@ -85,31 +85,57 @@ function SettingsPage({ brokers, setBrokers }) {
     }
   };
 
-  // Єдиний метод для експорту — через Share
-  const handleShareFile = async () => {
+  /**
+   * Універсальна функція для експорту конфігурації.
+   * Використовує Share API на мобільних платформах та стандартне завантаження файлу в вебі.
+   */
+  const handleExportConfig = async () => {
     setError("");
     setLoading(true);
+
     try {
       const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
       const json = JSON.stringify(appConfig, null, 2);
-      // Записуємо в кеш (всередині додатку)
-      const result = await Filesystem.writeFile({
-        path: fileName,
-        data: json,
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8,
-      });
-      // Викликаємо нативний діалог Share/Save as...
-      await Share.share({
-        title: "Резервна копія EdwIC",
-        text: "💾 (ВАЖЛИВО) - РЕЗЕРВНА КОПІЯ EDwIC",
-        url: result.uri,
-        dialogTitle: "Зберегти або Поділитися резервною копією",
-      });
+
+      // Перевіряємо, чи ми на нативній платформі
+      if (Capacitor.isNativePlatform()) {
+        // --- РЕАЛІЗАЦІЯ ДЛЯ NATIVE MOBILE (iOS/Android) ---
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Cache, // Використовуємо кеш для тимчасового файлу
+          encoding: Encoding.UTF8,
+        });
+
+        await Share.share({
+          title: "Резервна копія EdwIC",
+          text: "💾 Збережіть цей файл у надійному місці.",
+          url: result.uri, // Передаємо шлях до тимчасового файлу
+          dialogTitle: "Зберегти або Поділитися резервною копією",
+        });
+
+      } else {
+        // --- РЕАЛІЗАЦІЯ ДЛЯ WEB BROWSER ---
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        link.href = url;
+        link.download = fileName;
+        
+        // Додаємо, клікаємо і видаляємо посилання
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Очищуємо створений URL
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
+      // Ігноруємо помилку, якщо користувач просто закрив діалогове вікно "Share"
       if (err.message !== "Share canceled") {
-        setError(`Помилка: ${err.message}`);
-        console.error("Помилка при виклику Share:", err);
+        setError(`Помилка експорту: ${err.message}`);
+        console.error("Помилка при експорті конфігурації:", err);
       }
     } finally {
       setLoading(false);
@@ -144,7 +170,7 @@ function SettingsPage({ brokers, setBrokers }) {
       }
     };
     reader.readAsText(file);
-    event.target.value = null;
+    event.target.value = null; // Скидаємо значення інпуту
   };
 
   const handleReset = () => {
@@ -175,8 +201,9 @@ function SettingsPage({ brokers, setBrokers }) {
           <Typography variant="h6" gutterBottom>
             Резервне копіювання та відновлення
           </Typography>
-          <Button variant="contained" fullWidth onClick={handleShareFile} disabled={loading} sx={{ mb: 2 }}>
-            {loading ? <CircularProgress size={24} color="inherit" /> : "Поділитись / Зберегти як..."}
+          {/* Викликаємо нову універсальну функцію */}
+          <Button variant="contained" fullWidth onClick={handleExportConfig} disabled={loading} sx={{ mb: 2 }}>
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Експорт конфігурації"}
           </Button>
 
           <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: "none" }} accept=".json" />
@@ -202,67 +229,13 @@ function SettingsPage({ brokers, setBrokers }) {
           <Typography variant="h6" gutterBottom>
             Конфігурація Основного MQTT Брокера
           </Typography>
-          <TextField
-            fullWidth
-            label="IP брокера / Hostname"
-            name="host"
-            value={currentBrokerConfig.host}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            required
-          />
-          <TextField
-            fullWidth
-            label="Порт брокера (WebSockets, напр. 8083)"
-            name="port"
-            value={currentBrokerConfig.port}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            type="number"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Логін"
-            name="username"
-            value={currentBrokerConfig.username}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Пароль"
-            type="password"
-            name="password"
-            value={currentBrokerConfig.password}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Базовий шлях (Basepath, напр. /ws)"
-            name="basepath"
-            value={currentBrokerConfig.basepath}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)"
-          />
-          <TextField
-            fullWidth
-            label="Топік для Discovery"
-            name="discovery_topic"
-            value={currentBrokerConfig.discovery_topic}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'."
-          />
-          <FormControlLabel
-            control={
-              <Checkbox checked={!!currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" />
-            }
-            label="Використовувати Secure WebSockets (WSS)"
-            sx={{ mb: 2 }}
-          />
+          <TextField fullWidth label="IP брокера / Hostname" name="host" value={currentBrokerConfig.host} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} required />
+          <TextField fullWidth label="Порт брокера (WebSockets, напр. 8083)" name="port" value={currentBrokerConfig.port} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} type="number" required />
+          <TextField fullWidth label="Логін" name="username" value={currentBrokerConfig.username} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Пароль" type="password" name="password" value={currentBrokerConfig.password} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Базовий шлях (Basepath, напр. /ws)" name="basepath" value={currentBrokerConfig.basepath} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)" />
+          <TextField fullWidth label="Топік для Discovery" name="discovery_topic" value={currentBrokerConfig.discovery_topic} onChange={handleBrokerConfigChange} sx={{ mb: 2 }} helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'." />
+          <FormControlLabel control={ <Checkbox checked={!!currentBrokerConfig.secure} onChange={handleBrokerConfigChange} name="secure" /> } label="Використовувати Secure WebSockets (WSS)" sx={{ mb: 2 }} />
           {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
           <Button variant="contained" fullWidth onClick={handleSaveBroker} disabled={loading}>
             {loading ? <CircularProgress size={24} /> : "Зберегти Налаштування Брокера"}
