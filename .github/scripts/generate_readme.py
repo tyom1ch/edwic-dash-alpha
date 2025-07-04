@@ -108,9 +108,9 @@ pattern = r"(<!-- CHANGELOG START -->)(.*?)(<!-- CHANGELOG END -->)"
 # Додаємо заголовок до нового контенту
 full_new_content = f"## {current_tag}\n\n{new_changelog}"
 # Вставляємо новий контент і зберігаємо старий
-replacement = f"\\1\n\n{full_new_content}\n\\2\\3"
+# replacement = f"\\1\n\n{full_new_content}\n\\2\\3"
 # Якщо ви хочете повністю заміняти старий лог, використовуйте:
-# replacement = f"\\1\n\n{full_new_content}\n\n\\3"
+replacement = f"\\1\n\n{full_new_content}\n\n\\3"
 
 new_readme = re.sub(pattern, replacement, old_content, flags=re.DOTALL)
 
