@@ -1,5 +1,4 @@
 // src/components/widgets/ClimateComponent.jsx
-import React from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Select, MenuItem, Chip, Slider } from '@mui/material';
 import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';

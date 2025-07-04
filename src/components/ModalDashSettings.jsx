@@ -38,7 +38,7 @@ function ModalDashSettings({ anchorEl, open, onClose, lockMode, setLockMode, onD
         <ListItemIcon>
           <LockIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>{lockMode ? "Lock edit" : "Unlock edit"}</ListItemText>
+        <ListItemText>{lockMode ? "Unlock edit" : "Lock edit"}</ListItemText>
       </MenuItem>
       <MenuItem onClick={onDeleteDashboard}>
         <ListItemIcon>
