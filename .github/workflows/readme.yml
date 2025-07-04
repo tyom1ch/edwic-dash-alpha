@@ -23,7 +23,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install google-generativeai
+        run: pip install -q -U google-genai
 
       - name: Generate README from release
         run: python .github/scripts/generate_readme.py
