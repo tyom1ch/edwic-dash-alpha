@@ -1,8 +1,9 @@
 name: Update README on Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'  # Типу v1.0.0
 
 jobs:
   update-readme:
