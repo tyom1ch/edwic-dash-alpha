@@ -30,7 +30,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -q -U google-generativeai # Виправив назву пакета з genai на generativeai
+        run: pip install -q -U google-genai
 
       - name: Generate README from branch history
         run: python .github/scripts/generate_readme.py
