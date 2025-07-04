@@ -2,12 +2,14 @@ name: Update README on Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'  # Типу v1.0.0
+    branches: [main]
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
+
+  permissions:
+    contents: write # потрібне для релізу
 
     steps:
       - name: Checkout
@@ -33,5 +35,6 @@ jobs:
           git config user.name "readme-bot"
           git config user.email "bot@example.com"
           git add README.md
-          git diff --cached --quiet || git commit -m "auto: update README for ${{ github.event.release.tag_name }}"
+          # Змінюємо повідомлення коміту тут
+          git diff --cached --quiet || git commit -m "auto: update README for ${{ github.event.release.tag_name }} [skip ci]"
           git push
