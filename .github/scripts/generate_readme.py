@@ -146,10 +146,10 @@ try:
     # \1 - <!-- CHANGELOG START -->\n
     # \2 - старий контент
     # \3 - \n<!-- CHANGELOG END -->
-    replacement = f"\\1{full_new_content_to_insert}\n\n\\2\\3"
+    # replacement = f"\\1{full_new_content_to_insert}\n\n\\2\\3"
 
     # Якщо ви хочете повністю ЗАМІНЯТИ старий лог на новий, використовуйте цей replacement:
-    # replacement = f"\\1{full_new_content_to_insert}\\3"
+    replacement = f"\\1{full_new_content_to_insert}\\3"
     
     new_readme = re.sub(pattern, replacement, old_content, flags=re.DOTALL)
 
