@@ -121,7 +121,8 @@ prompt = f"""
 # Замініть `genai.Client().models.generate_content` на актуальний виклик для вашої бібліотеки
 # Наприклад, так, як було у вас:
 client = genai.Client()
-response = client.generate_content(
+
+response = client.models.generate_content(
     model="gemini-2.0-flash", # Рекомендую використовувати найновішу модель
     contents=prompt
 )
