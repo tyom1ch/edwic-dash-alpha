@@ -25,6 +25,7 @@ const getEntityIcon = (componentType) => {
 
 // Функція для перетворення типу HA в тип вашого дашборду
 const mapHaTypeToDashboardType = (entityConfig) => {
+  console.log("Mapping HA type to dashboard type:", entityConfig);
   switch (entityConfig.componentType) {
     case "switch": return "switch";
     case "sensor": return "sensor";
