@@ -65,8 +65,10 @@ function DashboardPage({
       i: String(comp.id),
       x: comp.layout?.x ?? (i % 4) * 3,
       y: comp.layout?.y ?? Math.floor(i / 4) * 2,
-      w: comp.layout?.w ?? 3,
+      w: comp.layout?.w ?? 2,
       h: comp.layout?.h ?? 2,
+      minW: 2, maxW: 4,
+      minH: 2, maxH: 4,
     })),
   };
 

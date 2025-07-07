@@ -25,6 +25,7 @@ class MqttClientWrapper extends EventEmitter {
             username: brokerConfig.username,
             password: brokerConfig.password,
             reconnectPeriod: 5000,
+            keepalive: 5,
             clientId: `edwic-${Math.random().toString(16).substr(2, 8)}`,
         };
     }
