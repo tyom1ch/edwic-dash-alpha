@@ -5,9 +5,9 @@
 <!-- CHANGELOG START -->
 ## v0.0.4b
 
-Переміщення віджету
+Переміщення віджета
 ♻️ **Зміни**
-- Переміщено `WidgetWrapper.jsx` до папки `src/components/widgets/`.
+- Переміщено `WidgetWrapper` з `src/components/WidgetWrapper.jsx` в `src/components/widgets/WidgetWrapper.jsx`.
 
 🧹 **Внутрішні зміни**
 - Видалено компоненти `ModalDashSettings.jsx` та `SettingsButton.jsx`.
