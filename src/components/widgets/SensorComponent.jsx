@@ -28,23 +28,28 @@ const SensorComponent = ({ componentConfig }) => {
     }
 
     const fitText = () => {
-      // 1. Скидаємо попередній inline-стиль, щоб повернутися до базового розміру з CSS (sx).
+      // 1. Скидаємо попередній inline-стиль, щоб повернутися до базового розміру з CSS.
+      // Це необхідно для коректного вимірювання "переповнення".
       value.style.fontSize = "";
 
-      // 2. Вимірюємо ширину контейнера (вже з урахуванням його padding) та реальну ширину тексту.
-      const containerWidth = container.clientWidth;
-      const textWidth = value.scrollWidth;
+      // 2. Вимірюємо розміри контейнера та тексту.
+      const containerWidth = container.clientWidth; // Внутрішня ширина контейнера
+      const containerHeight = container.clientHeight; // Внутрішня висота контейнера
 
-      // 3. Якщо текст ширший за контейнер, обчислюємо та застосовуємо новий розмір.
-      if (textWidth > containerWidth) {
-        const baseFontSize = parseFloat(
-          window.getComputedStyle(value).fontSize
-        );
-        const scale = containerWidth / textWidth;
-        // Застосовуємо новий, зменшений розмір шрифту.
-        // Додаємо `* 0.98` як невеликий запас, щоб текст гарантовано не торкався країв.
-        value.style.fontSize = `${baseFontSize * scale * 0.80}px`;
-      }
+      const textWidth = value.scrollWidth; // Реальна ширина тексту
+      const textHeight = value.scrollHeight; // Реальна висота тексту
+
+      // 3. Перевіряємо, чи текст виходить за межі контейнера по ширині АБО по висоті.
+      // 4. Обчислюємо коефіцієнти масштабування для ширини та висоти.
+      const widthScale = containerWidth / textWidth;
+      const heightScale = containerHeight / textHeight;
+
+      const scale = Math.min(widthScale, heightScale);
+
+      // 6. Обчислюємо та застосовуємо новий розмір шрифту.
+      const baseFontSize = parseFloat(window.getComputedStyle(value).fontSize);
+
+      value.style.fontSize = `${baseFontSize * scale * 0.5}px`;
     };
 
     const resizeObserver = new ResizeObserver(fitText);
@@ -54,6 +59,11 @@ const SensorComponent = ({ componentConfig }) => {
 
     return () => resizeObserver.disconnect();
   }, [displayValue, unit]); // Перераховуємо розмір, якщо змінився текст або одиниці виміру.
+
+  const getShortLabel = (text) => {
+    if (!text) return "Сенсор";
+    return text.length > 25 ? text.slice(0, 25) + "…" : text;
+  };
 
   return (
     <Card
@@ -72,14 +82,15 @@ const SensorComponent = ({ componentConfig }) => {
           display: "flex",
           flexDirection: "column",
           flexGrow: 1, // Дозволяє CardContent зайняти весь простір Card
-          height: "100%",
-          width: "100%",
           alignItems: "center",
           justifyContent: "center",
           // Важливо: overflow: "hidden", щоб приховати проміжні стани рендерингу
           overflow: "hidden",
         }}
       >
+        <Typography sx={{whiteSpace: "nowrap"}}>
+          {getShortLabel(componentConfig.label || entity?.name)}
+        </Typography>
         <Typography
           ref={valueRef}
           component="span"
@@ -87,9 +98,7 @@ const SensorComponent = ({ componentConfig }) => {
             fontWeight: "bold",
             lineHeight: 1.1,
             whiteSpace: "nowrap", // Забороняємо перенос тексту, щоб scrollWidth працював коректно
-            // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ №2: Задаємо великий базовий розмір ---
-            // Ми ставимо свідомо великий розмір, щоб логіка завжди зменшувала його, а не збільшувала.
-            fontSize: "4rem",
+            fontSize: ".1rem",
           }}
         >
           {displayValue ?? "---"}

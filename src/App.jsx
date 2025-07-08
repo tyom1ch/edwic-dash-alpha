@@ -25,8 +25,28 @@ let appInitialized = false;
 
 const App = () => {
   const [themeMode] = useLocalStorage("themeMode", "light");
+
   const theme = useMemo(
-    () => createTheme({ palette: { mode: themeMode } }),
+    () =>
+      createTheme({
+        palette: { mode: themeMode },
+        components: {
+          MuiCssBaseline: {
+            styleOverrides: {
+              body: {
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                msUserSelect: "none",
+              },
+              "*": {
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                msUserSelect: "none",
+              },
+            },
+          },
+        },
+      }),
     [themeMode]
   );
 
@@ -73,7 +93,7 @@ const App = () => {
       if (globalConnectionStatus === "All online") {
         notifications.show("З'єднання встановлено", {
           severity: "info",
-          autoHideDuration: 3000,
+          autoHideDuration: 1500,
         });
       } else {
         notifications.show("З'єднання втрачено", {

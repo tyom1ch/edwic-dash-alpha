@@ -46,6 +46,7 @@ const WidgetWrapper = ({
       sx={{
         position: "relative", // Важливо для позиціонування елементів керування
         height: "100%",
+        padding: 0,
         width: "100%",
         display: "flex",
         flexDirection: "column",

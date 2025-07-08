@@ -130,7 +130,7 @@ const ClimateComponent = ({ componentConfig }) => {
   const actionProps = getActionProps();
 
   return (
-    <Card sx={{ height: '100%', display: 'flex' }}>
+    <Card variant='outlined' sx={{ height: '100%', display: 'flex' }}>
       <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', p: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
           <Thermostat fontSize="large" color={isOff ? 'disabled' : 'action'} />

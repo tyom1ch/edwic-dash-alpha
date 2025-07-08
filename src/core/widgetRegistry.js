@@ -51,7 +51,7 @@ export const WIDGET_REGISTRY = [
     type: "climate",
     label: "Клімат-контроль (Універсальний)",
     component: ClimateComponent,
-    defaultLayout: { w: 2, h: 2, minW: 2, minH: 2, maxH: 2, maxW: 2 },
+    defaultLayout: { w: 3, h: 2, minW: 3, minH: 2, maxH: 2, maxW: 3 },
     variants: [
       { id: 'single', label: 'Термостат (одна цільова температура)' },
       { id: 'range', label: 'Дводіапазонний (low/high)' },

@@ -73,6 +73,9 @@ function DashboardPage({
         // Мінімальний розмір: беремо з реєстру, або запасний
         minW: defaultLayout?.minW ?? 1,
         minH: defaultLayout?.minH ?? 1,
+
+        maxW: defaultLayout?.maxW ?? 6,
+        maxH: defaultLayout?.maxH ?? 6,
       };
     }),
   };
