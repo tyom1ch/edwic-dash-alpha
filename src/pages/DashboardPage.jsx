@@ -4,7 +4,7 @@ import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import WidgetWrapper from "../components/WidgetWrapper";
+import WidgetWrapper from "../components/widgets/WidgetWrapper";
 import { getWidgetByType } from "../core/widgetRegistry";
 import HistoryGraphDialog from "../components/HistoryGraphDialog";
 

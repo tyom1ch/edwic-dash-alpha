@@ -1,4 +1,4 @@
-// src/components/WidgetWrapper.jsx
+// src/components/widgets/WidgetWrapper.jsx
 import React from "react";
 import {
   Paper,
