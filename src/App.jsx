@@ -15,19 +15,53 @@ import { StatusBar } from "@capacitor/status-bar";
 import useLocalStorage from "./hooks/useLocalStorage";
 import useAppConfig from "./hooks/useAppConfig";
 import AppLayout from "./components/AppLayout";
-import CoreServices from './core/CoreServices'; // Імпортуємо наш новий сервіс
+import CoreServices from "./core/CoreServices"; // Імпортуємо наш новий сервіс
+
+import { useNotifications } from "@toolpad/core/useNotifications";
+import eventBus from "./core/EventBus";
 
 // Глобальний прапорець, щоб ініціалізація відбулася лише один раз
 let appInitialized = false;
 
 const App = () => {
+  const [themeMode] = useLocalStorage("themeMode", "light");
+
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: { mode: themeMode },
+        components: {
+          MuiCssBaseline: {
+            styleOverrides: {
+              body: {
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                msUserSelect: "none",
+              },
+              "*": {
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                msUserSelect: "none",
+              },
+            },
+          },
+        },
+      }),
+    [themeMode]
+  );
+
   // Стан, який контролює, чи готова програма до рендерингу
   const [isInitialized, setIsInitialized] = useState(appInitialized);
+  const notifications = useNotifications();
 
   // Логіка для StatusBar залишається без змін
   const hideStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {
-      try { await StatusBar.hide(); } catch (e) { console.error("Failed to hide status bar:", e); }
+      try {
+        await StatusBar.hide();
+      } catch (e) {
+        console.error("Failed to hide status bar:", e);
+      }
     }
   };
   useEffect(() => {
@@ -36,53 +70,53 @@ const App = () => {
     return () => window.removeEventListener("click", hideStatusBar);
   }, []);
 
-  // Логіка теми залишається без змін
-  const [themeMode] = useLocalStorage("themeMode", "light");
-  const theme = useMemo(() => createTheme({ palette: { mode: themeMode } }), [themeMode]);
+  const { appConfig, setAppConfig, globalConnectionStatus, handlers } =
+    useAppConfig();
 
-  // Хук useAppConfig, як і раніше, керує станом конфігурації
-  const { appConfig, setAppConfig, globalConnectionStatus, handlers } = useAppConfig();
-
-  // --- КЛЮЧОВИЙ ЕФЕКТ ---
-  // Цей useEffect керує ініціалізацією всього додатку.
   useEffect(() => {
     // Перевіряємо глобальний прапорець, щоб уникнути повторної ініціалізації
     if (!appInitialized) {
       console.log("App.jsx: Ініціалізація Core Services...");
-      
+
       // Викликаємо ініціалізатор з конфігурацією, завантаженою з хука
       CoreServices.initialize(appConfig);
-      
-      // Встановлюємо глобальний прапорець
-      appInitialized = true;
-      
-      // Оновлюємо стан React, щоб дозволити рендеринг основного додатку
-      setIsInitialized(true);
+
+      eventBus.on("broker:connected", (brokerId) => {
+        appInitialized = true;
+        setIsInitialized(true);
+      });
     }
   }, [appConfig]); // Залежність гарантує, що код виконається з уже завантаженим конфігом
 
+  useEffect(() => {
+    if (appInitialized) {
+      if (globalConnectionStatus === "All online") {
+        notifications.show("З'єднання встановлено", {
+          severity: "info",
+          autoHideDuration: 1500,
+        });
+      } else {
+        notifications.show("З'єднання втрачено", {
+          severity: "error",
+          autoHideDuration: 3000,
+        });
+      }
+    }
+  }, [globalConnectionStatus]);
+
   return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router>
-          {isInitialized ? (
-            // Якщо все готово, рендеримо AppLayout
-            <AppLayout
-              appConfig={appConfig}
-              setAppConfig={setAppConfig}
-              globalConnectionStatus={globalConnectionStatus}
-              handlers={handlers}
-            />
-          ) : (
-            // В іншому випадку показуємо індикатор завантаження
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-              <CircularProgress />
-            </Box>
-          )}
-        </Router>
-      </ThemeProvider>
-    </StyledEngineProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline enableColorScheme />
+
+      <Router>
+        <AppLayout
+          appConfig={appConfig}
+          setAppConfig={setAppConfig}
+          globalConnectionStatus={globalConnectionStatus}
+          handlers={handlers}
+        />
+      </Router>
+    </ThemeProvider>
   );
 };
 

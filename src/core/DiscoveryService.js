@@ -48,6 +48,38 @@ class DiscoveryService {
         console.log("[DiscoveryService] Cleared old devices due to topic change.");
     }
 
+    /**
+     * @private
+     * Визначає унікальний ID пристрою з конфігурації, використовуючи ланцюжок пріоритетів.
+     * 1. dev.ids[0] - стандартний ідентифікатор.
+     * 2. dev.cns[0] - ідентифікатор зі списку з'єднань (напр., MAC-адреса).
+     * 3. config.uniq_id - унікальний ID самої сутності як крайній захід.
+     * @param {object} config - Об'єкт конфігурації сутності.
+     * @returns {string|null} Унікальний ID пристрою або null, якщо знайти не вдалося.
+     */
+    _getDeviceId(config) {
+        // Пріоритет 1: Використовувати перший ID з масиву 'ids'
+        if (config.dev?.ids?.[0]) {
+            return config.dev.ids[0];
+        }
+
+        // Пріоритет 2: Використовувати перший ідентифікатор з'єднання (connections)
+        if (config.dev?.cns?.[0]?.[1]) {
+            const [type, id] = config.dev.cns[0];
+            // Створюємо унікальний рядок, наприклад, "mac_8c:aa:b5:7b:0e:24"
+            return `${type}_${id}`; 
+        }
+
+        // Пріоритет 3: Як крайній захід, використовувати uniq_id сутності.
+        // Це означає, що сутність буде розглядатися як власний "пристрій".
+        if (config.uniq_id) {
+            // console.warn(`[DiscoveryService] Device for entity '${config.uniq_id}' has no 'ids' or 'cns'. Using entity's uniq_id as a fallback device ID.`);
+            return config.uniq_id;
+        }
+
+        return null; // Не знайдено жодного придатного ID
+    }
+
     handleMqttMessage(brokerId, topic, messageBuffer) {
         if (!this.currentDiscoveryTopic) return;
 
@@ -65,8 +97,18 @@ class DiscoveryService {
 
             const config = JSON.parse(message);
             
-            if (!config.uniq_id || !config.dev?.ids?.[0]) {
-                console.warn('[DiscoveryService] Received config without unique_id or device id. Skipping.', config);
+            // --- ЗМІНА: Спрощена перевірка. Нам потрібен лише uniq_id для сутності. ---
+            if (!config.uniq_id) {
+                console.warn('[DiscoveryService] Received config without unique_id. Skipping.', config);
+                return;
+            }
+
+            // --- ЗМІНА: Використовуємо нову гнучку функцію для отримання ID пристрою ---
+            const deviceId = this._getDeviceId(config);
+            
+            // Якщо не вдалося визначити ID пристрою жодним способом, пропускаємо сутність.
+            if (!deviceId) {
+                console.error(`[DiscoveryService] Could not determine a device ID for entity with unique_id: ${config.uniq_id}. Skipping.`);
                 return;
             }
             
@@ -78,7 +120,6 @@ class DiscoveryService {
 
             const componentType = topic.split('/')[1];
             
-            // --- ЗМІНА: Зберігаємо всі поля з конфігу, розгортаючи топіки ---
             const entity = {
                 id: config.uniq_id,
                 name: config.name || config.uniq_id,
@@ -89,24 +130,28 @@ class DiscoveryService {
 
             // Проходимо по всіх ключах конфігу і розгортаємо ті, що є топіками
             for (const key in config) {
-                if (key.endsWith('_t') || key.endsWith('_topic')) { // Якщо ключ схожий на топік
+                if (key.endsWith('_t') || key.endsWith('_topic')) {
                     entity[key] = resolveTopic(config[key]);
-                } else if(key === 'dev') { // Обробляємо інформацію про пристрій
+                } else if(key === 'dev') {
+                    // Інформацію про пристрій (`dev`) обробляємо окремо, не копіюємо її в сутність
                     continue; 
                 }
                 else {
                     entity[key] = config[key]; // Копіюємо решту полів
                 }
             }
-            // --- КІНЕЦЬ ЗМІНИ ---
 
-            const deviceId = config.dev.ids[0];
+            // --- ЗМІНА: Створюємо пристрій, якщо він ще не існує, з урахуванням можливої відсутності `config.dev` ---
             if (!this.discoveredDevices.has(deviceId)) {
+                // Визначаємо ім'я пристрою: або з dev.name, або з імені сутності, або сам deviceId
+                const deviceName = config.dev?.name || config.name || deviceId;
+                
                 this.discoveredDevices.set(deviceId, {
                     id: deviceId,
-                    name: config.dev.name || deviceId,
-                    model: config.dev.mdl || 'Unknown Model',
-                    manufacturer: config.dev.mf || 'Unknown Manufacturer',
+                    name: deviceName,
+                    // Безпечно отримуємо дані, використовуючи опціональні ланцюжки та значення за замовчуванням
+                    model: config.dev?.mdl || 'Unknown Model',
+                    manufacturer: config.dev?.mf || 'Unknown Manufacturer',
                     entities: new Map()
                 });
             }

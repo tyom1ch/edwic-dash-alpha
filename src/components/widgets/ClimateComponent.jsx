@@ -1,32 +1,44 @@
 // src/components/widgets/ClimateComponent.jsx
-import React from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Select, MenuItem, Chip, Slider } from '@mui/material';
-import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit } from '@mui/icons-material';
+import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit, WbSunny, AcUnit as AcUnitIcon } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
 
 const ClimateComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
 
-  // Визначаємо режим роботи віджета на основі його конфігурації
-  const isRangeMode = componentConfig.type === 'thermostat_range';
+  // --- КЛЮЧОВЕ СПРОЩЕННЯ ---
+  // Чітко визначаємо режим роботи на основі збереженого варіанту в конфігурації.
+  // За замовчуванням 'single', якщо варіант не задано.
+  const isRangeMode = componentConfig.variant === 'range';
+  // -----------------------------
 
   // Читаємо всі можливі стани з об'єкта entity
   const currentTemperature = entity?.current_temperature ?? '---';
   const mode = entity?.mode ?? 'off';
   const action = entity?.action ?? 'idle';
+  const presetMode = entity?.preset_mode;
   
   // Для звичайного режиму
   const targetTemperature = entity?.temperature ?? '---';
   
   // Для режиму діапазону
   const targetTempLow = entity?.temperature_low ?? '---';
-  const targetTempHigh = entity?.temperature_high ?? '---'; // <--- ВИПРАВЛЕНО
+  const targetTempHigh = entity?.temperature_high ?? '---';
 
-  const { min_temp = 10, max_temp = 30, temp_step = 0.5, modes = ['off', 'heat'] } = componentConfig;
+  const { min_temp = 10, max_temp = 30, temp_step = 0.5, preset_modes = [] } = componentConfig;
   const isOff = mode === 'off';
 
-  // Обробник для звичайного режиму
+  // Логіка для обробки рядка або масиву режимів
+  const getModesArray = () => {
+    const modesConfig = componentConfig.modes;
+    if (Array.isArray(modesConfig)) return modesConfig.length > 0 ? modesConfig : ['off', 'heat'];
+    if (typeof modesConfig === 'string' && modesConfig.trim().length > 0) return modesConfig.split(',').map(m => m.trim());
+    return ['off', 'heat'];
+  };
+  const modes = getModesArray();
+
+  // Обробники команд (залишаються без змін)
   const handleSingleTemperatureChange = (increment) => {
     if (targetTemperature === '---') return;
     const newTemp = parseFloat(targetTemperature) + increment;
@@ -39,13 +51,10 @@ const ClimateComponent = ({ componentConfig }) => {
     }
   };
   
-  // Обробник для режиму діапазону (викликається після того, як користувач відпустив повзунок)
   const handleRangeChange = (event, newValue) => {
       const [newLow, newHigh] = newValue;
-      // Перевіряємо, чи дані вже завантажені
       if (targetTempLow === '---' || targetTempHigh === '---') return;
 
-      // Відправляємо команду, лише якщо значення дійсно змінилося
       if (newLow.toFixed(1) !== parseFloat(targetTempLow).toFixed(1)) {
         commandDispatcher.dispatch({
           entityId: componentConfig.id,
@@ -70,7 +79,15 @@ const ClimateComponent = ({ componentConfig }) => {
     });
   };
 
-  // Динамічний рендеринг UI
+  const handlePresetChange = (preset) => {
+    commandDispatcher.dispatch({
+      entityId: componentConfig.id,
+      commandKey: 'set_preset_mode',
+      value: preset,
+    });
+  };
+
+  // UI рендеринг (залишається без змін)
   let controls;
   if (isRangeMode) {
     const isRangeReady = targetTempLow !== '---' && targetTempHigh !== '---';
@@ -100,28 +117,53 @@ const ClimateComponent = ({ componentConfig }) => {
     );
   }
 
-  const actionColor = action === 'heating' ? 'error.main' : action === 'cooling' ? 'info.main' : 'text.secondary';
+  const getActionProps = () => {
+    switch (action) {
+      case 'heating':
+        return { color: 'error.main', icon: <WbSunny sx={{ color: 'white !important' }} /> };
+      case 'cooling':
+        return { color: 'info.main', icon: <AcUnitIcon sx={{ color: 'white !important' }} /> };
+      default:
+        return { color: 'text.secondary', icon: <PowerSettingsNew sx={{ color: 'white !important' }} /> };
+    }
+  };
+  const actionProps = getActionProps();
 
   return (
-    <Card sx={{ height: '100%', display: 'flex' }}>
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+    <Card variant='outlined' sx={{ height: '100%', display: 'flex' }}>
+      <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
           <Thermostat fontSize="large" color={isOff ? 'disabled' : 'action'} />
-          <Typography variant="h3" sx={{ ml: 1, color: isOff ? 'text.secondary' : 'text.primary' }}>
+          <Typography variant="h3" sx={{ ml: 1, color: isOff ? 'text.secondary' : 'text.primary', fontWeight: 'bold' }}>
             {currentTemperature}°
           </Typography>
         </Box>
         
         {controls}
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+        {preset_modes && preset_modes.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', my: 1, flexWrap: 'wrap', opacity: isOff ? 0.4 : 1 }}>
+            {preset_modes.map((p) => (
+              <Chip
+                key={p}
+                label={p}
+                clickable
+                disabled={isOff}
+                onClick={() => handlePresetChange(p)}
+                color={presetMode === p ? 'primary' : 'default'}
+              />
+            ))}
+          </Box>
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
           <Select value={mode} onChange={handleModeChange} variant="standard" sx={{textTransform: 'capitalize'}}>
             {modes.map((m) => (<MenuItem key={m} value={m} sx={{textTransform: 'capitalize'}}>{m}</MenuItem>))}
           </Select>
           <Chip
-            icon={action === 'heating' ? <AcUnit sx={{color: 'white !important'}}/> : <PowerSettingsNew sx={{color: 'white !important'}}/>}
+            icon={actionProps.icon}
             label={action} size="small"
-            sx={{ backgroundColor: actionColor, color: 'white', fontWeight: 'bold', textTransform: 'uppercase' }}
+            sx={{ backgroundColor: actionProps.color, color: 'white', fontWeight: 'bold', textTransform: 'uppercase' }}
           />
         </Box>
       </CardContent>
