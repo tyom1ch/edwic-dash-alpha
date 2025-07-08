@@ -9,11 +9,24 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import useAppConfig from "../hooks/useAppConfig";
 import { WIDGET_REGISTRY, getWidgetByType } from "../core/widgetRegistry";
 
+// Початковий стан віджета
 const getInitialState = () => ({
   label: "",
   type: "",
   brokerId: "",
+  value_template: "" // Додаємо поле для шаблону значення
 });
+
+/**
+ * Допоміжна функція для отримання кількості знаків після коми з шаблону
+ * @param {string | undefined} template - Рядок шаблону, напр. "{{ '%0.2f'|format(float(value)) }}"
+ * @returns {number | string} - Кількість знаків або 'default', якщо форматування не знайдено
+ */
+const getDecimalsFromTemplate = (template) => {
+  if (!template) return 'default';
+  const match = template.match(/'%0\.(\d+)f'/);
+  return match ? parseInt(match[1], 10) : 'default';
+};
 
 function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) {
   const { appConfig } = useAppConfig();
@@ -45,6 +58,23 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
     const { name, value } = e.target;
     setLocalComponent((prev) => ({ ...prev, [name]: value }));
   };
+
+  // Спеціальний обробник для зміни заокруглення
+  const handleDecimalChange = (e) => {
+    const decimals = e.target.value;
+    let newValueTemplate = "";
+
+    if (decimals !== 'default' && typeof decimals === 'number') {
+      // Генеруємо шаблон, який розуміє наш evaluateValueTemplate
+      newValueTemplate = `{{ '%0.${decimals}f'|format(float(value)) }}`;
+    }
+
+    setLocalComponent(prev => ({
+      ...prev,
+      value_template: newValueTemplate
+    }));
+  };
+
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
@@ -87,9 +117,9 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
 
           {/* --- Ось і наша динамічна "шторка" --- */}
           {topicFields.length > 0 && (
-            <Accordion sx={{ mt: 2 }}>
+            <Accordion sx={{ mt: 2 }} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Налаштування топіків</Typography>
+                <Typography>Налаштування топіків та відображення</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -105,6 +135,24 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
                       fullWidth
                     />
                   ))}
+
+                  {/* --- НОВИЙ ЕЛЕМЕНТ: Вибір заокруглення --- */}
+                  <FormControl fullWidth sx={{ mt: 1 }}>
+                    <InputLabel id="decimal-places-label">Заокруглення значення</InputLabel>
+                    <Select
+                      labelId="decimal-places-label"
+                      label="Заокруглення значення"
+                      value={getDecimalsFromTemplate(localComponent.value_template)}
+                      onChange={handleDecimalChange}
+                    >
+                      <MenuItem value="default">Не заокруглювати</MenuItem>
+                      <MenuItem value={0}>0 знаків після коми (напр. 123)</MenuItem>
+                      <MenuItem value={1}>1 знак після коми (напр. 123.4)</MenuItem>
+                      <MenuItem value={2}>2 знаки після коми (напр. 123.45)</MenuItem>
+                      <MenuItem value={3}>3 знаки після коми (напр. 123.456)</MenuItem>
+                    </Select>
+                  </FormControl>
+
                 </Box>
               </AccordionDetails>
             </Accordion>

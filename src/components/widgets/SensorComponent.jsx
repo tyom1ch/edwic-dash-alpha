@@ -1,13 +1,12 @@
-// src/components/widgets/SensorComponent.jsx
-import React from "react";
-import { Typography, Box } from "@mui/material";
+import React, { useRef, useLayoutEffect } from "react";
+import { Typography, Box, Card, CardContent } from "@mui/material";
 import useEntity from "../../hooks/useEntity";
 import { evaluateValueTemplate } from "../../utils/templateEvaluator";
 
 const SensorComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
   const rawValue = entity?.value;
-  const template = entity?.val_tpl;
+  const template = entity?.val_tpl || componentConfig?.value_template;
 
   const displayValue = evaluateValueTemplate(template, rawValue);
   const unit = entity?.unit_of_meas || componentConfig?.unit_of_meas || "";
@@ -15,86 +14,113 @@ const SensorComponent = ({ componentConfig }) => {
     ? new Date(entity.last_updated).toLocaleString()
     : "Не оновлювалось";
 
-  // ЗМІНА: Повністю перероблена структура для правильного заповнення простору
-  // та адаптивного масштабування тексту.
+  // Ref для контейнера, в якому знаходиться текст (CardContent)
+  const containerRef = useRef(null);
+  // Ref для самого тексту, розмір якого ми будемо змінювати
+  const valueRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const value = valueRef.current;
+
+    if (!container || !value) {
+      return;
+    }
+
+    const fitText = () => {
+      // 1. Скидаємо попередній inline-стиль, щоб повернутися до базового розміру з CSS (sx).
+      value.style.fontSize = "";
+
+      // 2. Вимірюємо ширину контейнера (вже з урахуванням його padding) та реальну ширину тексту.
+      const containerWidth = container.clientWidth;
+      const textWidth = value.scrollWidth;
+
+      // 3. Якщо текст ширший за контейнер, обчислюємо та застосовуємо новий розмір.
+      if (textWidth > containerWidth) {
+        const baseFontSize = parseFloat(
+          window.getComputedStyle(value).fontSize
+        );
+        const scale = containerWidth / textWidth;
+        // Застосовуємо новий, зменшений розмір шрифту.
+        // Додаємо `* 0.98` як невеликий запас, щоб текст гарантовано не торкався країв.
+        value.style.fontSize = `${baseFontSize * scale * 0.80}px`;
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(fitText);
+    resizeObserver.observe(container);
+
+    fitText(); // Перший запуск
+
+    return () => resizeObserver.disconnect();
+  }, [displayValue, unit]); // Перераховуємо розмір, якщо змінився текст або одиниці виміру.
+
   return (
-    <Box
+    <Card
+      variant="outlined"
       sx={{
-        // Встановлюємо Flexbox-контейнер, що заповнює весь доступний простір
         width: "100%",
         height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center", // Центруємо вміст по вертикалі
-        alignItems: "center",      // Центруємо вміст по горизонталі
-        minHeight: 0, // Важливо для правильної роботи Flexbox у вкладених контейнерах
-        padding: 1,
-        overflow: "hidden", // Запобігаємо виходу вмісту за межі
+        display: "flex", // Додано для розтягування CardContent
       }}
     >
-      {/* Основний блок зі значенням та одиницями виміру */}
-      <Box
+      <CardContent
+        // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ №1: Переносимо ref сюди ---
+        // Тепер ми вимірюємо ширину саме області контенту, а не всієї картки.
+        ref={containerRef}
         sx={{
           display: "flex",
-          alignItems: "baseline", // Вирівнюємо значення і одиниці по базовій лінії
-          flexWrap: "nowrap",     // Забороняємо перенос рядка
-          justifyContent: "center",
+          flexDirection: "column",
+          flexGrow: 1, // Дозволяє CardContent зайняти весь простір Card
+          height: "100%",
           width: "100%",
-          overflow: "hidden",     // Ховаємо те, що не вміщається
-          textAlign: "center",
+          alignItems: "center",
+          justifyContent: "center",
+          // Важливо: overflow: "hidden", щоб приховати проміжні стани рендерингу
+          overflow: "hidden",
         }}
       >
-        {/* ЗМІНА: Використовуємо clamp() для адаптивного розміру шрифта */}
         <Typography
+          ref={valueRef}
           component="span"
           sx={{
             fontWeight: "bold",
-            // clamp(мінімум, бажаний розмір (залежить від ширини екрана), максимум)
-            fontSize: "clamp(1.5rem, 8vw, 5rem)",
             lineHeight: 1.1,
-            // Властивості для обрізання тексту, якщо він занадто довгий
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            whiteSpace: "nowrap", // Забороняємо перенос тексту, щоб scrollWidth працював коректно
+            // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ №2: Задаємо великий базовий розмір ---
+            // Ми ставимо свідомо великий розмір, щоб логіка завжди зменшувала його, а не збільшувала.
+            fontSize: "4rem",
           }}
         >
           {displayValue ?? "---"}
+          {unit && (
+            <span
+              style={{
+                fontSize: "0.6em", // Цей розмір буде масштабуватися разом з батьківським
+                marginLeft: "4px",
+                fontWeight: 500,
+              }}
+            >
+              {unit}
+            </span>
+          )}
         </Typography>
 
-        {unit && (
-          // ЗМІНА: Одиниці виміру також робимо адаптивними, але меншими
-          <Typography
-            component="span"
-            sx={{
-              ml: 0.5,
-              fontWeight: 500,
-              fontSize: "clamp(1rem, 4vw, 3rem)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {unit}
-          </Typography>
-        )}
-      </Box>
-
-      {/* ЗМІНА: Текст з часом оновлення притискаємо до низу */}
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{
-          mt: "auto", // Притискаємо цей елемент до низу контейнера
-          pt: 1, // Додаємо невеликий відступ зверху
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          width: '100%',
-          textAlign: 'center',
-          fontSize: "0.75rem", // Можна залишити фіксованим, бо це другорядна інформація
-        }}
-      >
-        {lastUpdated}
-      </Typography>
-    </Box>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            pt: 1,
+            whiteSpace: "nowrap",
+            width: "100%",
+            textAlign: "center",
+            fontSize: "0.75rem",
+          }}
+        >
+          {lastUpdated}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 };
 

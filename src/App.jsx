@@ -24,6 +24,12 @@ import eventBus from "./core/EventBus";
 let appInitialized = false;
 
 const App = () => {
+  const [themeMode] = useLocalStorage("themeMode", "light");
+  const theme = useMemo(
+    () => createTheme({ palette: { mode: themeMode } }),
+    [themeMode]
+  );
+
   // Стан, який контролює, чи готова програма до рендерингу
   const [isInitialized, setIsInitialized] = useState(appInitialized);
   const notifications = useNotifications();
@@ -44,11 +50,6 @@ const App = () => {
     return () => window.removeEventListener("click", hideStatusBar);
   }, []);
 
-  const [themeMode] = useLocalStorage("themeMode", "light");
-  const theme = useMemo(
-    () => createTheme({ palette: { mode: themeMode } }),
-    [themeMode]
-  );
   const { appConfig, setAppConfig, globalConnectionStatus, handlers } =
     useAppConfig();
 
@@ -84,34 +85,18 @@ const App = () => {
   }, [globalConnectionStatus]);
 
   return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={theme}>
-        <CssBaseline enableColorScheme />
-        <Router>
-          {isInitialized ? (
-            // Якщо все готово, рендеримо AppLayout
-            <AppLayout
-              appConfig={appConfig}
-              setAppConfig={setAppConfig}
-              globalConnectionStatus={globalConnectionStatus}
-              handlers={handlers}
-            />
-          ) : (
-            // В іншому випадку показуємо індикатор завантаження
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                height: "100vh",
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          )}
-        </Router>
-      </ThemeProvider>
-    </StyledEngineProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline enableColorScheme />
+
+      <Router>
+        <AppLayout
+          appConfig={appConfig}
+          setAppConfig={setAppConfig}
+          globalConnectionStatus={globalConnectionStatus}
+          handlers={handlers}
+        />
+      </Router>
+    </ThemeProvider>
   );
 };
 

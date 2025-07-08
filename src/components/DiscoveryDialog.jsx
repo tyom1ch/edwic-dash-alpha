@@ -69,19 +69,23 @@ const getEntityIcon = (componentType) => {
 
 const mapHaTypeToDashboardType = (entityConfig) => {
   console.log("Mapping HA type to dashboard type:", entityConfig);
-  switch (entityConfig.componentType) {
-    case "switch":
-      return "switch";
-    case "sensor":
-      return "sensor";
-    case "climate":
-      if (entityConfig.temp_hi_cmd_t && entityConfig.temp_lo_cmd_t) {
-        return "thermostat_range";
-      }
-      return "thermostat";
-    default:
-      return "sensor";
-  }
+
+  // switch (entityConfig.componentType) {
+  //   case "switch":
+  //     return "switch";
+  //   case "sensor":
+  //     return "sensor";
+  //   case "climate":
+  //     if (entityConfig.temp_hi_cmd_t && entityConfig.temp_lo_cmd_t) {
+  //       return "thermostat_range";
+  //     } else if (entityConfig.mode_command_topic) {
+  //       return "climate"; // Для Home Assistant MQTT Discovery
+  //     }
+  //     return "thermostat";
+  //   default:
+  //     return "sensor";
+  // }
+  return entityConfig.componentType || "unknown"; // Повертаємо тип сутності або "sensor" за замовчуванням
 };
 
 function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
