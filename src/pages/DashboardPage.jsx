@@ -12,7 +12,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const FallbackWidget = ({ componentConfig }) => (
   <div style={{ padding: '16px', border: '1px dashed grey', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-    <p>Невідомий віджет: {componentConfig.label} ({componentConfig.type})</p>
+    <p>Невідомий віджет: {componentConfig.label} {componentConfig?.type?.type}</p>
   </div>
 );
 

@@ -68,24 +68,30 @@ const getEntityIcon = (componentType) => {
 };
 
 const mapHaTypeToDashboardType = (entityConfig) => {
-  console.log("Mapping HA type to dashboard type:", entityConfig);
+  console.log("Mapping HA config to widget properties:", entityConfig);
 
-  // switch (entityConfig.componentType) {
-  //   case "switch":
-  //     return "switch";
-  //   case "sensor":
-  //     return "sensor";
-  //   case "climate":
-  //     if (entityConfig.temp_hi_cmd_t && entityConfig.temp_lo_cmd_t) {
-  //       return "thermostat_range";
-  //     } else if (entityConfig.mode_command_topic) {
-  //       return "climate"; // Для Home Assistant MQTT Discovery
-  //     }
-  //     return "thermostat";
-  //   default:
-  //     return "sensor";
-  // }
-  return entityConfig.componentType || "unknown"; // Повертаємо тип сутності або "sensor" за замовчуванням
+  const componentType = entityConfig.componentType || "unknown";
+
+  switch (componentType) {
+    case "climate":
+      // Визначаємо варіант прямо тут, аналізуючи поля конфігурації
+      const hasLowTempTopic =
+        entityConfig.temperature_low_state_topic || entityConfig.temp_lo_stat_t;
+      const hasHighTempTopic =
+        entityConfig.temperature_high_state_topic ||
+        entityConfig.temp_hi_stat_t;
+
+      if (hasLowTempTopic && hasHighTempTopic) {
+        // Якщо є топіки для діапазону, встановлюємо варіант 'range'
+        return { type: "climate", variant: "range" };
+      } else {
+        // В іншому випадку це звичайний термостат
+        return { type: "climate", variant: "single" };
+      }
+
+    default:
+      return { ...entityConfig, type: componentType };
+  }
 };
 
 function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
@@ -113,13 +119,19 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
     setOpenDevices((prev) => ({ ...prev, [deviceId]: !prev[deviceId] }));
   };
 
+  // Замініть вашу поточну функцію на цю
   const handleAddClick = (entity) => {
-    const dashboardWidgetType = mapHaTypeToDashboardType(entity);
+    // 1. Отримуємо додаткові властивості
+    const widgetProps = mapHaTypeToDashboardType(entity); // Використовуємо нову назву
+
+    // 2. Правильно створюємо новий компонент шляхом об'єднання
     const newComponent = {
-      ...entity,
-      type: dashboardWidgetType,
-      label: entity.name,
+      ...entity, // Спочатку всі оригінальні поля
+      ...widgetProps, // Потім додаємо/перезаписуємо type і variant
+      label: entity.name || entity.label, // Встановлюємо label, якщо його немає
     };
+
+    // 3. Передаємо на збереження
     onAddEntity(newComponent);
   };
 
@@ -161,7 +173,6 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
       return acc;
     }, []);
   }, [discovered, searchQuery]);
-
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="md">

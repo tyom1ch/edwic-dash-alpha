@@ -1,25 +1,23 @@
 // src/components/widgets/ClimateComponent.jsx
 import { Card, CardContent, Typography, Box, IconButton, Select, MenuItem, Chip, Slider } from '@mui/material';
-import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit, WbSunny, AcUnit as AcUnitIcon } from '@mui/icons-material'; // Додано іконки
+import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit, WbSunny, AcUnit as AcUnitIcon } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
 
 const ClimateComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
 
-  // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ ---
-  // Динамічно визначаємо режим роботи на основі НАЯВНОСТІ полів конфігурації,
-  // оскільки 'type' тепер завжди 'climate'.
-  const isRangeMode = 
-    (componentConfig.temperature_low_state_topic || componentConfig.temp_lo_stat_t) &&
-    (componentConfig.temperature_high_state_topic || componentConfig.temp_hi_stat_t);
+  // --- КЛЮЧОВЕ СПРОЩЕННЯ ---
+  // Чітко визначаємо режим роботи на основі збереженого варіанту в конфігурації.
+  // За замовчуванням 'single', якщо варіант не задано.
+  const isRangeMode = componentConfig.variant === 'range';
   // -----------------------------
 
   // Читаємо всі можливі стани з об'єкта entity
   const currentTemperature = entity?.current_temperature ?? '---';
   const mode = entity?.mode ?? 'off';
   const action = entity?.action ?? 'idle';
-  const presetMode = entity?.preset_mode; // Читаємо стан пресету
+  const presetMode = entity?.preset_mode;
   
   // Для звичайного режиму
   const targetTemperature = entity?.temperature ?? '---';
@@ -40,7 +38,7 @@ const ClimateComponent = ({ componentConfig }) => {
   };
   const modes = getModesArray();
 
-  // Обробники команд
+  // Обробники команд (залишаються без змін)
   const handleSingleTemperatureChange = (increment) => {
     if (targetTemperature === '---') return;
     const newTemp = parseFloat(targetTemperature) + increment;
@@ -89,7 +87,7 @@ const ClimateComponent = ({ componentConfig }) => {
     });
   };
 
-  // Динамічний рендеринг UI для керування температурою
+  // UI рендеринг (залишається без змін)
   let controls;
   if (isRangeMode) {
     const isRangeReady = targetTempLow !== '---' && targetTempHigh !== '---';
@@ -119,7 +117,6 @@ const ClimateComponent = ({ componentConfig }) => {
     );
   }
 
-  // Визначення кольору та іконки для стану 'action'
   const getActionProps = () => {
     switch (action) {
       case 'heating':
@@ -144,7 +141,6 @@ const ClimateComponent = ({ componentConfig }) => {
         
         {controls}
 
-        {/* Блок з пресетами, показується тільки якщо вони є */}
         {preset_modes && preset_modes.length > 0 && (
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', my: 1, flexWrap: 'wrap', opacity: isOff ? 0.4 : 1 }}>
             {preset_modes.map((p) => (
