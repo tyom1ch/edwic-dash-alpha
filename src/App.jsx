@@ -167,7 +167,7 @@ const GettingStarted = () => (
         </Typography>
         <Paper elevation={3} sx={{ p: 2, backgroundColor: '#111', fontFamily: 'monospace', color: '#f1f1f1', border: '1px solid #444' }}>
             <code>
-                docker run -p 8080:80 ghcr.io/your-repo/edwic-dash:latest
+                docker run -p 8080:80 ghcr.io/tyom1ch/edwic-dash-alpha:latest
             </code>
         </Paper>
     </Container>
