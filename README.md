@@ -77,13 +77,13 @@ curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/insta
 <!-- CHANGELOG START -->
 ## v0.0.4b
 
-Рефакторинг
+Переміщення віджета
 ♻️ **Зміни**
-- Переміщено `WidgetWrapper.jsx` з `src/components` до `src/components/widgets`.
+- Переміщено `WidgetWrapper.jsx` з `src/components/WidgetWrapper.jsx` в `src/components/widgets/WidgetWrapper.jsx`.
+- Оновлено імпорт `WidgetWrapper` в `src/pages/DashboardPage.jsx`.
 
 🧹 **Внутрішні зміни**
 - Видалено компоненти `ModalDashSettings.jsx` та `SettingsButton.jsx`.
-- Оновлено імпорт `WidgetWrapper` в `DashboardPage.jsx`.
 <!-- CHANGELOG END -->
 
 ---
