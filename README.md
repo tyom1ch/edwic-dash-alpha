@@ -62,7 +62,7 @@ curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/insta
 ### 🛠️ Для розробників: Технологічний стек
 
 *   **Фреймворк:** [React](https://reactjs.org/) (з Vite)
-*   **Мова:** [TypeScript](https://www.typescriptlang.org/)
+*   **Мова:** [Javascript](https://www.javascript.com/)
 *   **UI-компоненти:** [Material-UI (MUI)](https://mui.com/)
 *   **MQTT-клієнт:** [MQTT.js](https://github.com/mqttjs/MQTT.js)
 *   **Сітка дашборду:** [React Grid Layout](https://github.com/react-grid-layout/react-grid-layout)
@@ -143,7 +143,7 @@ To access from another device on your network, use the IP address of the machine
 ### 🛠️ For Developers: The Tech Stack
 
 *   **Framework:** [React](https://reactjs.org/) (with Vite)
-*   **Language:** [TypeScript](https://www.typescriptlang.org/)
+*   **Language:** [Javascript](https://www.javascript.com/)
 *   **UI Components:** [Material-UI (MUI)](https://mui.com/)
 *   **MQTT Client:** [MQTT.js](https://github.com/mqttjs/MQTT.js)
 *   **Dashboard Grid:** [React Grid Layout](https://github.com/react-grid-layout/react-grid-layout)
