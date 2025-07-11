@@ -71,7 +71,7 @@ curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/insta
 ### 🔮 Майбутні плани (Roadmap)
 
 *   **Система сповіщень**: Отримання повідомлень про важливі події.
-*   **Більше віджетів**: Підтримка світильників (`light`), вентиляторів (`fan`), ролет (`cover`) тощо.
+*   **Більше віджетів**: ~Підтримка світильників (`light`), вентиляторів (`fan`), ролет (`cover`)~ тощо.
 *   **Покращений UI/UX**: Подальше вдосконалення інтерфейсу.
 
 <!-- CHANGELOG START -->
@@ -152,5 +152,5 @@ To access from another device on your network, use the IP address of the machine
 ### 🔮 Roadmap
 
 *   **Notification System**: Receive alerts for important events.
-*   **More Widgets**: Adding support for lights, fans, covers, and other entities.
+*   **More Widgets**: Adding support for ~lights, fans, covers,~ and other entities.
 *   **Enhanced UI/UX**: Continuously improving the user interface and overall experience.
