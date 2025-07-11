@@ -79,10 +79,10 @@ curl -fsSL https://raw.githubusercontent.com/tyom1ch/edwic-dash-alpha/main/insta
 
 Рефакторинг
 ♻️ **Зміни**
-- Переміщено `WidgetWrapper.jsx` до `src/components/widgets/`.
+- Переміщено компонент `WidgetWrapper` з `src/components` в `src/components/widgets`.
+- Видалено компоненти `ModalDashSettings` та `SettingsButton`.
 
 🧹 **Внутрішні зміни**
-- Видалено компоненти `ModalDashSettings.jsx` та `SettingsButton.jsx`.
 - Оновлено README.md.
 <!-- CHANGELOG END -->
 
