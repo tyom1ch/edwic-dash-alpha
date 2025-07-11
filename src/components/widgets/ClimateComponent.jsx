@@ -103,7 +103,7 @@ const ClimateComponent = ({ componentConfig }) => {
           min={min_temp}
           max={max_temp}
           step={temp_step}
-          disabled={isOff || !isRangeReady}
+          // disabled={isOff || !isRangeReady}
         />
       </Box>
     );
