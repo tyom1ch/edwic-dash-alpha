@@ -67,33 +67,6 @@ const getEntityIcon = (componentType) => {
   }
 };
 
-const mapHaTypeToDashboardType = (entityConfig) => {
-  console.log("Mapping HA config to widget properties:", entityConfig);
-
-  const componentType = entityConfig.componentType || "unknown";
-
-  switch (componentType) {
-    case "climate":
-      // Визначаємо варіант прямо тут, аналізуючи поля конфігурації
-      const hasLowTempTopic =
-        entityConfig.temperature_low_state_topic || entityConfig.temp_lo_stat_t;
-      const hasHighTempTopic =
-        entityConfig.temperature_high_state_topic ||
-        entityConfig.temp_hi_stat_t;
-
-      if (hasLowTempTopic && hasHighTempTopic) {
-        // Якщо є топіки для діапазону, встановлюємо варіант 'range'
-        return { type: "climate", variant: "range" };
-      } else {
-        // В іншому випадку це звичайний термостат
-        return { type: "climate", variant: "single" };
-      }
-
-    default:
-      return { ...entityConfig, type: componentType };
-  }
-};
-
 function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
   const [discovered, setDiscovered] = useState([]);
   const [openDevices, setOpenDevices] = useState({});
@@ -119,19 +92,13 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
     setOpenDevices((prev) => ({ ...prev, [deviceId]: !prev[deviceId] }));
   };
 
-  // Замініть вашу поточну функцію на цю
   const handleAddClick = (entity) => {
-    // 1. Отримуємо додаткові властивості
-    const widgetProps = mapHaTypeToDashboardType(entity); // Використовуємо нову назву
-
-    // 2. Правильно створюємо новий компонент шляхом об'єднання
+    // Сутність, що надходить від DiscoveryService, вже має правильний `type` та `variant`.
+    // Нам просто потрібно переконатися, що у неї є `label`.
     const newComponent = {
-      ...entity, // Спочатку всі оригінальні поля
-      ...widgetProps, // Потім додаємо/перезаписуємо type і variant
-      label: entity.name || entity.label, // Встановлюємо label, якщо його немає
+      ...entity,
+      label: entity.name || entity.label || entity.id,
     };
-
-    // 3. Передаємо на збереження
     onAddEntity(newComponent);
   };
 

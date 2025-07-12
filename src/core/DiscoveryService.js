@@ -1,6 +1,31 @@
 // src/core/DiscoveryService.js
 import eventBus from './EventBus';
 import connectionManager from './ConnectionManager';
+import { WIDGET_REGISTRY } from './widgetRegistry';
+
+const mapHaTypeToDashboardType = (entityConfig) => {
+    const componentType = entityConfig.componentType || "unknown";
+  
+    // 1. Специфічні мапінги, які вимагають аналізу конфігурації
+    if (componentType === 'climate') {
+      const hasLowTempTopic = entityConfig.temperature_low_state_topic || entityConfig.temp_lo_stat_t;
+      const hasHighTempTopic = entityConfig.temperature_high_state_topic || entityConfig.temp_hi_stat_t;
+      if (hasLowTempTopic && hasHighTempTopic) {
+        return { type: "climate", variant: "range" };
+      }
+      return { type: "climate", variant: "single" };
+    }
+  
+    // 2. Перевірка, чи тип компонента напряму підтримується віджетами
+    const knownWidgetTypes = WIDGET_REGISTRY.map(w => w.type);
+    if (knownWidgetTypes.includes(componentType)) {
+      return { type: componentType };
+    }
+  
+    // 3. Якщо тип невідомий, повертаємо 'generic_info' як запасний варіант
+    // console.log(`[DiscoveryService] Unsupported component type '${componentType}'. Mapping to 'generic_info'.`);
+    return { type: 'generic_info' };
+};
 
 class DiscoveryService {
     constructor() {
@@ -97,16 +122,13 @@ class DiscoveryService {
 
             const config = JSON.parse(message);
             
-            // --- ЗМІНА: Спрощена перевірка. Нам потрібен лише uniq_id для сутності. ---
             if (!config.uniq_id) {
                 console.warn('[DiscoveryService] Received config without unique_id. Skipping.', config);
                 return;
             }
 
-            // --- ЗМІНА: Використовуємо нову гнучку функцію для отримання ID пристрою ---
             const deviceId = this._getDeviceId(config);
             
-            // Якщо не вдалося визначити ID пристрою жодним способом, пропускаємо сутність.
             if (!deviceId) {
                 console.error(`[DiscoveryService] Could not determine a device ID for entity with unique_id: ${config.uniq_id}. Skipping.`);
                 return;
@@ -118,12 +140,15 @@ class DiscoveryService {
                 return topicFragment.replace(/~/g, baseTopicPrefix);
             };
 
-            const componentType = topic.split('/')[1];
+            const haComponentType = topic.split('/')[1];
+            const widgetInfo = mapHaTypeToDashboardType({ ...config, componentType: haComponentType });
             
             const entity = {
                 id: config.uniq_id,
                 name: config.name || config.uniq_id,
-                componentType,
+                componentType: haComponentType, // Зберігаємо оригінальний тип HA для інформації
+                type: widgetInfo.type,          // Це наш тип віджета для дашборду
+                ...widgetInfo,                  // Додаємо інші властивості, як-от 'variant'
                 brokerId,
                 _config_topic: topic,
             };
@@ -141,15 +166,12 @@ class DiscoveryService {
                 }
             }
 
-            // --- ЗМІНА: Створюємо пристрій, якщо він ще не існує, з урахуванням можливої відсутності `config.dev` ---
             if (!this.discoveredDevices.has(deviceId)) {
-                // Визначаємо ім'я пристрою: або з dev.name, або з імені сутності, або сам deviceId
                 const deviceName = config.dev?.name || config.name || deviceId;
                 
                 this.discoveredDevices.set(deviceId, {
                     id: deviceId,
                     name: deviceName,
-                    // Безпечно отримуємо дані, використовуючи опціональні ланцюжки та значення за замовчуванням
                     model: config.dev?.mdl || 'Unknown Model',
                     manufacturer: config.dev?.mf || 'Unknown Manufacturer',
                     entities: new Map()

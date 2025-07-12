@@ -5,7 +5,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
 import WidgetWrapper from "../components/widgets/WidgetWrapper";
-import { getWidgetByType } from "../core/widgetRegistry";
+import { getWidgetById } from "../core/widgetRegistry";
 import HistoryGraphDialog from "../components/HistoryGraphDialog";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -55,7 +55,7 @@ function DashboardPage({
   const layouts = {
     lg: dashboard.components.map((comp, i) => {
       // 1. Отримуємо інформацію про тип віджета з реєстру
-      const widgetInfo = getWidgetByType(comp.type);
+      const widgetInfo = getWidgetById(comp.type);
       const defaultLayout = widgetInfo?.defaultLayout;
 
       // 2. Визначаємо layout з пріоритетами
@@ -94,7 +94,7 @@ function DashboardPage({
         draggableCancel=".widget-no-drag"
       >
         {dashboard.components.map((component) => {
-          const WidgetToRender = getWidgetByType(component.type)?.component;
+          const WidgetToRender = getWidgetById(component.type)?.component;
 
           return (
             <div key={String(component.id)}>
