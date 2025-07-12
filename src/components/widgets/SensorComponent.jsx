@@ -9,7 +9,12 @@ const SensorComponent = ({ componentConfig }) => {
   const template = entity?.val_tpl || componentConfig?.value_template;
 
   const displayValue = evaluateValueTemplate(template, rawValue);
-  const unit = entity?.unit_of_meas || componentConfig?.unit_of_meas || "";
+  const unit =
+    entity?.unit_of_meas ||
+    entity?.unit_of_measurement ||
+    componentConfig?.unit_of_meas ||
+    componentConfig?.unit_of_measurement ||
+    "";
   const lastUpdated = entity?.last_updated
     ? new Date(entity.last_updated).toLocaleString()
     : "Не оновлювалось";
@@ -88,7 +93,7 @@ const SensorComponent = ({ componentConfig }) => {
           overflow: "hidden",
         }}
       >
-        <Typography sx={{whiteSpace: "nowrap"}}>
+        <Typography sx={{ whiteSpace: "nowrap" }}>
           {getShortLabel(componentConfig.label || entity?.name)}
         </Typography>
         <Typography
