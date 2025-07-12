@@ -1,3 +1,5 @@
+[![CI - Development Build](https://github.com/tyom1ch/edwic-dash-alpha/actions/workflows/dev.yml/badge.svg)](https://github.com/tyom1ch/edwic-dash-alpha/actions/workflows/dev.yml)
+[![CD - Create Release](https://github.com/tyom1ch/edwic-dash-alpha/actions/workflows/release.yml/badge.svg)](https://github.com/tyom1ch/edwic-dash-alpha/actions/workflows/release.yml)
 ---
 
 # Edwic.Dash
