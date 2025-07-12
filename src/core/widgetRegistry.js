@@ -53,13 +53,26 @@ export const WIDGET_REGISTRY = [
       { id: "state_topic", label: "Топік стану (State Topic)", keys: ["state_topic", "stat_t"] },
       { id: "command_topic", label: "Топік команд (Command Topic)", keys: ["command_topic", "cmd_t"] },
       { id: "payload_on", label: "Значення для ON", keys: ["payload_on", "pl_on"] },
-      { id: "payload_off", label: "Значення для OFF", keys: ["payload_off", "pl_off"] },
+      { id: "payload_off", label: "��начення для OFF", keys: ["payload_off", "pl_off"] },
     ],
     getTopicMappings: (config) => ({
       value: resolveTopic(config.state_topic || config.stat_t, config["~"]),
     }),
     getCommandMappings: (config) => ({
       default: resolveTopic(config.command_topic || config.cmd_t, config["~"]),
+    }),
+  },
+  {
+    type: "binary_sensor",
+    label: "Бінарний Сенсор (ON/OFF)",
+    component: BinarySensorComponent,
+    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    getConfigFields: () => [
+      { id: "state_topic", label: "Топік стану (State Topic)", keys: ["state_topic", "stat_t"] },
+      { id: "device_class", label: "Клас пристрою", keys: ["device_class", "dev_cla"], isInfo: true, modes: BINARY_SENSOR_DEVICE_CLASSES },
+    ],
+    getTopicMappings: (config) => ({
+      value: resolveTopic(config.state_topic || config.stat_t, config["~"]),
     }),
   },
   {
