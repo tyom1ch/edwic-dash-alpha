@@ -53,7 +53,7 @@ export const WIDGET_REGISTRY = [
       { id: "state_topic", label: "Топік стану (State Topic)", keys: ["state_topic", "stat_t"] },
       { id: "command_topic", label: "Топік команд (Command Topic)", keys: ["command_topic", "cmd_t"] },
       { id: "payload_on", label: "Значення для ON", keys: ["payload_on", "pl_on"] },
-      { id: "payload_off", label: "��начення для OFF", keys: ["payload_off", "pl_off"] },
+      { id: "payload_off", label: "Значення для OFF", keys: ["payload_off", "pl_off"] },
     ],
     getTopicMappings: (config) => ({
       value: resolveTopic(config.state_topic || config.stat_t, config["~"]),
