@@ -109,8 +109,8 @@ const BinarySensorComponent = ({ componentConfig }) => {
     fitText(); // Перший запуск
 
     return () => resizeObserver.disconnect();
-  }, [valueRef]); // Перераховуємо розмір, якщо змінився текст або одиниці виміру.
-
+  }, [state, componentConfig.label, entity?.name]);
+  
   const getShortLabel = (text) => {
     if (!text) return "Сенсор";
     return text.length > 25 ? text.slice(0, 25) + "…" : text;

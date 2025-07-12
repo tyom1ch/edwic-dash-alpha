@@ -162,7 +162,7 @@ function ComponentDialog({
       .getConfigFields(newVariant)
       .flatMap((f) => f.keys);
     const updatedComponent = { ...localComponent, variant: newVariant };
-    updatedComponent.device_class = newVariant === "custom" ? "" : newVariant;
+    // updatedComponent.device_class = newVariant === "custom" ? "" : newVariant;
 
     const keysToRemove = oldKeys.filter((k) => !newKeys.includes(k));
     keysToRemove.forEach((key) => delete updatedComponent[key]);
