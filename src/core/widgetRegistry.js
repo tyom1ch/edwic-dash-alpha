@@ -20,6 +20,7 @@ const resolveTopic = (topic, baseTopic) => {
 };
 
 export const WIDGET_REGISTRY = [
+  // ... (весь ваш поточний реєстр віджетів залишається без змін)
   {
     type: "sensor",
     label: "Сенсор (тільки читання)",
@@ -293,6 +294,28 @@ export const WIDGET_REGISTRY = [
     getCommandMappings: (config) => ({}), // No commands for info component
   },
 ];
+
+// --- КЛЮЧОВЕ ВИПРАВЛЕННЯ ТУТ ---
+// Видаляємо стару функцію 'getRequiredTopics' і додаємо нову 'getRequiredFields'
+
+/**
+ * Отримує список об'єктів обов'язкових полів для заданого типу віджета та його варіанта.
+ * @param {string} type - Тип віджета (напр. 'climate').
+ * @param {string} [variant] - Варіант віджета (напр. 'range').
+ * @returns {Array<Object>} - Масив об'єктів, що описують обов'язкові поля.
+ */
+export const getRequiredFields = (type, variant) => {
+  const widget = WIDGET_REGISTRY.find((w) => w.type === type);
+  if (!widget) return [];
+
+  // Передаємо варіант у getConfigFields, якщо він існує для цього типу віджета
+  const configFields = widget.getConfigFields?.(variant);
+  if (!configFields) return [];
+
+  // Повертаємо повні об'єкти полів, які не є інформаційними
+  return configFields.filter((field) => !field.isInfo);
+};
+
 
 export const getWidgetById = (type) => {
   return WIDGET_REGISTRY.find((widget) => widget.type === type);

@@ -1,38 +1,40 @@
 // src/components/AppLayout.jsx
-import React, { useState, useMemo, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { createTheme, IconButton } from '@mui/material';
-import { AppProvider, DashboardLayout } from '@toolpad/core';
+import React, { useState, useMemo, useEffect } from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { createTheme, IconButton } from "@mui/material";
+import { AppProvider, DashboardLayout } from "@toolpad/core";
 import {
   Settings,
   Dashboard as DashboardIcon,
   MoreVert,
   AddBox,
-} from '@mui/icons-material';
+} from "@mui/icons-material";
 
-import DashboardPage from '../pages/DashboardPage';
-import SettingsPage from '../pages/SettingsPage';
-import ComponentDialog from './ComponentDialog';
-import DiscoveryDialog from './DiscoveryDialog';
+import DashboardPage from "../pages/DashboardPage";
+import SettingsPage from "../pages/SettingsPage";
+import ComponentDialog from "./ComponentDialog";
+import DiscoveryDialog from "./DiscoveryDialog";
 
 // Import new hooks and components
-import { useDashboardManager } from './AppLayoutParts/useDashboardManager';
-import { useComponentManager } from './AppLayoutParts/useComponentManager';
-import { useDialogs } from './AppLayoutParts/useDialogs';
-import { AppToolbar, AppTitle } from './AppLayoutParts/AppToolbar';
-import { DashboardMenu } from './AppLayoutParts/DashboardMenu';
-import { AddDashboardDialog } from './AppLayoutParts/AddDashboardDialog';
-import { RenameDashboardDialog } from './AppLayoutParts/RenameDashboardDialog';
+import { useDashboardManager } from "./AppLayoutParts/useDashboardManager";
+import { useComponentManager } from "./AppLayoutParts/useComponentManager";
+import { useDialogs } from "./AppLayoutParts/useDialogs";
+import { AppToolbar, AppTitle } from "./AppLayoutParts/AppToolbar";
+import { DashboardMenu } from "./AppLayoutParts/DashboardMenu";
+import { AddDashboardDialog } from "./AppLayoutParts/AddDashboardDialog";
+import { RenameDashboardDialog } from "./AppLayoutParts/RenameDashboardDialog";
 
 function AppLayout({
   appConfig,
   setAppConfig,
   globalConnectionStatus,
   handlers,
+  themeMode,
+  setThemeMode,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentDashboardId = location.pathname.split('/')[1] || null;
+  const currentDashboardId = location.pathname.split("/")[1] || null;
 
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -72,31 +74,35 @@ function AppLayout({
   } = useComponentManager(setAppConfig, currentDashboardId, handlers);
 
   useEffect(() => {
-    if (location.pathname === '/' && Object.keys(appConfig.dashboards).length > 0) {
+    if (
+      location.pathname === "/" &&
+      Object.keys(appConfig.dashboards).length > 0
+    ) {
       navigate(`/${Object.keys(appConfig.dashboards)[0]}`);
-    } else if (Object.keys(appConfig.dashboards).length === 0 && !location.pathname.startsWith('/settings')) {
-      navigate('/settings');
+    } else if (
+      Object.keys(appConfig.dashboards).length === 0 &&
+      !location.pathname.startsWith("/settings")
+    ) {
+      navigate("/settings");
     }
   }, [appConfig.dashboards, navigate, location.pathname]);
 
-  const router = useMemo(() => ({
-    navigate: (path) => (path === '/add-dash' ? openAddDashDialog() : navigate(path)),
-    pathname: location.pathname,
-    searchParams: new URLSearchParams(location.search),
-  }), [navigate, location.pathname, openAddDashDialog]);
-
-  const demoTheme = createTheme({
-    cssVariables: { colorSchemeSelector: 'data-toolpad-color-scheme' },
-    colorSchemes: { light: true, dark: true },
-  });
+  const router = useMemo(
+    () => ({
+      navigate: (path) =>
+        path === "/add-dash" ? openAddDashDialog() : navigate(path),
+      pathname: location.pathname,
+      searchParams: new URLSearchParams(location.search),
+    }),
+    [navigate, location.pathname, openAddDashDialog]
+  );
 
   return (
     <AppProvider
-      theme={demoTheme}
       router={router}
-      branding={{ logo: false, title: '' }}
+      branding={{ logo: false, title: "" }}
       navigation={[
-        { kind: 'header', title: 'Мої дашборди' },
+        { kind: "header", title: "Мої дашборди" },
         ...Object.entries(appConfig.dashboards).map(([id, { title }]) => ({
           segment: id,
           icon: <DashboardIcon />,
@@ -107,9 +113,9 @@ function AppLayout({
             </IconButton>
           ),
         })),
-        { kind: 'divider' },
-        { segment: 'add-dash', title: 'Додати дашборд', icon: <AddBox /> },
-        { segment: 'settings', title: 'Налаштування', icon: <Settings /> },
+        { kind: "divider" },
+        { segment: "add-dash", title: "Додати дашборд", icon: <AddBox /> },
+        { segment: "settings", title: "Налаштування", icon: <Settings /> },
       ]}
     >
       <DashboardLayout
@@ -121,7 +127,7 @@ function AppLayout({
               setIsEditMode={setIsEditMode}
               openComponentDialog={openComponentDialog}
               openDiscoveryDialog={openDiscoveryDialog}
-              isSettingsPage={location.pathname.startsWith('/settings')}
+              isSettingsPage={location.pathname.startsWith("/settings")}
             />
           ),
         }}
@@ -144,7 +150,13 @@ function AppLayout({
           ))}
           <Route
             path="/settings"
-            element={<SettingsPage brokers={appConfig.brokers} setBrokers={handlers.handleSetBrokers} />}
+            element={
+              <SettingsPage
+                brokers={appConfig.brokers}
+                setBrokers={handlers.handleSetBrokers}
+                themeMode={themeMode}
+              />
+            }
           />
           <Route path="*" element={<div>404 - Сторінку не знайдено</div>} />
         </Routes>
@@ -154,8 +166,13 @@ function AppLayout({
         anchorEl={dashMenuAnchorEl}
         onClose={handleDashMenuClose}
         onRename={() => {
-          const currentName = appConfig.dashboards[activeDashIdForMenu]?.title || '';
-          setRenameDashInfo({ open: true, id: activeDashIdForMenu, name: currentName });
+          const currentName =
+            appConfig.dashboards[activeDashIdForMenu]?.title || "";
+          setRenameDashInfo({
+            open: true,
+            id: activeDashIdForMenu,
+            name: currentName,
+          });
           handleDashMenuClose();
         }}
         onDelete={() => {
@@ -187,7 +204,7 @@ function AppLayout({
       />
       <RenameDashboardDialog
         isOpen={renameDashInfo.open}
-        onClose={() => setRenameDashInfo({ open: false, id: null, name: '' })}
+        onClose={() => setRenameDashInfo({ open: false, id: null, name: "" })}
         onRename={handleRenameDashboard}
         renameInfo={renameDashInfo}
         setRenameInfo={setRenameDashInfo}

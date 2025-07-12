@@ -1,14 +1,8 @@
 // src/components/widgets/WidgetWrapper.jsx
 import React from "react";
-import {
-  Paper,
-  Box,
-  IconButton,
-  Typography,
-  Tooltip,
-  Chip,
-} from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { Box, IconButton, Tooltip } from "@mui/material";
+import { Edit, Delete, WarningAmber } from "@mui/icons-material";
+import { getRequiredFields } from "../../core/widgetRegistry";
 
 const WidgetWrapper = ({
   children,
@@ -27,7 +21,9 @@ const WidgetWrapper = ({
     e.stopPropagation();
     if (
       window.confirm(
-        `Ви впевнені, що хочете видалити віджет "${component.label || component.id}"?`
+        `Ви впевнені, що хочете видалити віджет "${
+          component.label || component.id
+        }"?`
       )
     ) {
       onDelete(component.id);
@@ -40,32 +36,63 @@ const WidgetWrapper = ({
     }
   };
 
+  // --- ОНОВЛЕНА ЛОГІКА ПЕРЕВІРКИ ---
+  // Отримуємо повні дані про обов'язкові поля, передаючи варіант для віджетів (напр. клімату)
+  const requiredFields = getRequiredFields(component.type, component.variant);
+
+  // Перевіряємо, чи якесь з обов'язкових полів не заповнене.
+  // Поле вважається незаповненим, якщо ЖОДЕН з його можливих ключів (`keys`) не має значення.
+  const isIncomplete = requiredFields.some((field) => {
+    const hasValue = field.keys.some((key) => {
+      const val = component[key];
+      
+      if (key === "unit_of_meas") {
+        return true;
+      }
+      return val !== undefined && val !== null && val.toString().trim() !== "";
+    });
+    return !hasValue; // Поле неповне, якщо не знайдено жодного ключа зі значенням
+  });
+
   return (
     <Box
       elevation={3}
       sx={{
-        position: "relative", // Важливо для позиціонування елементів керування
+        position: "relative",
         height: "100%",
-        padding: 0,
         width: "100%",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        cursor: lockMode
-          ? onClick
-            ? "pointer"
-            : "default" // Курсор для режиму перегляду
-          : "move", // Курсор "переміщення" для режиму редагування
+        cursor: lockMode ? (onClick ? "pointer" : "default") : "move",
+        // Додаємо рамку для виділення в режимі редагування
+        borderRadius: "4px",
+        boxSizing: "border-box",
       }}
       onClick={handleClick}
     >
+      {/* --- ОНОВЛЕНИЙ ІНДИКАТОР НЕПОВНОЇ КОНФІГУРАЦІЇ --- */}
+      {/* Показуємо його тільки в режимі редагування (!lockMode) */}
+      {!lockMode && isIncomplete && (
+        <Tooltip title="Неповна конфігурація. Заповніть обов'язкові поля в налаштуваннях.">
+          <Box
+            sx={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              zIndex: 10,
+              color: "warning.main",
+            }}
+          >
+            <WarningAmber />
+          </Box>
+        </Tooltip>
+      )}
+
       {children}
 
-      {/* --- ЕЛЕМЕНТИ КЕРУВАННЯ, ЩО З'ЯВЛЯЮТЬСЯ ПОВЕРХ --- */}
-      {/* Вони рендеряться тільки в режимі редагування (!lockMode) */}
+      {/* --- ЕЛЕМЕНТИ КЕРУВАННЯ --- */}
       {!lockMode && (
-        // Цей контейнер не перехоплює кліки, дозволяючи їм "проходити" крізь себе,
-        // окрім тих місць, де знаходяться його дочірні елементи.
         <Box
           sx={{
             position: "absolute",
@@ -73,18 +100,16 @@ const WidgetWrapper = ({
             left: 0,
             width: "100%",
             height: "100%",
-            p: 1,
-            pointerEvents: "none", // Дуже важливо!
+            pointerEvents: "none",
           }}
         >
-          {/* Кнопки керування */}
           <Box
-            className="widget-no-drag" // Цей клас запобігає перетягуванню
+            className="widget-no-drag"
             sx={{
               position: "absolute",
               top: "8px",
               right: "8px",
-              pointerEvents: "auto", // Робимо елементи знову клікабельними
+              pointerEvents: "auto",
               display: "flex",
               gap: "4px",
               backgroundColor: "rgba(0, 0, 0, 0.6)",
