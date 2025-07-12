@@ -1,7 +1,7 @@
 // src/core/CommandDispatcher.js
 import connectionManager from './ConnectionManager';
 import deviceRegistry from './DeviceRegistry';
-import { getWidgetByType } from './widgetRegistry'; // Імпортуємо наш реєстр
+import { getWidgetById } from './widgetRegistry'; // Імпортуємо наш реєстр
 
 class CommandDispatcher {
   /**
@@ -17,7 +17,7 @@ class CommandDispatcher {
       return;
     }
 
-    const widgetDef = getWidgetByType(componentConfig.type);
+    const widgetDef = getWidgetById(componentConfig.type);
     if (!widgetDef?.getCommandMappings) {
       console.error(`[CommandDispatcher] No command mappings found for widget type "${componentConfig.type}".`);
       return;
@@ -27,11 +27,16 @@ class CommandDispatcher {
     const targetTopic = commandMappings[commandKey];
 
     if (targetTopic) {
-      console.log(`[CommandDispatcher] Dispatching to broker '${componentConfig.brokerId}'. Topic: '${targetTopic}', Value: '${value}'`);
+      const isJsonSchema = componentConfig.schema?.toLowerCase() === 'json';
+      const payload = (isJsonSchema && typeof value === 'object' && value !== null)
+        ? JSON.stringify(value)
+        : String(value);
+
+      console.log(`[CommandDispatcher] Dispatching to broker '${componentConfig.brokerId}'. Topic: '${targetTopic}', Value: '${payload}'`);
       connectionManager.publishToTopic(
         componentConfig.brokerId,
         targetTopic,
-        String(value)
+        payload
       );
     } else {
       console.error(`[CommandDispatcher] No command topic found for entity "${entityId}" with commandKey "${commandKey}". Check widgetRegistry.`);

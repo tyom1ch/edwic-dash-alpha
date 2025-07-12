@@ -8,6 +8,8 @@ import FanComponent from "../components/widgets/FanComponent";
 import CoverComponent from "../components/widgets/CoverComponent";
 import BinarySensorComponent from "../components/widgets/BinarySensorComponent";
 import NumberComponent from "../components/widgets/NumberComponent";
+import ButtonComponent from "../components/widgets/ButtonComponent";
+import GenericInfoComponent from "../components/widgets/GenericInfoComponent";
 
 // функція resolveTopic
 const resolveTopic = (topic, baseTopic) => {
@@ -258,8 +260,40 @@ export const WIDGET_REGISTRY = [
       default: resolveTopic(config.command_topic || config.cmd_t, config["~"]),
     }),
   },
+  {
+    type: "button",
+    label: "Кнопка (Дія)",
+    component: ButtonComponent,
+    defaultLayout: { w: 2, h: 1, minW: 1, minH: 1, maxW: 4, maxH: 1 },
+    getConfigFields: () => [
+      { id: "command_topic", label: "Топік команд (Command Topic)", keys: ["command_topic", "cmd_t"] },
+      { id: "payload_press", label: "Значення для натискання", keys: ["payload_press", "pl_prs"] },
+      { id: "device_class", label: "Клас пристрою (для іконки)", keys: ["device_class", "dev_cla"], isInfo: true },
+    ],
+    getTopicMappings: (config) => ({
+      // Button is stateless from the dashboard's perspective
+    }),
+    getCommandMappings: (config) => ({
+      default: resolveTopic(config.command_topic || config.cmd_t, config["~"]),
+    }),
+  },
+  {
+    type: "generic_info",
+    label: "Загальна інформація (JSON)",
+    component: GenericInfoComponent,
+    defaultLayout: { w: 3, h: 2, minW: 2, minH: 2 },
+    getConfigFields: () => [
+      { id: "state_topic", label: "Топік стану (State Topic)", keys: ["state_topic", "stat_t"] },
+      { id: "json_attributes_topic", label: "Топік атрибутів (JSON Attributes Topic)", keys: ["json_attributes_topic", "json_attr_t"] },
+    ],
+    getTopicMappings: (config) => ({
+      value: resolveTopic(config.state_topic || config.stat_t, config["~"]),
+      attributes: resolveTopic(config.json_attributes_topic || config.json_attr_t, config["~"]),
+    }),
+    getCommandMappings: (config) => ({}), // No commands for info component
+  },
 ];
 
-export const getWidgetByType = (type) => {
+export const getWidgetById = (type) => {
   return WIDGET_REGISTRY.find((widget) => widget.type === type);
 };

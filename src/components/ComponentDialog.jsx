@@ -7,11 +7,12 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import useAppConfig from "../hooks/useAppConfig";
-import { WIDGET_REGISTRY, getWidgetByType } from "../core/widgetRegistry";
+// Змінюємо імпорт
+import { getWidgetById } from "../core/widgetRegistry";
 
 const getInitialState = () => ({
   label: "",
-  type: "",
+  type: "", // Тепер це 'widgetId', що визначається автоматично
   brokerId: "",
   value_template: "",
   variant: "single",
@@ -30,7 +31,9 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
 
   useEffect(() => {
     if (isOpen) {
-      if (isEdit && component) {
+      if ((isEdit && component) || (!isEdit && component)) {
+        // При додаванні нового компонента 'component' вже має містити
+        // автоматично визначений тип та інші дані з MQTT
         setLocalComponent({ ...getInitialState(), ...component });
       } else {
         setLocalComponent(getInitialState());
@@ -38,9 +41,9 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
     }
   }, [isOpen, isEdit, component]);
 
-  const selectedWidgetDef = useMemo(() => getWidgetByType(localComponent.type), [localComponent.type]);
+  // Використовуємо нову функцію
+  const selectedWidgetDef = useMemo(() => getWidgetById(localComponent.type), [localComponent.type]);
 
-  // --- ЛОГІКА РОЗДІЛЕННЯ ПОЛІВ ---
   const configFields = useMemo(() => {
     if (selectedWidgetDef?.getConfigFields) {
       return selectedWidgetDef.getConfigFields(localComponent.variant);
@@ -50,8 +53,7 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
 
   const editableFields = useMemo(() => configFields.filter(f => !f.isInfo), [configFields]);
   const infoFields = useMemo(() => configFields.filter(f => f.isInfo), [configFields]);
-  // ---------------------------------
-
+  
   const isSaveDisabled = !localComponent.label || !localComponent.type || !localComponent.brokerId;
 
   const handleSave = () => {
@@ -67,7 +69,6 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
     if (fieldDef) {
       const primaryKey = fieldDef.keys[0];
       const aliasKeys = fieldDef.keys.slice(1);
-
       setLocalComponent((prev) => {
         const newState = { ...prev };
         newState[primaryKey] = value;
@@ -83,109 +84,46 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
     const newVariant = e.target.value;
     const oldKeys = selectedWidgetDef.getConfigFields(localComponent.variant).flatMap((f) => f.keys);
     const newKeys = selectedWidgetDef.getConfigFields(newVariant).flatMap((f) => f.keys);
-
     const updatedComponent = { ...localComponent, variant: newVariant };
     const keysToRemove = oldKeys.filter((k) => !newKeys.includes(k));
-    keysToRemove.forEach((key) => {
-      delete updatedComponent[key];
-    });
-
+    keysToRemove.forEach((key) => delete updatedComponent[key]);
     setLocalComponent(updatedComponent);
   };
 
   const handleDecimalChange = (e) => {
     const decimals = e.target.value;
     let newValueTemplate = "";
-
     if (decimals !== "default" && typeof decimals === "number") {
       newValueTemplate = `{{ '%0.${decimals}f'|format(float(value)) }}`;
     }
-
-    setLocalComponent((prev) => ({
-      ...prev,
-      value_template: newValueTemplate,
-    }));
+    setLocalComponent((prev) => ({ ...prev, value_template: newValueTemplate }));
   };
 
   const renderField = (field) => {
     const currentKey = field.keys.find((key) => localComponent[key] != null);
     const currentValue = currentKey ? localComponent[currentKey] : "";
-
     if (Array.isArray(field.modes)) {
       return (
         <FormControl fullWidth key={field.id} sx={{ mt: 1 }}>
-          <InputLabel id={`${field.id}-label`}>{field.label}</InputLabel>
-          <Select
-            labelId={`${field.id}-label`}
-            label={field.label}
-            name={field.id}
-            value={currentValue}
-            onChange={handleChange}
-          >
-            {field.modes.map((option, key) => (
-              <MenuItem key={key} value={option}>{option}</MenuItem>
-            ))}
+          <InputLabel>{field.label}</InputLabel>
+          <Select label={field.label} name={field.id} value={currentValue} onChange={handleChange}>
+            {field.modes.map((option, key) => (<MenuItem key={key} value={option}>{option}</MenuItem>))}
           </Select>
         </FormControl>
       );
     }
-
-    return (
-      <TextField
-        key={field.id}
-        name={field.id}
-        label={field.label}
-        value={currentValue}
-        onChange={handleChange}
-        variant="outlined"
-        fullWidth
-      />
-    );
+    return <TextField key={field.id} name={field.id} label={field.label} value={currentValue} onChange={handleChange} variant="outlined" fullWidth />;
   };
 
   const renderInfoField = (field) => {
     const currentKey = field.keys.find((key) => localComponent[key] != null);
     const currentValue = currentKey ? localComponent[currentKey] : undefined;
-
     if (currentValue === undefined) return null;
-
     if (typeof currentValue === 'boolean') {
-      return (
-        <FormControlLabel
-          key={field.id}
-          control={<Checkbox checked={currentValue} disabled />}
-          label={field.label}
-          sx={{width: '100%'}}
-        />
-      );
+      return <FormControlLabel key={field.id} control={<Checkbox checked={currentValue} disabled />} label={field.label} sx={{width: '100%'}} />;
     }
-
-    const displayValue = (typeof currentValue === 'object' && currentValue !== null)
-      ? JSON.stringify(currentValue, null, 2)
-      : String(currentValue);
-      
-    return (
-      <TextField
-        key={field.id}
-        label={field.label}
-        value={displayValue}
-        variant="outlined"
-        fullWidth
-        multiline={typeof currentValue === 'object'}
-        maxRows={5}
-        InputProps={{
-          readOnly: true,
-        }}
-        sx={{
-            '& .MuiInputBase-input.Mui-disabled': {
-                WebkitTextFillColor: '#000000',
-            },
-            '& .MuiFormLabel-root.Mui-disabled': {
-                color: 'rgba(0, 0, 0, 0.6)'
-            }
-        }}
-      />
-    );
+    const displayValue = (typeof currentValue === 'object' && currentValue !== null) ? JSON.stringify(currentValue, null, 2) : String(currentValue);
+    return <TextField key={field.id} label={field.label} value={displayValue} variant="outlined" fullWidth multiline={typeof currentValue === 'object'} maxRows={5} InputProps={{ readOnly: true }} />;
   };
 
   return (
@@ -193,92 +131,44 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
       <DialogTitle>{isEdit ? "Редагувати віджет" : "Додати новий віджет"}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField autoFocus required label="Назва віджета" name="label" value={localComponent.label || ''} onChange={handleChange} />
+          
+          {/* ЗАМІНА: Випадаючий список замінено на нередаговане поле, оскільки тип визначається автоматично */}
           <TextField
-            autoFocus
-            required
-            label="Назва віджета"
-            name="label"
-            value={localComponent.label}
-            onChange={handleChange}
+            label="Тип віджета"
+            value={selectedWidgetDef?.label || localComponent.type || 'Не визначено'}
+            disabled
+            fullWidth
           />
-          <FormControl fullWidth required>
-            <InputLabel id="type-select-label">Тип віджета</InputLabel>
-            <Select
-              labelId="type-select-label"
-              label="Тип віджета"
-              name="type"
-              value={localComponent.type}
-              onChange={handleChange}
-            >
-              {WIDGET_REGISTRY.map((widget) => (
-                <MenuItem key={widget.type} value={widget.type}>
-                  {widget.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          
           {selectedWidgetDef?.variants && (
             <FormControl fullWidth required>
-              <InputLabel id="variant-select-label">Режим роботи</InputLabel>
-              <Select
-                labelId="variant-select-label"
-                label="Режим роботи"
-                name="variant"
-                value={localComponent.variant}
-                onChange={handleVariantChange}
-              >
-                {selectedWidgetDef.variants.map((variant) => (
-                  <MenuItem key={variant.id} value={variant.id}>
-                    {variant.label}
-                  </MenuItem>
-                ))}
+              <InputLabel>Режим роботи</InputLabel>
+              <Select label="Режим роботи" name="variant" value={localComponent.variant} onChange={handleVariantChange}>
+                {selectedWidgetDef.variants.map((variant) => (<MenuItem key={variant.id} value={variant.id}>{variant.label}</MenuItem>))}
               </Select>
             </FormControl>
           )}
+
           <FormControl fullWidth required>
-            <InputLabel id="broker-select-label">MQTT Брокер</InputLabel>
-            <Select
-              labelId="broker-select-label"
-              label="MQTT Брокер"
-              name="brokerId"
-              value={localComponent.brokerId}
-              onChange={handleChange}
-              disabled={availableBrokers.length === 0}
-            >
-              {availableBrokers.length === 0 ? (
-                <MenuItem disabled>Спочатку додайте брокера</MenuItem>
-              ) : (
-                availableBrokers.map((broker) => (
-                  <MenuItem key={broker.id} value={broker.id}>
-                    {broker.name || broker.host}
-                  </MenuItem>
-                ))
-              )}
+            <InputLabel>MQTT Брокер</InputLabel>
+            <Select label="MQTT Брокер" name="brokerId" value={localComponent.brokerId} onChange={handleChange} disabled={availableBrokers.length === 0}>
+              {availableBrokers.length === 0 ? <MenuItem disabled>Спочатку додайте брокера</MenuItem> : availableBrokers.map((broker) => (<MenuItem key={broker.id} value={broker.id}>{broker.name || broker.host}</MenuItem>))}
             </Select>
           </FormControl>
 
           {editableFields.length > 0 && (
             <Accordion sx={{ mt: 2 }} defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Налаштування топіків та відображення</Typography>
-              </AccordionSummary>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography>Налаштування</Typography></AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {editableFields.map(renderField)}
-                  
                   <FormControl fullWidth sx={{ mt: 1 }}>
-                    <InputLabel id="decimal-places-label">Заокруглення значення</InputLabel>
-                    <Select
-                      labelId="decimal-places-label"
-                      label="Заокруглення значення"
-                      value={getDecimalsFromTemplate(localComponent.value_template)}
-                      onChange={handleDecimalChange}
-                    >
+                    <InputLabel>Заокруглення значення</InputLabel>
+                    <Select label="Заокруглення значення" value={getDecimalsFromTemplate(localComponent.value_template)} onChange={handleDecimalChange}>
                       <MenuItem value="default">Не заокруглювати</MenuItem>
                       <MenuItem value={0}>0 знаків (123)</MenuItem>
                       <MenuItem value={1}>1 знак (123.4)</MenuItem>
-                      <MenuItem value={2}>2 знаки (123.45)</MenuItem>
-                      <MenuItem value={3}>3 знаки (123.456)</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>
@@ -288,9 +178,7 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
 
           {infoFields.length > 0 && (
             <Accordion sx={{ mt: 1 }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Інформація з MQTT Discovery</Typography>
-              </AccordionSummary>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography>Інформація з MQTT Discovery</Typography></AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {infoFields.map(renderInfoField).filter(Boolean)}
@@ -302,9 +190,7 @@ function ComponentDialog({ isOpen, onClose, onSave, onAdd, component, isEdit }) 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Відмінити</Button>
-        <Button onClick={handleSave} variant="contained" disabled={isSaveDisabled}>
-          {isEdit ? "Зберегти" : "Додати"}
-        </Button>
+        <Button onClick={handleSave} variant="contained" disabled={isSaveDisabled}>{isEdit ? "Зберегти" : "Додати"}</Button>
       </DialogActions>
     </Dialog>
   );

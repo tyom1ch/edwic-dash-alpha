@@ -1,7 +1,7 @@
 // src/core/DeviceRegistry.js
 import eventBus from "./EventBus";
 import connectionManager from "./ConnectionManager";
-import { getWidgetByType } from "./widgetRegistry"; // Імпортуємо наш реєстр
+import { getWidgetById } from "./widgetRegistry"; // Імпортуємо наш реєстр
 
 class DeviceRegistry {
   constructor() {
@@ -31,7 +31,7 @@ class DeviceRegistry {
       // Створюємо нову сутність, зберігаючи її попередній стан
       newEntities.set(component.id, { ...existingEntity, ...component });
 
-      const widgetDef = getWidgetByType(component.type);
+      const widgetDef = getWidgetById(component.type);
       // Якщо віджет має опис топіків стану...
       if (widgetDef?.getTopicMappings) {
         // ...отримуємо цей опис...
@@ -90,7 +90,27 @@ class DeviceRegistry {
       const { entityId, property } = action;
       const entity = this.entities.get(entityId);
       if (entity) {
-        entity[property] = messageBuffer.toString();
+        const messageString = messageBuffer.toString();
+        // Властивості, які очікуються у форматі JSON
+        const jsonProperties = ["attributes", "json_state"];
+
+        if (jsonProperties.includes(property)) {
+          try {
+            // Якщо повідомлення порожнє, не намагаємося парсити, а просто встановлюємо null
+            if (!messageString) {
+              entity[property] = null;
+            } else {
+              entity[property] = JSON.parse(messageString);
+            }
+          } catch (e) {
+            console.warn(`[DeviceRegistry] Failed to parse JSON for property '${property}' of ${entityId}:`, messageString);
+            // У разі помилки парсингу, зберігаємо як є, щоб не втратити дані
+            entity[property] = messageString;
+          }
+        } else {
+          entity[property] = messageString;
+        }
+        
         entity.last_updated = new Date().toISOString();
         eventBus.emit("entity:update", { ...entity });
       }
