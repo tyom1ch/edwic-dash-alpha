@@ -1,27 +1,51 @@
+// --- START OF FILE LightComponent.jsx (ФІНАЛЬНА ВЕРСІЯ) ---
+
 // src/components/widgets/LightComponent.jsx
 import React from 'react';
-import { Card, CardContent, Typography, Box, Switch, Slider, Chip } from '@mui/material';
-import { Lightbulb, WbIncandescent, ColorLens } from '@mui/icons-material';
+import { 
+    Card, CardContent, Typography, Box, Switch, Slider, 
+    FormControl, InputLabel, Select, MenuItem 
+} from '@mui/material';
+import { Lightbulb } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
+
+// TODO: В майбутньому можна додати компонент для вибору RGB кольору
+// import { MuiColorInput } from 'mui-color-input';
 
 const LightComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
 
-  // Визначаємо, чи використовується схема JSON
-  const isJsonSchema = componentConfig.schema === 'json';
+  // --- ЛОГІКА ВИЗНАЧЕННЯ МОЖЛИВОСТЕЙ (НОВИЙ ПІДХІД) ---
 
-  // Отримуємо стан в залежності від схеми
+  // 1. Визначаємо, які функції підтримує пристрій на основі конфігурації
+  const supportedModes = componentConfig.supported_color_modes || [];
+  const supportsBrightness = componentConfig.brightness === true;
+  const supportsColorTemp = supportedModes.includes('color_temp');
+  const supportsRgb = supportedModes.includes('rgb') || supportedModes.includes('rgbw') || supportedModes.includes('rgbww');
+  
+  const getEffectList = () => {
+    const effects = componentConfig.effect_list;
+    if (Array.isArray(effects)) return effects;
+    if (typeof effects === 'string' && effects.length > 0) return effects.split(',').map(e => e.trim());
+    return [];
+  };
+  const effect_list = getEffectList();
+  const supportsEffects = componentConfig.effect === true && effect_list.length > 0;
+  
+  // 2. Визначаємо, чи використовується схема JSON (з виправленням регістру)
+  const isJsonSchema = componentConfig.schema?.toLowerCase() === 'json';
+
+  // 3. Отримуємо поточний стан з MQTT
   const stateData = isJsonSchema ? entity?.json_state || {} : entity || {};
 
   const isOn = stateData.state === 'ON';
   const brightness = stateData.brightness; // Число від 0 до 255
   const colorTemp = stateData.color_temp; // Число (Mireds)
-  const rgb = stateData.rgb; // Масив [r, g, b] або рядок "r,g,b"
+  const rgb = stateData.rgb; // {r, g, b}
   const effect = stateData.effect;
-  
+
   const { 
-    effect_list = [], 
     payload_on = 'ON', 
     payload_off = 'OFF' 
   } = componentConfig;
@@ -29,7 +53,7 @@ const LightComponent = ({ componentConfig }) => {
   const isReady = typeof stateData.state !== 'undefined';
   const isOff = !isOn;
 
-  // --- Обробники команд ---
+  // --- ОБРОБНИКИ КОМАНД (залишаються без змін, вони вже універсальні) ---
 
   const handleToggle = (event) => {
     const value = event.target.checked ? payload_on : payload_off;
@@ -41,8 +65,12 @@ const LightComponent = ({ componentConfig }) => {
   };
   
   const handleBrightnessChange = (event, newValue) => {
+    const commandValue = { brightness: newValue };
+     if (isOff && newValue > 0) {
+      commandValue.state = payload_on; // Автоматично вмикаємо світло, якщо змінюємо яскравість
+    }
     if (isJsonSchema) {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: { brightness: newValue } });
+      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: commandValue });
     } else {
       commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_brightness', value: newValue });
     }
@@ -64,10 +92,7 @@ const LightComponent = ({ componentConfig }) => {
     }
   };
 
-  // Визначення, які контроли показувати
-  const hasBrightness = typeof brightness !== 'undefined';
-  const hasColorTemp = typeof colorTemp !== 'undefined';
-  const hasEffects = effect_list && effect_list.length > 0;
+  // --- UI РЕНДЕРИНГ НА ОСНОВІ МОЖЛИВОСТЕЙ ---
 
   return (
     <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
@@ -78,7 +103,8 @@ const LightComponent = ({ componentConfig }) => {
         </Box>
         
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
-          {hasBrightness && (
+          {/* Показуємо слайдер, якщо пристрій ПІДТРИМУЄ яскравість */}
+          {supportsBrightness && (
             <Box>
               <Typography gutterBottom variant="body2">Яскравість</Typography>
               <Slider
@@ -93,7 +119,8 @@ const LightComponent = ({ componentConfig }) => {
             </Box>
           )}
 
-          {hasColorTemp && (
+          {/* Показуємо слайдер, якщо пристрій ПІДТРИМУЄ температуру кольору */}
+          {supportsColorTemp && (
              <Box>
               <Typography gutterBottom variant="body2">Температура</Typography>
               <Slider
@@ -107,21 +134,29 @@ const LightComponent = ({ componentConfig }) => {
               />
             </Box>
           )}
+          
+          {/* TODO: Тут можна додати color picker, якщо supportsRgb === true */}
+
         </Box>
 
-        {hasEffects && (
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 'auto', flexWrap: 'wrap', opacity: isOff ? 0.4 : 1 }}>
-            {effect_list.map((p) => (
-              <Chip
-                key={p}
-                label={p}
-                clickable
-                disabled={isOff}
-                onClick={() => handleEffectChange(p)}
-                color={effect === p ? 'primary' : 'default'}
-                size="small"
-              />
-            ))}
+        {/* Показуємо список, якщо пристрій ПІДТРИМУЄ ефекти */}
+        {supportsEffects && (
+          <Box sx={{ mt: 'auto', pt: 1 }}>
+            <FormControl fullWidth size="small" disabled={isOff}>
+              <InputLabel id={`effect-select-label-${componentConfig.id}`}>Ефект</InputLabel>
+              <Select
+                labelId={`effect-select-label-${componentConfig.id}`}
+                value={effect || ''}
+                label="Ефект"
+                onChange={(e) => handleEffectChange(e.target.value)}
+              >
+                {effect_list.map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {p}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         )}
       </CardContent>
