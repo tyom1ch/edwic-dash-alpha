@@ -14,7 +14,7 @@ import { StatusBar } from "@capacitor/status-bar";
 
 import useLocalStorage from "./hooks/useLocalStorage";
 import useAppConfig from "./hooks/useAppConfig";
-import AppLayout from "./components/AppLayout";
+import AppLayout from "./pages/AppLayout";
 import CoreServices from "./core/CoreServices"; // Імпортуємо наш новий сервіс
 
 import { useNotifications } from "@toolpad/core/useNotifications";

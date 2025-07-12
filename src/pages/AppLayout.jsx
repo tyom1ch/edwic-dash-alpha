@@ -35,10 +35,10 @@ import {
   AddBox,
 } from "@mui/icons-material";
 
-import DashboardPage from "../pages/DashboardPage";
-import SettingsPage from "../pages/SettingsPage";
-import ComponentDialog from "./ComponentDialog";
-import DiscoveryDialog from "./DiscoveryDialog";
+import DashboardPage from "./DashboardPage";
+import SettingsPage from "./SettingsPage";
+import ComponentDialog from "../components/ComponentDialog";
+import DiscoveryDialog from "../components/DiscoveryDialog";
 
 function AppLayout({
   appConfig,
@@ -214,7 +214,7 @@ function AppLayout({
     <AppProvider
       theme={demoTheme}
       router={router}
-      branding={{ logo: false, title: false }}
+      branding={{ logo: false, title: "" }}
       navigation={[
         { kind: "header", title: "Мої дашборди" },
         ...Object.entries(appConfig.dashboards).map(([id, { title }]) => ({
