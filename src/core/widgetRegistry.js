@@ -19,8 +19,17 @@ const resolveTopic = (topic, baseTopic) => {
   return topic;
 };
 
+export const BINARY_SENSOR_DEVICE_CLASSES = [
+  "door",
+  "garage_door",
+  "window",
+  "motion",
+  "presence",
+  "plug",
+  "opening",
+];
+
 export const WIDGET_REGISTRY = [
-  // ... (весь ваш поточний реєстр віджетів залишається без змін)
   {
     type: "sensor",
     label: "Сенсор (тільки читання)",
@@ -51,21 +60,6 @@ export const WIDGET_REGISTRY = [
     }),
     getCommandMappings: (config) => ({
       default: resolveTopic(config.command_topic || config.cmd_t, config["~"]),
-    }),
-  },
-  {
-    type: "binary_sensor",
-    label: "Бінарний сенсор",
-    component: BinarySensorComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
-    getConfigFields: () => [
-      { id: "state_topic", label: "Топік стану", keys: ["state_topic", "stat_t"] },
-      { id: "payload_on", label: 'Значення "Увімкнено"', keys: ["payload_on", "pl_on"] },
-      { id: "payload_off", label: 'Значення "Вимкнено"', keys: ["payload_off", "pl_off"] },
-      { id: "device_class", label: "Клас пристрою", keys: ["device_class", "dev_cla"], isInfo: true },
-    ],
-    getTopicMappings: (config) => ({
-      value: resolveTopic(config.state_topic || config.stat_t, config["~"]),
     }),
   },
   {
@@ -294,9 +288,6 @@ export const WIDGET_REGISTRY = [
     getCommandMappings: (config) => ({}), // No commands for info component
   },
 ];
-
-// --- КЛЮЧОВЕ ВИПРАВЛЕННЯ ТУТ ---
-// Видаляємо стару функцію 'getRequiredTopics' і додаємо нову 'getRequiredFields'
 
 /**
  * Отримує список об'єктів обов'язкових полів для заданого типу віджета та його варіанта.

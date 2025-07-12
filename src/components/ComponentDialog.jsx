@@ -1,4 +1,3 @@
-// src/components/ComponentDialog.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
@@ -21,7 +20,6 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import useAppConfig from "../hooks/useAppConfig";
-// --- Змінюємо імпорт: додаємо WIDGET_REGISTRY ---
 import { getWidgetById, WIDGET_REGISTRY } from "../core/widgetRegistry";
 
 const getInitialState = () => ({
@@ -29,7 +27,7 @@ const getInitialState = () => ({
   type: "",
   brokerId: "",
   value_template: "",
-  variant: "single", // Значення за замовчуванням для сумісності
+  variant: "single", // Default value for compatibility
 });
 
 const getDecimalsFromTemplate = (template) => {
@@ -55,7 +53,6 @@ function ComponentDialog({
       if ((isEdit && component) || (!isEdit && component)) {
         setLocalComponent({ ...getInitialState(), ...component });
       } else {
-        // Для чистого "додавання вручну"
         setLocalComponent(getInitialState());
       }
     }
@@ -82,7 +79,6 @@ function ComponentDialog({
     [configFields]
   );
 
-  // Додаємо перевірку, що тип віджета обрано, навіть для ручного додавання
   const isSaveDisabled =
     !localComponent.label || !localComponent.type || !localComponent.brokerId;
 
@@ -112,17 +108,49 @@ function ComponentDialog({
 
   const handleTypeChange = (e) => {
     const newType = e.target.value;
+    const oldType = localComponent.type;
+
+    if (newType === oldType) return;
+
+    const oldWidgetDef = getWidgetById(oldType);
     const newWidgetDef = getWidgetById(newType);
 
-    // Скидаємо стан, зберігаючи лише базові поля
-    setLocalComponent((prev) => ({
-      ...getInitialState(),
-      label: prev.label, // Зберігаємо введену назву
-      brokerId: prev.brokerId, // Зберігаємо обраний брокер
-      type: newType,
-      // Встановлюємо варіант за замовчуванням, якщо він є у нового типу
-      variant: newWidgetDef?.variants?.[0]?.id || "single",
-    }));
+    if (!newWidgetDef) return;
+
+    // 1. Start with a full copy of the current state to preserve all metadata (id, ~, dev, etc.).
+    const newComponentState = { ...localComponent };
+
+    const oldVariant = localComponent.variant;
+    const newVariant = newWidgetDef.variants?.[0]?.id || "single";
+
+    // 2. Get configuration fields for both the old and new widget types.
+    const oldFields = oldWidgetDef?.getConfigFields
+      ? oldWidgetDef.getConfigFields(oldVariant)
+      : [];
+    const newFields = newWidgetDef.getConfigFields
+      ? newWidgetDef.getConfigFields(newVariant)
+      : [];
+
+    // Create a Set of field IDs from the new widget for efficient lookup.
+    const newFieldIds = new Set(newFields.map((f) => f.id));
+
+    // 3. Identify and remove fields that are no longer needed.
+    // Iterate through old fields and check if they exist in the new configuration.
+    oldFields.forEach((oldField) => {
+      if (!newFieldIds.has(oldField.id)) {
+        // If the field from the old widget is not in the new one, remove all its possible keys.
+        oldField.keys.forEach((key) => {
+          delete newComponentState[key];
+        });
+      }
+    });
+
+    // 4. Update the component's type and variant.
+    newComponentState.type = newType;
+    newComponentState.variant = newVariant;
+
+    // 5. Set the new, cleaned-up state.
+    setLocalComponent(newComponentState);
   };
 
   const handleVariantChange = (e) => {
@@ -134,8 +162,11 @@ function ComponentDialog({
       .getConfigFields(newVariant)
       .flatMap((f) => f.keys);
     const updatedComponent = { ...localComponent, variant: newVariant };
+    updatedComponent.device_class = newVariant === "custom" ? "" : newVariant;
+
     const keysToRemove = oldKeys.filter((k) => !newKeys.includes(k));
     keysToRemove.forEach((key) => delete updatedComponent[key]);
+
     setLocalComponent(updatedComponent);
   };
 
@@ -218,11 +249,6 @@ function ComponentDialog({
     );
   };
 
-  // Визначаємо, чи потрібно показувати випадаючий список або текстове поле
-  // `component?.type` перевіряє, чи прийшов компонент з MQTT (у нього вже є тип)
-  // const isTypeEditable = !isEdit && !component?.type;
-  const isTypeEditable = true;
-
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
@@ -239,39 +265,21 @@ function ComponentDialog({
             onChange={handleChange}
           />
 
-          {/* --- ОСНОВНА ЗМІНА: УМОВНИЙ РЕНДЕРИНГ ПОЛЯ "ТИП ВІДЖЕТА" --- */}
-          {isTypeEditable ? (
-            // Для ручного додавання - показуємо випадаючий список
-            <FormControl fullWidth required>
-              <InputLabel>Тип віджета</InputLabel>
-              <Select
-                label="Тип віджета"
-                name="type"
-                value={localComponent.type}
-                onChange={handleTypeChange}
-              >
-                {WIDGET_REGISTRY.map((w) => (
-                  <MenuItem key={w.type} value={w.type}>
-                    {w.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          ) : (
-            // Для редагування або MQTT-додавання - показуємо нередаговане поле
-            <TextField
+          <FormControl fullWidth required>
+            <InputLabel>Тип віджета</InputLabel>
+            <Select
               label="Тип віджета"
-              value={
-                selectedWidgetDef?.label ||
-                localComponent.type ||
-                "Не визначено"
-              }
-              fullWidth
-              InputProps={{
-                readOnly: true,
-              }}
-            />
-          )}
+              name="type"
+              value={localComponent.type}
+              onChange={handleTypeChange}
+            >
+              {WIDGET_REGISTRY.map((w) => (
+                <MenuItem key={w.type} value={w.type}>
+                  {w.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {selectedWidgetDef?.variants && (
             <FormControl fullWidth required>
