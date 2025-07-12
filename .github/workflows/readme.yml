@@ -4,7 +4,7 @@ on:
   push:
     # Запускаємо на пуш в гілки main або dev
     branches:
-      - main
+      # - main
       - dev
 
 jobs:
