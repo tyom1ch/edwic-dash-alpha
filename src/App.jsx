@@ -1,122 +1,77 @@
-// src/App.jsx
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Experimental_CssVarsProvider as CssVarsProvider,
   createTheme,
-  ThemeProvider,
-  CssBaseline,
-  StyledEngineProvider,
-  CircularProgress,
-  Box,
-} from "@mui/material";
+} from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar } from "@capacitor/status-bar";
-
-import useLocalStorage from "./hooks/useLocalStorage";
+import AppLayout from "./components/AppLayout";
 import useAppConfig from "./hooks/useAppConfig";
-import AppLayout from "./pages/AppLayout";
-import CoreServices from "./core/CoreServices"; // Імпортуємо наш новий сервіс
-
-import { useNotifications } from "@toolpad/core/useNotifications";
 import eventBus from "./core/EventBus";
-
-// Глобальний прапорець, щоб ініціалізація відбулася лише один раз
-let appInitialized = false;
+import CoreServices from "./core/CoreServices";
 
 const App = () => {
-  const [themeMode] = useLocalStorage("themeMode", "light");
-
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: { mode: themeMode },
-        components: {
-          MuiCssBaseline: {
-            styleOverrides: {
-              body: {
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                msUserSelect: "none",
-              },
-              "*": {
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                msUserSelect: "none",
-              },
-            },
-          },
-        },
-      }),
-    [themeMode]
+  const [themeMode, setThemeMode] = useState(
+    localStorage.getItem("toolpad-mode") || "system"
   );
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Стан, який контролює, чи готова програма до рендерингу
-  const [isInitialized, setIsInitialized] = useState(appInitialized);
-  const notifications = useNotifications();
+  const { appConfig, setAppConfig, globalConnectionStatus, ...handlers } =
+    useAppConfig();
 
-  // Логіка для StatusBar залишається без змін
+  useEffect(() => {
+    localStorage.setItem("toolpad-mode", themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      CoreServices.initialize(appConfig);
+      eventBus.on("broker:connected", () => {
+        setIsInitialized(true);
+      });
+    }
+  }, [appConfig]);
+
   const hideStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
         await StatusBar.hide();
       } catch (e) {
-        console.error("Failed to hide status bar:", e);
+        console.error("Не вдалося приховати статусбар:", e);
       }
     }
   };
+
   useEffect(() => {
     hideStatusBar();
     window.addEventListener("click", hideStatusBar);
     return () => window.removeEventListener("click", hideStatusBar);
   }, []);
 
-  const { appConfig, setAppConfig, globalConnectionStatus, handlers } =
-    useAppConfig();
-
-  useEffect(() => {
-    // Перевіряємо глобальний прапорець, щоб уникнути повторної ініціалізації
-    if (!appInitialized) {
-      console.log("App.jsx: Ініціалізація Core Services...");
-
-      // Викликаємо ініціалізатор з конфігурацією, завантаженою з хука
-      CoreServices.initialize(appConfig);
-
-      eventBus.on("broker:connected", (brokerId) => {
-        appInitialized = true;
-        setIsInitialized(true);
-      });
-    }
-  }, [appConfig]); // Залежність гарантує, що код виконається з уже завантаженим конфігом
-
-  useEffect(() => {
-    if (appInitialized) {
-      if (globalConnectionStatus === "All online") {
-        notifications.show("З'єднання встановлено", {
-          severity: "info",
-          autoHideDuration: 1500,
-        });
-      } else {
-        notifications.show("З'єднання втрачено", {
-          severity: "error",
-          autoHideDuration: 3000,
-        });
-      }
-    }
-  }, [globalConnectionStatus]);
+  const theme = createTheme({
+    cssVarPrefix: "toolpad",
+    colorSchemes: {
+      light: {},
+      dark: {},
+    },
+  });
 
   return (
-    <ThemeProvider theme={theme}>
+    <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
-
       <Router>
         <AppLayout
           appConfig={appConfig}
           setAppConfig={setAppConfig}
           globalConnectionStatus={globalConnectionStatus}
-          handlers={handlers}
+          {...handlers}
+          themeMode={themeMode}
+          setThemeMode={setThemeMode}
         />
       </Router>
-    </ThemeProvider>
+    </CssVarsProvider>
   );
 };
 
