@@ -6,181 +6,182 @@ import { WIDGET_REGISTRY } from './widgetRegistry';
 const mapHaTypeToDashboardType = (entityConfig) => {
     const componentType = entityConfig.componentType || "unknown";
   
-    // 1. Специфічні мапінги, які вимагають аналізу конфігурації
     if (componentType === 'climate') {
       const hasLowTempTopic = entityConfig.temperature_low_state_topic || entityConfig.temp_lo_stat_t;
       const hasHighTempTopic = entityConfig.temperature_high_state_topic || entityConfig.temp_hi_stat_t;
-      if (hasLowTempTopic && hasHighTempTopic) {
-        return { type: "climate", variant: "range" };
-      }
-      return { type: "climate", variant: "single" };
+      return { type: "climate", variant: (hasLowTempTopic && hasHighTempTopic) ? "range" : "single" };
     }
   
-    // 2. Перевірка, чи тип компонента напряму підтримується віджетами
     const knownWidgetTypes = WIDGET_REGISTRY.map(w => w.type);
     if (knownWidgetTypes.includes(componentType)) {
       return { type: componentType };
     }
   
-    // 3. Якщо тип невідомий, повертаємо 'generic_info' як запасний варіант
-    // console.log(`[DiscoveryService] Unsupported component type '${componentType}'. Mapping to 'generic_info'.`);
     return { type: 'generic_info' };
 };
 
 class DiscoveryService {
     constructor() {
         this.discoveredDevices = new Map();
+        this.configTopicToEntityId = new Map();
         this.currentDiscoveryTopic = null;
+        this.availabilityTopics = new Map();
         this.setupListeners();
         console.log("[DiscoveryService] Initialized.");
     }
 
-    setupListeners() {
-        eventBus.on('broker:connected', (brokerId, brokerConfig) => {
-            console.log(`[DiscoveryService] Broker ${brokerId} connected.`);
-            this.updateDiscoverySubscription(brokerId, brokerConfig);
+setupListeners() {
+        eventBus.on('broker:connected', (brokerId, brokerConfig) => this.updateDiscoverySubscription(brokerId, brokerConfig));
+        
+        eventBus.on('broker:reconnecting', (brokerId) => {
+          console.log(`[DiscoveryService] Broker ${brokerId} is reconnecting. Clearing state and preparing for new subscription.`);
+          this.clearDiscoveredData();
+          // Це змусить updateDiscoverySubscription гарантовано виконати нову підписку
+          // після успішного 'broker:connected'.
+          this.currentDiscoveryTopic = null;
         });
-
-        eventBus.on('config:updated', (newConfig) => {
-            console.log("[DiscoveryService] App config updated, checking for discovery topic changes.");
-            const mainBroker = newConfig.brokers?.[0];
-            if (mainBroker && connectionManager.isConnected(mainBroker.id)) {
-                this.updateDiscoverySubscription(mainBroker.id, mainBroker);
-            }
+        
+        eventBus.on('broker:removed', (brokerId) => {
+          console.log(`[DiscoveryService] Broker ${brokerId} was removed. Clearing state.`);
+          this.clearDiscoveredData();
+          this.currentDiscoveryTopic = null; // Також скидаємо тут для консистентності
         });
-
+        
         eventBus.on('mqtt:raw_message', this.handleMqttMessage.bind(this));
     }
 
     updateDiscoverySubscription(brokerId, brokerConfig) {
         const discoveryTopicBase = brokerConfig?.discovery_topic?.trim() || 'homeassistant';
-        const newDiscoveryTopicWithWildcard = `${discoveryTopicBase}/#`;
-
-        if (this.currentDiscoveryTopic === newDiscoveryTopicWithWildcard) {
-            return;
-        }
-
-        if (this.currentDiscoveryTopic) {
-            connectionManager.unsubscribeFromTopic(brokerId, this.currentDiscoveryTopic);
-        }
-
-        console.log(`[DiscoveryService] Subscribing to new discovery topic: ${newDiscoveryTopicWithWildcard}`);
-        connectionManager.subscribeToTopic(brokerId, newDiscoveryTopicWithWildcard);
+        const newDiscoveryTopic = `${discoveryTopicBase}/#`;
         
-        this.currentDiscoveryTopic = newDiscoveryTopicWithWildcard;
-        this.discoveredDevices.clear();
-        eventBus.emit('discovery:updated', []);
-        console.log("[DiscoveryService] Cleared old devices due to topic change.");
+        if (this.currentDiscoveryTopic !== newDiscoveryTopic) {
+            if (this.currentDiscoveryTopic) {
+                connectionManager.unsubscribeFromTopic(brokerId, this.currentDiscoveryTopic);
+            }
+            console.log(`[DiscoveryService] Subscribing to new discovery topic: ${newDiscoveryTopic}`);
+            connectionManager.subscribeToTopic(brokerId, newDiscoveryTopic);
+            this.currentDiscoveryTopic = newDiscoveryTopic;
+            this.clearDiscoveredData(); // Очищуємо дані при зміні топіка
+        }
     }
 
-    /**
-     * @private
-     * Визначає унікальний ID пристрою з конфігурації, використовуючи ланцюжок пріоритетів.
-     * 1. dev.ids[0] - стандартний ідентифікатор.
-     * 2. dev.cns[0] - ідентифікатор зі списку з'єднань (напр., MAC-адреса).
-     * 3. config.uniq_id - унікальний ID самої сутності як крайній захід.
-     * @param {object} config - Об'єкт конфігурації сутності.
-     * @returns {string|null} Унікальний ID пристрою або null, якщо знайти не вдалося.
-     */
+    clearDiscoveredData() {
+        console.log("[DiscoveryService] Clearing all discovered data.");
+        this.discoveredDevices.clear();
+        this.configTopicToEntityId.clear();
+        this.availabilityTopics.forEach((_, topic) => {
+            // Потрібно буде відписатися від усіх availability топіків, але для цього потрібен brokerId
+            // Це може потребувати більш складної логіки, поки що просто очищуємо мапу
+        });
+        this.availabilityTopics.clear();
+        eventBus.emit('discovery:updated', []);
+    }
+
     _getDeviceId(config) {
-        // Пріоритет 1: Використовувати перший ID з масиву 'ids'
-        if (config.dev?.ids?.[0]) {
-            return config.dev.ids[0];
-        }
-
-        // Пріоритет 2: Використовувати перший ідентифікатор з'єднання (connections)
-        if (config.dev?.cns?.[0]?.[1]) {
-            const [type, id] = config.dev.cns[0];
-            // Створюємо унікальний рядок, наприклад, "mac_8c:aa:b5:7b:0e:24"
-            return `${type}_${id}`; 
-        }
-
-        // Пріоритет 3: Як крайній захід, використовувати uniq_id сутності.
-        // Це означає, що сутність буде розглядатися як власний "пристрій".
-        if (config.uniq_id) {
-            // console.warn(`[DiscoveryService] Device for entity '${config.uniq_id}' has no 'ids' or 'cns'. Using entity's uniq_id as a fallback device ID.`);
-            return config.uniq_id;
-        }
-
-        return null; // Не знайдено жодного придатного ID
+        const dev = config.device || config.dev || {};
+        if (dev.identifiers && dev.identifiers[0]) return dev.identifiers[0];
+        if (dev.connections && dev.connections[0] && dev.connections[0][1]) return dev.connections[0][1];
+        if (dev.name) return dev.name;
+        return config.unique_id || config.uniq_id;
     }
 
     handleMqttMessage(brokerId, topic, messageBuffer) {
+        const message = messageBuffer.toString();
         if (!this.currentDiscoveryTopic) return;
 
         const baseTopic = this.currentDiscoveryTopic.replace('/#', '');
-        if (!topic.startsWith(`${baseTopic}/`) || !topic.endsWith('/config')) {
+        
+        if (this.availabilityTopics.has(topic)) {
+            this.availabilityTopics.get(topic).forEach(entityId => this.updateEntityAvailability(entityId, message));
+            return;
+        }
+
+        if (topic.startsWith(baseTopic) && topic.endsWith('/config')) {
+            this.processConfigMessage(brokerId, topic, message);
+        }
+    }
+
+    processConfigMessage(brokerId, topic, message) {
+        if (!message) {
+            this.removeEntityByTopic(topic);
             return;
         }
 
         try {
-            const message = messageBuffer.toString();
-            if (!message) {
-                this.removeEntityByTopic(topic);
-                return;
-            }
-
             const config = JSON.parse(message);
-            
-            if (!config.uniq_id) {
-                console.warn('[DiscoveryService] Received config without unique_id. Skipping.', config);
-                return;
-            }
+            const uniqueId = config.unique_id || config.uniq_id;
+            if (!uniqueId) return;
 
             const deviceId = this._getDeviceId(config);
-            
-            if (!deviceId) {
-                console.error(`[DiscoveryService] Could not determine a device ID for entity with unique_id: ${config.uniq_id}. Skipping.`);
-                return;
-            }
-            
-            const baseTopicPrefix = config['~'] || null;
-            const resolveTopic = (topicFragment) => {
-                if (!topicFragment || !baseTopicPrefix) return topicFragment;
-                return topicFragment.replace(/~/g, baseTopicPrefix);
+            if (!deviceId) return;
+
+            const resolveTopic = (topicFragment, baseTopicPrefix) => {
+                if (!topicFragment) return null;
+                if (topicFragment.includes('+') || topicFragment.includes('#')) return topicFragment;
+                return topicFragment.includes('~') ? topicFragment.replace(/~/g, baseTopicPrefix) : topicFragment;
             };
 
+            const baseTopicPrefix = config['~'] || topic.substring(0, topic.lastIndexOf('/'));
             const haComponentType = topic.split('/')[1];
             const widgetInfo = mapHaTypeToDashboardType({ ...config, componentType: haComponentType });
-            
+
             const entity = {
-                id: config.uniq_id,
-                name: config.name || config.uniq_id,
-                componentType: haComponentType, // Зберігаємо оригінальний тип HA для інформації
-                type: widgetInfo.type,          // Це наш тип віджета для дашборду
-                ...widgetInfo,                  // Додаємо інші властивості, як-от 'variant'
+                id: uniqueId,
+                name: config.name || uniqueId,
+                componentType: haComponentType,
+                type: widgetInfo.type,
+                ...widgetInfo,
                 brokerId,
                 _config_topic: topic,
+                available: true,
             };
 
-            // Проходимо по всіх ключах конфігу і розгортаємо ті, що є топіками
-            for (const key in config) {
-                if (key.endsWith('_t') || key.endsWith('_topic')) {
-                    entity[key] = resolveTopic(config[key]);
-                } else if(key === 'dev') {
-                    // Інформацію про пристрій (`dev`) обробляємо окремо, не копіюємо її в сутність
-                    continue; 
+            Object.keys(config).forEach(key => {
+                const value = config[key];
+                if (typeof value === 'string' && (key.endsWith('_t') || key.endsWith('_topic'))) {
+                    entity[key] = resolveTopic(value, baseTopicPrefix);
+                } else if (key !== 'device' && key !== 'dev') {
+                    entity[key] = value;
                 }
-                else {
-                    entity[key] = config[key]; // Копіюємо решту полів
+            });
+
+            if (entity.type === 'sensor' && !entity.value_template && config.json_attributes_topic) {
+                const keyFromStateTopic = config.state_topic.split('/').pop();
+                entity.value_template = `{{ value_json.${keyFromStateTopic} }}`;
+            } else if (entity.type === 'sensor' && !entity.value_template && entity.state_topic && entity.state_topic.includes('BTtoMQTT')) {
+                const commonKeys = ['tempc', 'tempf', 'hum', 'batt', 'volt', 'rssi', 'temperature', 'humidity'];
+                const keyInName = commonKeys.find(k => entity.name.toLowerCase().includes(k));
+                if (keyInName) {
+                    entity.value_template = `{{ value_json.${keyInName} }}`;
                 }
+            }
+
+            const availabilityTopic = resolveTopic(config.availability_topic || config.avty_t, baseTopicPrefix);
+            if (availabilityTopic) {
+                if (!this.availabilityTopics.has(availabilityTopic)) {
+                    this.availabilityTopics.set(availabilityTopic, new Set());
+                    connectionManager.subscribeToTopic(brokerId, availabilityTopic);
+                }
+                this.availabilityTopics.get(availabilityTopic).add(entity.id);
+                entity.payload_available = config.payload_available || 'online';
+                entity.payload_not_available = config.payload_not_available || 'offline';
             }
 
             if (!this.discoveredDevices.has(deviceId)) {
-                const deviceName = config.dev?.name || config.name || deviceId;
-                
+                const dev = config.device || config.dev || {};
                 this.discoveredDevices.set(deviceId, {
                     id: deviceId,
-                    name: deviceName,
-                    model: config.dev?.mdl || 'Unknown Model',
-                    manufacturer: config.dev?.mf || 'Unknown Manufacturer',
+                    name: dev.name || deviceId,
+                    model: dev.model || 'Unknown',
+                    manufacturer: dev.manufacturer || 'Unknown',
                     entities: new Map()
                 });
             }
-            
+
             const device = this.discoveredDevices.get(deviceId);
             device.entities.set(entity.id, entity);
-            
+            this.configTopicToEntityId.set(topic, { deviceId, entityId: entity.id });
+
             eventBus.emit('discovery:updated', this.getDiscoveredDevices());
 
         } catch (e) {
@@ -188,18 +189,31 @@ class DiscoveryService {
         }
     }
     
-    removeEntityByTopic(configTopic) {
+    updateEntityAvailability(entityId, payload) {
         for (const device of this.discoveredDevices.values()) {
-            for (const [entityId, entity] of device.entities.entries()) {
-                if (entity._config_topic === configTopic) {
-                    device.entities.delete(entityId);
-                    if (device.entities.size === 0) {
-                        this.discoveredDevices.delete(device.id);
-                    }
+            if (device.entities.has(entityId)) {
+                const entity = device.entities.get(entityId);
+                const isAvailable = payload === (entity.payload_available || 'online');
+                if (entity.available !== isAvailable) {
+                    entity.available = isAvailable;
                     eventBus.emit('discovery:updated', this.getDiscoveredDevices());
-                    console.log(`[DiscoveryService] Removed entity ${entityId} due to empty config.`);
-                    return;
                 }
+                return;
+            }
+        }
+    }
+
+    removeEntityByTopic(configTopic) {
+        if (this.configTopicToEntityId.has(configTopic)) {
+            const { deviceId, entityId } = this.configTopicToEntityId.get(configTopic);
+            const device = this.discoveredDevices.get(deviceId);
+            if (device?.entities.has(entityId)) {
+                device.entities.delete(entityId);
+                if (device.entities.size === 0) {
+                    this.discoveredDevices.delete(deviceId);
+                }
+                this.configTopicToEntityId.delete(configTopic);
+                eventBus.emit('discovery:updated', this.getDiscoveredDevices());
             }
         }
     }

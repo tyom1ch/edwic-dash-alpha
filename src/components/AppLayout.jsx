@@ -155,6 +155,7 @@ function AppLayout({
                 brokers={appConfig.brokers}
                 setBrokers={handlers.handleSetBrokers}
                 themeMode={themeMode}
+                setThemeMode={setThemeMode}
               />
             }
           />

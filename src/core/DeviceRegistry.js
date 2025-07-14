@@ -1,12 +1,21 @@
 // src/core/DeviceRegistry.js
 import eventBus from "./EventBus";
 import connectionManager from "./ConnectionManager";
-import { getWidgetById } from "./widgetRegistry"; // Імпортуємо наш реєстр
+import { getWidgetById } from "./widgetRegistry";
+
+// Функція для перетворення MQTT-шаблону в регулярний вираз
+const mqttTopicToRegex = (topic) => {
+  const regexString = topic
+    .replace(/\+/g, "[^/]+") // Замінюємо '+' на будь-які символи, крім слеша
+    .replace(/#/g, ".*"); // Замінюємо '#' на будь-яку послідовність символів
+  return new RegExp(`^${regexString}$`);
+};
 
 class DeviceRegistry {
   constructor() {
     this.entities = new Map();
-    this.topicToEntityActionMap = new Map();
+    // Тепер ключ - це шаблон топіка (може містити wildcards)
+    this.topicPatternToActionMap = new Map();
     this.setupListeners();
     console.log("[DeviceRegistry] Initialized.");
   }
@@ -18,103 +27,104 @@ class DeviceRegistry {
 
   syncFromAppConfig(appConfig) {
     console.log("[DeviceRegistry] Syncing with new application config...");
-    const allComponents = (appConfig?.dashboards) 
-      ? Object.values(appConfig.dashboards).flatMap(d => d.components || []) 
+    const allComponents = (appConfig?.dashboards)
+      ? Object.values(appConfig.dashboards).flatMap(d => d.components || [])
       : [];
 
     const newEntities = new Map();
-    const newTopicActionMap = new Map();
-    const topicsInNewConfig = new Set();
+    const newTopicPatternToActionMap = new Map();
 
     allComponents.forEach((component) => {
       const existingEntity = this.entities.get(component.id) || {};
-      // Створюємо нову сутність, зберігаючи її попередній стан
       newEntities.set(component.id, { ...existingEntity, ...component });
 
       const widgetDef = getWidgetById(component.type);
-      // Якщо віджет має опис топіків стану...
       if (widgetDef?.getTopicMappings) {
-        // ...отримуємо цей опис...
         const topicMappings = widgetDef.getTopicMappings(component);
-        // ...і реєструємо кожен топік, який потрібно слухати.
         for (const property in topicMappings) {
-          const topic = topicMappings[property];
-          if (topic && component.brokerId) {
-            newTopicActionMap.set(topic, { entityId: component.id, property });
-            topicsInNewConfig.add(JSON.stringify({ brokerId: component.brokerId, topic }));
+          const topicPattern = topicMappings[property];
+          if (topicPattern && component.brokerId) {
+            if (!newTopicPatternToActionMap.has(topicPattern)) {
+              newTopicPatternToActionMap.set(topicPattern, []);
+            }
+            newTopicPatternToActionMap.get(topicPattern).push({
+              entityId: component.id,
+              property,
+              brokerId: component.brokerId,
+            });
           }
         }
       }
     });
 
-    // Визначаємо, від яких топіків потрібно відписатися (ефективний спосіб)
-    const topicsInOldConfig = new Set();
-    for (const topic of this.topicToEntityActionMap.keys()) {
-        const action = this.topicToEntityActionMap.get(topic);
-        const entity = this.entities.get(action.entityId);
-        if (entity && entity.brokerId) {
-            topicsInOldConfig.add(JSON.stringify({ brokerId: entity.brokerId, topic }));
-        }
+    const oldPatterns = new Set(this.topicPatternToActionMap.keys());
+    const newPatterns = new Set(newTopicPatternToActionMap.keys());
+
+    const patternsToUnsubscribe = [...oldPatterns].filter(p => !newPatterns.has(p));
+    const patternsToSubscribe = [...newPatterns].filter(p => !oldPatterns.has(p));
+
+    // Припускаємо, що всі підписки йдуть на один брокер для простоти.
+    // У складнішій системі тут потрібно групувати по brokerId.
+    const brokerId = appConfig.brokers?.[0]?.id;
+    if (brokerId) {
+        patternsToUnsubscribe.forEach(pattern => connectionManager.unsubscribeFromTopic(brokerId, pattern));
+        patternsToSubscribe.forEach(pattern => connectionManager.subscribeToTopic(brokerId, pattern));
     }
 
-    const topicsToUnsubscribe = [...topicsInOldConfig].filter(t => !topicsInNewConfig.has(t));
-    const topicsToSubscribe = [...topicsInNewConfig].filter(t => !topicsInOldConfig.has(t));
-
-    topicsToUnsubscribe.forEach(tString => {
-      const { brokerId, topic } = JSON.parse(tString);
-      connectionManager.unsubscribeFromTopic(brokerId, topic);
-    });
-    topicsToSubscribe.forEach(tString => {
-      const { brokerId, topic } = JSON.parse(tString);
-      connectionManager.subscribeToTopic(brokerId, topic);
-    });
-
     this.entities = newEntities;
-    this.topicToEntityActionMap = newTopicActionMap;
-    console.log(`[DeviceRegistry] Sync completed. Entities: ${this.entities.size}, watching topics: ${this.topicToEntityActionMap.size}`);
+    this.topicPatternToActionMap = newTopicPatternToActionMap;
+    console.log(`[DeviceRegistry] Sync completed. Entities: ${this.entities.size}, watching patterns: ${this.topicPatternToActionMap.size}`);
   }
 
   handleBrokerConnected(brokerId) {
     console.log(`[DeviceRegistry] Broker "${brokerId}" connected. Re-subscribing...`);
-    for (const [topic, action] of this.topicToEntityActionMap.entries()) {
-      const entity = this.entities.get(action.entityId);
-      if (entity && entity.brokerId === brokerId) {
-        connectionManager.subscribeToTopic(brokerId, topic);
+    this.topicPatternToActionMap.forEach((actions, pattern) => {
+      if (actions.some(action => action.brokerId === brokerId)) {
+        connectionManager.subscribeToTopic(brokerId, pattern);
       }
-    }
+    });
   }
-  
-  handleMqttRawMessage(brokerId, topic, messageBuffer) {
-    const action = this.topicToEntityActionMap.get(topic);
-    if (action) {
-      const { entityId, property } = action;
-      const entity = this.entities.get(entityId);
-      if (entity) {
-        const messageString = messageBuffer.toString();
-        // Властивості, які очікуються у форматі JSON
-        const jsonProperties = ["attributes", "json_state"];
 
-        if (jsonProperties.includes(property)) {
-          try {
-            // Якщо повідомлення порожнє, не намагаємося парсити, а просто встановлюємо null
-            if (!messageString) {
-              entity[property] = null;
+  handleMqttRawMessage(brokerId, topic, messageBuffer) {
+    const messageString = messageBuffer.toString();
+
+    // Ітеруємо по всіх збережених шаблонах і шукаємо відповідності
+    this.topicPatternToActionMap.forEach((actions, pattern) => {
+      const regex = mqttTopicToRegex(pattern);
+      if (regex.test(topic)) {
+        actions.forEach(action => {
+          if (action.brokerId !== brokerId) return;
+
+          const { entityId, property } = action;
+          const entity = this.entities.get(entityId);
+
+          if (entity) {
+            const jsonProperties = ["attributes", "json_state"];
+            let newValue;
+
+            if (jsonProperties.includes(property)) {
+              try {
+                newValue = messageString ? JSON.parse(messageString) : null;
+              } catch (e) {
+                console.warn(`[DeviceRegistry] Failed to parse JSON for property '${property}' of ${entityId}:`, messageString);
+                newValue = messageString;
+              }
             } else {
-              entity[property] = JSON.parse(messageString);
+              newValue = messageString;
             }
-          } catch (e) {
-            console.warn(`[DeviceRegistry] Failed to parse JSON for property '${property}' of ${entityId}:`, messageString);
-            // У разі помилки парсингу, зберігаємо як є, щоб не втратити дані
-            entity[property] = messageString;
+            
+            const updatedEntity = {
+              ...entity,
+              [property]: newValue,
+              last_updated: new Date().toISOString(),
+            };
+
+            this.entities.set(entityId, updatedEntity);
+            eventBus.emit("entity:update", updatedEntity);
           }
-        } else {
-          entity[property] = messageString;
-        }
-        
-        entity.last_updated = new Date().toISOString();
-        eventBus.emit("entity:update", { ...entity });
+        });
       }
-    }
+    });
   }
 
   getEntity(entityId) {
