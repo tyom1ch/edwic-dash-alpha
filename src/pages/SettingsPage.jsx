@@ -29,12 +29,11 @@ import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import useLocalStorage from "../hooks/useLocalStorage";
 
-function SettingsPage({ brokers, setBrokers }) {
+function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const navigate = useNavigate();
   const { appConfig, setAppConfig } = useAppConfig();
 
-  const { mode, setMode } = useColorScheme();
-  const [themeMode, setThemeMode] = useLocalStorage("toolpad-mode", "system");
+  const { setMode } = useColorScheme();
 
   const fileInputRef = useRef(null);
 
@@ -199,8 +198,8 @@ function SettingsPage({ brokers, setBrokers }) {
   // Новий обробник для зміни теми
   const handleThemeChange = (e, newMode) => {
     if (!newMode) return;
-    setThemeMode(newMode); // Оновлюємо стан і localStorage через хук
-    setMode(newMode); // Змінюємо тему MUI
+    setThemeMode(newMode);
+    setMode(newMode);
   };
 
   return (

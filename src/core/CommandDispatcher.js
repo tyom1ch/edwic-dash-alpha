@@ -1,15 +1,9 @@
 // src/core/CommandDispatcher.js
 import connectionManager from './ConnectionManager';
 import deviceRegistry from './DeviceRegistry';
-import { getWidgetById } from './widgetRegistry'; // Імпортуємо наш реєстр
+import { getWidgetById } from './widgetRegistry';
 
 class CommandDispatcher {
-  /**
-   * Відправляє команду на MQTT брокер.
-   * @param {string} entityId - ID сутності.
-   * @param {any} value - Значення для відправки.
-   * @param {string} [commandKey='default'] - Ключ команди, що відповідає опису в getCommandMappings.
-   */
   dispatch({ entityId, value, commandKey = 'default' }) {
     const componentConfig = deviceRegistry.getEntity(entityId);
     if (!componentConfig) {
@@ -24,11 +18,16 @@ class CommandDispatcher {
     }
 
     const commandMappings = widgetDef.getCommandMappings(componentConfig);
-    const targetTopic = commandMappings[commandKey];
+    const targetTopicKey = commandKey === 'default' 
+      ? Object.keys(commandMappings).find(k => k.endsWith('command_topic') || k.endsWith('cmd_t')) || 'default'
+      : commandKey;
+      
+    const targetTopic = commandMappings[targetTopicKey] || commandMappings['default'];
 
     if (targetTopic) {
-      const isJsonSchema = componentConfig.schema?.toLowerCase() === 'json';
-      const payload = (isJsonSchema && typeof value === 'object' && value !== null)
+      // The key for JSON commands is often 'json_command' or similar.
+      const isJsonCommand = targetTopicKey.toLowerCase().includes('json');
+      const payload = (isJsonCommand && typeof value === 'object' && value !== null)
         ? JSON.stringify(value)
         : String(value);
 

@@ -1,48 +1,7 @@
-// src/components/widgets/BinarySensorComponent.jsx
-import React, { useLayoutEffect, useRef } from "react";
-import { Card, CardContent, Typography, Box } from "@mui/material";
-import {
-  SensorDoor,
-  MeetingRoom,
-  MotionPhotosAuto,
-  HelpOutline,
-} from "@mui/icons-material";
+import React from "react";
+import { Card, CardContent, Typography } from "@mui/material";
 import useEntity from "../../hooks/useEntity";
-
-// Функція для вибору іконки на основі device_class
-const getDeviceClassIcon = (deviceClass) => {
-  switch (deviceClass) {
-    case "door":
-    case "garage_door":
-    case "window":
-      return <SensorDoor sx={{ fontSize: 60 }} />;
-    case "motion":
-    case "presence":
-      return <MotionPhotosAuto sx={{ fontSize: 60 }} />;
-    case "opening":
-      return <MeetingRoom sx={{ fontSize: 60 }} />;
-    default:
-      return <HelpOutline sx={{ fontSize: 60 }} />;
-  }
-};
-
-// Функція для отримання текстового представлення стану
-const getStateText = (isOn, deviceClass) => {
-  if (isOn === null) return "---";
-  switch (deviceClass) {
-    case "door":
-    case "window":
-      return isOn ? "Відчинено" : "Зачинено";
-    case "motion":
-      return isOn ? "Рух" : "Немає руху";
-    case "presence":
-      return isOn ? "Присутній" : "Відсутній";
-    case "plug":
-      return isOn ? "В розетці" : "Вимкнено";
-    default:
-      return isOn ? "ON" : "OFF";
-  }
-};
+import { useFitText } from "../../hooks/useFitText";
 
 const BinarySensorComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -63,53 +22,25 @@ const BinarySensorComponent = ({ componentConfig }) => {
       ? String(state) === String(payload_on)
       : null;
 
-  const isReady = isOn !== null;
-
-  // Ref для контейнера, в якому знаходиться текст (CardContent)
-  const containerRef = useRef(null);
-  // Ref для самого тексту, розмір якого ми будемо змінювати
-  const valueRef = useRef(null);
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const value = valueRef.current;
-
-    if (!container || !value) {
-      return;
+  const getStateText = (isOn, deviceClass) => {
+    if (isOn === null) return "---";
+    switch (deviceClass) {
+      case "door":
+      case "window":
+        return isOn ? "Відчинено" : "Зачинено";
+      case "motion":
+        return isOn ? "Рух" : "Немає руху";
+      case "presence":
+        return isOn ? "Присутній" : "Відсутній";
+      case "plug":
+        return isOn ? "В розетці" : "Вимкнено";
+      default:
+        return isOn ? "ON" : "OFF";
     }
+  };
 
-    const fitText = () => {
-      // 1. Скидаємо попередній inline-стиль, щоб повернутися до базового розміру з CSS.
-      // Це необхідно для коректного вимірювання "переповнення".
-      value.style.fontSize = "";
-
-      // 2. Вимірюємо розміри контейнера та тексту.
-      const containerWidth = container.clientWidth; // Внутрішня ширина контейнера
-      const containerHeight = container.clientHeight; // Внутрішня висота контейнера
-
-      const textWidth = value.scrollWidth; // Реальна ширина тексту
-      const textHeight = value.scrollHeight; // Реальна висота тексту
-
-      // 3. Перевіряємо, чи текст виходить за межі контейнера по ширині АБО по висоті.
-      // 4. Обчислюємо коефіцієнти масштабування для ширини та висоти.
-      const widthScale = containerWidth / textWidth;
-      const heightScale = containerHeight / textHeight;
-
-      const scale = Math.min(widthScale, heightScale);
-
-      // 6. Обчислюємо та застосовуємо новий розмір шрифту.
-      const baseFontSize = parseFloat(window.getComputedStyle(value).fontSize);
-
-      value.style.fontSize = `${baseFontSize * scale * 0.5}px`;
-    };
-
-    const resizeObserver = new ResizeObserver(fitText);
-    resizeObserver.observe(container);
-
-    fitText(); // Перший запуск
-
-    return () => resizeObserver.disconnect();
-  }, [state, componentConfig.label, entity?.name]);
+  const displayValue = getStateText(isOn, device_class);
+  const { containerRef, valueRef } = useFitText([displayValue]);
   
   const getShortLabel = (text) => {
     if (!text) return "Сенсор";
@@ -122,24 +53,22 @@ const BinarySensorComponent = ({ componentConfig }) => {
       sx={{
         width: "100%",
         height: "100%",
-        display: "flex", // Додано для розтягування CardContent
+        display: "flex",
       }}
     >
       <CardContent
-        // --- КЛЮЧОВЕ ВИПРАВЛЕННЯ №1: Переносимо ref сюди ---
-        // Тепер ми вимірюємо ширину саме області контенту, а не всієї картки.
         ref={containerRef}
         sx={{
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1, // Дозволяє CardContent зайняти весь простір Card
+          flexGrow: 1,
           alignItems: "center",
           justifyContent: "center",
-          // Важливо: overflow: "hidden", щоб приховати проміжні стани рендерингу
           overflow: "hidden",
+          p: 1,
         }}
       >
-        <Typography sx={{ whiteSpace: "nowrap" }}>
+        <Typography sx={{ whiteSpace: "nowrap", textAlign: 'center' }}>
           {getShortLabel(componentConfig.label || entity?.name)}
         </Typography>
         <Typography
@@ -147,12 +76,12 @@ const BinarySensorComponent = ({ componentConfig }) => {
           component="span"
           sx={{
             fontWeight: "bold",
-            lineHeight: 1.1,
-            whiteSpace: "nowrap", // Забороняємо перенос тексту, щоб scrollWidth працював коректно
-            fontSize: ".1rem",
+            lineHeight: 1,
+            whiteSpace: "nowrap",
+            fontSize: "4rem",
           }}
         >
-          {state ?? "---"}
+          {displayValue}
         </Typography>
 
         <Typography
