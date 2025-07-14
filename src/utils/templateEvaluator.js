@@ -32,12 +32,20 @@ export const evaluateValueTemplate = (template, rawValue) => {
 
     // 2. Обробляємо фільтри форматування (спрощена версія)
     let precision = null;
+    
+    // Спочатку шукаємо і витягуємо фільтр round, якщо він є
     if (expression.includes('|round(')) {
         const match = expression.match(/\|round\((.*?)\)/);
         if (match) {
+            // Видаляємо фільтр з виразу, щоб не заважав обчисленню
             expression = expression.replace(match[0], '').trim();
             precision = parseInt(match[1], 10);
         }
+    }
+
+    // Видаляємо будь-які інші фільтри, які ми не підтримуємо (напр. | is_defined)
+    if (expression.includes('|')) {
+      expression = expression.split('|')[0].trim();
     }
 
     // 3. Створюємо функцію для безпечного виконання виразу
@@ -55,13 +63,13 @@ export const evaluateValueTemplate = (template, rawValue) => {
     // 4. Виконуємо функцію з нашими даними
     const calculatedValue = func(rawValue, value_json);
 
-    // Якщо вираз не вдалося обчислити, повертаємо сире значення
+    // Якщо вираз не вдалося обчислити, повертаємо плейсхолдер
     if (calculatedValue === null || calculatedValue === undefined) {
-      return String(rawValue);
+      return '---';
     }
 
     // 5. Застосовуємо заокруглення, якщо воно було вказане
-    if (precision !== null && typeof calculatedValue === 'number') {
+    if (precision !== null && typeof calculatedValue === 'number' && !isNaN(precision)) {
       return calculatedValue.toFixed(precision);
     }
 

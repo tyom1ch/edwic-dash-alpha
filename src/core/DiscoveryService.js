@@ -30,11 +30,22 @@ class DiscoveryService {
         console.log("[DiscoveryService] Initialized.");
     }
 
-    setupListeners() {
+setupListeners() {
         eventBus.on('broker:connected', (brokerId, brokerConfig) => this.updateDiscoverySubscription(brokerId, brokerConfig));
-        // Події для очищення стану при зміні конфігурації
-        eventBus.on('broker:reconnecting', () => this.clearDiscoveredData());
-        eventBus.on('broker:removed', () => this.clearDiscoveredData());
+        
+        eventBus.on('broker:reconnecting', (brokerId) => {
+          console.log(`[DiscoveryService] Broker ${brokerId} is reconnecting. Clearing state and preparing for new subscription.`);
+          this.clearDiscoveredData();
+          // Це змусить updateDiscoverySubscription гарантовано виконати нову підписку
+          // після успішного 'broker:connected'.
+          this.currentDiscoveryTopic = null;
+        });
+        
+        eventBus.on('broker:removed', (brokerId) => {
+          console.log(`[DiscoveryService] Broker ${brokerId} was removed. Clearing state.`);
+          this.clearDiscoveredData();
+          this.currentDiscoveryTopic = null; // Також скидаємо тут для консистентності
+        });
         
         eventBus.on('mqtt:raw_message', this.handleMqttMessage.bind(this));
     }
