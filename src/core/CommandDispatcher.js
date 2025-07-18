@@ -18,11 +18,19 @@ class CommandDispatcher {
     }
 
     const commandMappings = widgetDef.getCommandMappings(componentConfig);
-    const targetTopicKey = commandKey === 'default' 
-      ? Object.keys(commandMappings).find(k => k.endsWith('command_topic') || k.endsWith('cmd_t')) || 'default'
-      : commandKey;
-      
-    const targetTopic = commandMappings[targetTopicKey] || commandMappings['default'];
+    
+    // --- ОНОВЛЕНА ЛОГІКА ВИЗНАЧЕННЯ ТОПІКА ---
+    let targetTopicKey;
+    if (commandKey !== 'default') {
+      // Якщо передано конкретний ключ команди (напр., 'set_temperature'), використовуємо його.
+      targetTopicKey = commandKey;
+    } else {
+      // Інакше, для 'default', шукаємо перший відповідний топік (стара логіка).
+      targetTopicKey = Object.keys(commandMappings).find(k => k.endsWith('command_topic') || k.endsWith('cmd_t')) || 'default';
+    }
+    
+    const targetTopic = commandMappings[targetTopicKey];
+    // --- КІНЕЦЬ ОНОВЛЕНОЇ ЛОГІКИ ---
 
     if (targetTopic) {
       // The key for JSON commands is often 'json_command' or similar.

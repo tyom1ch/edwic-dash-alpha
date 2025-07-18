@@ -26,8 +26,8 @@ class MqttClientWrapper extends EventEmitter {
     this.options = {
       username: brokerConfig.username,
       password: brokerConfig.password,
-      reconnectPeriod: 500, // не менше 500
-      keepalive: 3,
+      reconnectPeriod: 1000, // не менше 500
+      keepalive: 15,
       connectTimeout: 3000, // швидкий фейл
       clean: true,
       resubscribe: true,
