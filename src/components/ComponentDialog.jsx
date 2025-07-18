@@ -32,7 +32,7 @@ const getInitialState = () => ({
 
 const getDecimalsFromTemplate = (template) => {
   if (!template) return "default";
-  const match = template.match(/\|round\((\d+)\)/);
+  const match = template.match(/'%0\.(\d+)f'/);
   return match ? parseInt(match[1], 10) : "default";
 };
 
@@ -174,7 +174,7 @@ function ComponentDialog({
     const decimals = e.target.value;
     let newValueTemplate = "";
     if (decimals !== "default" && typeof decimals === "number") {
-      newValueTemplate = `{{ value | round(${decimals}) }}`;
+      newValueTemplate = `{{ '%0.${decimals}f'|format(float(value)) }}`;
     }
     setLocalComponent((prev) => ({
       ...prev,
