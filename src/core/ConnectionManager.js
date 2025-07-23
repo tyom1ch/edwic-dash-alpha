@@ -24,7 +24,7 @@ class ConnectionManager {
             if (existingClient) {
                 if (JSON.stringify(existingClient.config) !== JSON.stringify(brokerConfig)) {
                     console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
-                    // Сповіща��мо систему, що брокер зараз буде переконфігурований
+                    // Сповіщаємо систему, що брокер зараз буде переконфігурований
                     eventBus.emit('broker:reconnecting', brokerConfig.id);
                     await existingClient.reconnect(brokerConfig);
                 }

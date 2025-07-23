@@ -1,5 +1,5 @@
 // src/components/widgets/CoverComponent.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Slider } from '@mui/material';
 import { ArrowUpward, ArrowDownward, Stop } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
@@ -17,6 +17,18 @@ const CoverComponent = ({ componentConfig }) => {
   const state = entity?.state; // 'open', 'closed', 'opening', 'closing', 'stopped'
   const position = entity?.position; // Число від 0 до 100
 
+  // --- LOCAL STATE FOR SLIDER ---
+  const [sliderValue, setSliderValue] = useState(null);
+
+  useEffect(() => {
+    if (typeof position === 'number') {
+      setSliderValue(position);
+    } else {
+      setSliderValue(null);
+    }
+  }, [position]);
+  // --- END LOCAL STATE ---
+
   const isReady = typeof state !== 'undefined';
   const isOpen = state === 'open';
   const isClosed = state === 'closed';
@@ -29,6 +41,10 @@ const CoverComponent = ({ componentConfig }) => {
 
   const handleSetPosition = (event, newValue) => {
     commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_position', value: newValue });
+  };
+
+  const handleSliderChange = (event, newValue) => {
+    setSliderValue(newValue); // Update local state immediately
   };
 
   const getStateText = () => {
@@ -54,7 +70,8 @@ const CoverComponent = ({ componentConfig }) => {
         {hasPositionControl && (
           <Box sx={{ px: 1, mt: 2 }}>
              <Slider
-                value={typeof position === 'number' ? position : 0}
+                value={sliderValue ?? (typeof position === 'number' ? position : 0)}
+                onChange={handleSliderChange}
                 onChangeCommitted={handleSetPosition}
                 min={0}
                 max={100}

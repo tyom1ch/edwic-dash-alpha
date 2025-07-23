@@ -8,7 +8,7 @@
  */
 export const evaluateValueTemplate = (template, rawValue) => {
   // Якщо значення немає, повертаємо плейсхолдер
-  if (rawValue === null || rawValue === undefined) {
+if (rawValue === null || rawValue === undefined || rawValue === '') {
     return '---';
   }
 
@@ -28,24 +28,34 @@ export const evaluateValueTemplate = (template, rawValue) => {
     }
 
     // 1. Отримуємо вираз зсередини {{ ... }}
-    let expression = template.slice(2, -2).trim();
+    const expression = template.slice(2, -2).trim();
 
-    // 2. Обробляємо фільтри форматування (спрощена версія)
+    // 2. Визначаємо вираз для обчислення значення та параметри форматування
+    let valueExpression = expression;
     let precision = null;
-    
-    // Спочатку шукаємо і витягуємо фільтр round, якщо він є
-    if (expression.includes('|round(')) {
-        const match = expression.match(/\|round\((.*?)\)/);
-        if (match) {
-            // Видаляємо фільтр з виразу, щоб не заважав обчисленню
-            expression = expression.replace(match[0], '').trim();
-            precision = parseInt(match[1], 10);
-        }
-    }
+    let formatSpecifier = null;
 
-    // Видаляємо будь-які інші фільтри, які ми не підтримуємо (напр. | is_defined)
-    if (expression.includes('|')) {
-      expression = expression.split('|')[0].trim();
+    // Спочатку шукаємо спеціальний фільтр 'format', оскільки він має унікальну структуру.
+    // Наприклад: '%.1f'|format(value)
+    const formatMatch = expression.match(/('.*?'|".*?")\s*\|\s*format\((.*)\)/);
+
+    if (formatMatch) {
+      // Витягуємо специфікатор формату (напр. '%.1f' -> %.1f)
+      formatSpecifier = formatMatch[1].slice(1, -1);
+      // Виразом для обчислення стає те, що всередині дужок format()
+      valueExpression = formatMatch[2];
+    } else if (expression.includes('|')) {
+      // Якщо це не format, обробляємо інші фільтри, розділені '|'
+      const parts = expression.split('|');
+      valueExpression = parts[0].trim();
+      const filterPart = parts[1].trim();
+
+      // Шукаємо фільтр round(n)
+      const roundMatch = filterPart.match(/round\((.*?)\)/);
+      if (roundMatch) {
+        precision = parseInt(roundMatch[1], 10);
+      }
+      // Тут можна додати обробку інших простих фільтрів
     }
 
     // 3. Створюємо функцію для безпечного виконання виразу
@@ -54,7 +64,8 @@ export const evaluateValueTemplate = (template, rawValue) => {
       const float = (v) => parseFloat(v);
       const int = (v) => parseInt(v, 10);
       try {
-        return ${expression};
+        // Обчислюємо вираз, який ми визначили раніше
+        return ${valueExpression};
       } catch (e) {
         return null; // Повертаємо null при помилці всередині шаблону
       }
@@ -68,7 +79,23 @@ export const evaluateValueTemplate = (template, rawValue) => {
       return '---';
     }
 
-    // 5. Застосовуємо заокруглення, якщо воно було вказане
+    // 5. Застосовуємо форматування, якщо воно було вказане
+
+    // Застосовуємо форматування з фільтра format()
+    if (formatSpecifier) {
+      // Спрощена реалізація для специфікаторів типу '%.1f' або '%0.0f'
+      const precisionMatch = formatSpecifier.match(/\.(\d+)f/);
+      if (precisionMatch && typeof calculatedValue === 'number') {
+        const specifierPrecision = parseInt(precisionMatch[1], 10);
+        if (!isNaN(specifierPrecision)) {
+          return calculatedValue.toFixed(specifierPrecision);
+        }
+      }
+      // Якщо специфікатор невідомий, повертаємо обчислене значення
+      return String(calculatedValue);
+    }
+
+    // Застосовуємо заокруглення з фільтра round()
     if (precision !== null && typeof calculatedValue === 'number' && !isNaN(precision)) {
       return calculatedValue.toFixed(precision);
     }
