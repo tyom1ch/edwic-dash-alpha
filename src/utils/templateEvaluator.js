@@ -8,7 +8,7 @@
  */
 export const evaluateValueTemplate = (template, rawValue) => {
   // Якщо значення немає, повертаємо плейсхолдер
-  if (rawValue === null || rawValue === undefined || rawValue === '') {
+if (rawValue === null || rawValue === undefined || rawValue === '') {
     return '---';
   }
 
