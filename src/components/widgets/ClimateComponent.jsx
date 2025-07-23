@@ -1,4 +1,5 @@
 // src/components/widgets/ClimateComponent.jsx
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Select, MenuItem, Chip, Slider } from '@mui/material';
 import { Add, Remove, Thermostat, PowerSettingsNew, AcUnit, WbSunny, AcUnit as AcUnitIcon } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
@@ -7,29 +8,33 @@ import commandDispatcher from '../../core/CommandDispatcher';
 const ClimateComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
 
-  // --- КЛЮЧОВЕ СПРОЩЕННЯ ---
-  // Чітко визначаємо режим роботи на основі збереженого варіанту в конфігурації.
-  // За замовчуванням 'single', якщо варіант не задано.
   const isRangeMode = componentConfig.variant === 'range';
-  // -----------------------------
 
-  // Читаємо всі можливі стани з об'єкта entity
   const currentTemperature = entity?.current_temperature ?? '---';
   const mode = entity?.mode ?? 'off';
   const action = entity?.action ?? 'idle';
   const presetMode = entity?.preset_mode;
   
-  // Для звичайного режиму
   const targetTemperature = entity?.temperature ?? '---';
   
-  // Для режиму діапазону
   const targetTempLow = entity?.temperature_low ?? '---';
   const targetTempHigh = entity?.temperature_high ?? '---';
 
   const { min_temp = 10, max_temp = 30, temp_step = 0.5, preset_modes = [] } = componentConfig;
   const isOff = mode === 'off';
 
-  // Логіка для обробки рядка або масиву режимів
+  // --- LOCAL STATE FOR SLIDER ---
+  const [sliderValue, setSliderValue] = useState(null);
+
+  useEffect(() => {
+    if (isRangeMode && targetTempLow !== '---' && targetTempHigh !== '---') {
+      setSliderValue([parseFloat(targetTempLow), parseFloat(targetTempHigh)]);
+    } else {
+      setSliderValue(null);
+    }
+  }, [isRangeMode, targetTempLow, targetTempHigh]);
+  // --- END LOCAL STATE ---
+
   const getModesArray = () => {
     const modesConfig = componentConfig.modes;
     if (Array.isArray(modesConfig)) return modesConfig.length > 0 ? modesConfig : ['off', 'heat'];
@@ -38,7 +43,6 @@ const ClimateComponent = ({ componentConfig }) => {
   };
   const modes = getModesArray();
 
-  // Обробники команд (залишаються без змін)
   const handleSingleTemperatureChange = (increment) => {
     if (targetTemperature === '---') return;
     const newTemp = parseFloat(targetTemperature) + increment;
@@ -52,6 +56,10 @@ const ClimateComponent = ({ componentConfig }) => {
   };
   
   const handleRangeChange = (event, newValue) => {
+      setSliderValue(newValue); // Update local state immediately
+  };
+
+  const handleRangeChangeCommitted = (event, newValue) => {
       const [newLow, newHigh] = newValue;
       if (targetTempLow === '---' || targetTempHigh === '---') return;
 
@@ -87,23 +95,25 @@ const ClimateComponent = ({ componentConfig }) => {
     });
   };
 
-  // UI рендеринг (залишається без змін)
   let controls;
   if (isRangeMode) {
     const isRangeReady = targetTempLow !== '---' && targetTempHigh !== '---';
+    const displayValue = sliderValue || (isRangeReady ? [parseFloat(targetTempLow), parseFloat(targetTempHigh)] : [min_temp, max_temp]);
+
     controls = (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 'auto', px: 2, opacity: isOff ? 0.4 : 1 }}>
         <Typography variant="h4" sx={{ mb: 1, fontWeight: 'bold' }}>
-          {isRangeReady ? `${targetTempLow}° - ${targetTempHigh}°` : '---'}
+          {isRangeReady ? `${displayValue[0].toFixed(1)}° - ${displayValue[1].toFixed(1)}°` : '---'}
         </Typography>
         <Slider
-          value={isRangeReady ? [parseFloat(targetTempLow), parseFloat(targetTempHigh)] : [min_temp, max_temp]}
-          onChangeCommitted={handleRangeChange}
+          value={displayValue}
+          onChange={handleRangeChange}
+          onChangeCommitted={handleRangeChangeCommitted}
           valueLabelDisplay="auto"
           min={min_temp}
           max={max_temp}
           step={temp_step}
-          // disabled={isOff || !isRangeReady}
+          disabled={isOff || !isRangeReady}
         />
       </Box>
     );

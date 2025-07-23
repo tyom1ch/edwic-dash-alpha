@@ -1,5 +1,5 @@
 // src/components/widgets/FanComponent.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Slider, Chip } from '@mui/material';
 import { PowerSettingsNew } from '@mui/icons-material';
 import FanIcon from '@mui/icons-material/ModeFanOff';
@@ -19,6 +19,18 @@ const FanComponent = ({ componentConfig }) => {
   const percentage = entity?.percentage; // Число від 0 до 100
   const presetMode = entity?.preset_mode;
 
+  // --- LOCAL STATE FOR SLIDER ---
+  const [sliderValue, setSliderValue] = useState(null);
+
+  useEffect(() => {
+    if (typeof percentage === 'number') {
+      setSliderValue(percentage);
+    } else {
+      setSliderValue(null);
+    }
+  }, [percentage]);
+  // --- END LOCAL STATE ---
+
   const isOn = state === payload_on;
   const isOff = !isOn;
   const isReady = typeof state !== 'undefined';
@@ -32,6 +44,10 @@ const FanComponent = ({ componentConfig }) => {
   };
   
   const handleSpeedChange = (event, newValue) => {
+    setSliderValue(newValue); // Update local state immediately
+  };
+
+  const handleSpeedChangeCommitted = (event, newValue) => {
     commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_percentage', value: newValue });
   };
   
@@ -45,7 +61,7 @@ const FanComponent = ({ componentConfig }) => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <FanIcon fontSize="large" sx={{ color: isOn ? 'primary.main' : 'text.disabled' }} />
           <Typography variant="h5" sx={{ color: isOn ? 'text.primary' : 'text.secondary' }}>
-            {isOn && hasSpeedControl ? `${percentage}%` : (isOn ? 'Увімкнено' : 'Вимкнено')}
+            {isOn && hasSpeedControl ? `${sliderValue ?? percentage}%` : (isOn ? 'Увімкнено' : 'Вимкнено')}
           </Typography>
           <IconButton onClick={handleToggle} disabled={!isReady}>
             <PowerSettingsNew color={isOn ? 'primary' : 'action'} />
@@ -57,8 +73,9 @@ const FanComponent = ({ componentConfig }) => {
             <Box>
               <Typography gutterBottom variant="body2">Швидкість</Typography>
               <Slider
-                value={typeof percentage === 'number' ? percentage : 0}
-                onChangeCommitted={handleSpeedChange}
+                value={sliderValue ?? (typeof percentage === 'number' ? percentage : 0)}
+                onChange={handleSpeedChange}
+                onChangeCommitted={handleSpeedChangeCommitted}
                 min={0}
                 max={100}
                 step={componentConfig.speed_range_step || 1}

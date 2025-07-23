@@ -1,7 +1,7 @@
 // --- START OF FILE LightComponent.jsx (ФІНАЛЬНА ВЕРСІЯ) ---
 
 // src/components/widgets/LightComponent.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Card, CardContent, Typography, Box, Switch, Slider, 
     FormControl, InputLabel, Select, MenuItem 
@@ -16,13 +16,9 @@ import commandDispatcher from '../../core/CommandDispatcher';
 const LightComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
 
-  // --- ЛОГІКА ВИЗНАЧЕННЯ МОЖЛИВОСТЕЙ (НОВИЙ ПІДХІД) ---
-
-  // 1. Визначаємо, які функції підтримує пристрій на основі конфігурації
   const supportedModes = componentConfig.supported_color_modes || [];
   const supportsBrightness = componentConfig.brightness === true;
   const supportsColorTemp = supportedModes.includes('color_temp');
-  const supportsRgb = supportedModes.includes('rgb') || supportedModes.includes('rgbw') || supportedModes.includes('rgbww');
   
   const getEffectList = () => {
     const effects = componentConfig.effect_list;
@@ -33,17 +29,35 @@ const LightComponent = ({ componentConfig }) => {
   const effect_list = getEffectList();
   const supportsEffects = componentConfig.effect === true && effect_list.length > 0;
   
-  // 2. Визначаємо, чи використовується схема JSON (з виправленням регістру)
   const isJsonSchema = componentConfig.schema?.toLowerCase() === 'json';
 
-  // 3. Отримуємо поточний стан з MQTT
   const stateData = isJsonSchema ? entity?.json_state || {} : entity || {};
 
   const isOn = stateData.state === 'ON';
-  const brightness = stateData.brightness; // Число від 0 до 255
-  const colorTemp = stateData.color_temp; // Число (Mireds)
-  const rgb = stateData.rgb; // {r, g, b}
+  const brightness = stateData.brightness;
+  const colorTemp = stateData.color_temp;
   const effect = stateData.effect;
+
+  // --- LOCAL STATE FOR SLIDERS ---
+  const [brightnessValue, setBrightnessValue] = useState(null);
+  const [colorTempValue, setColorTempValue] = useState(null);
+
+  useEffect(() => {
+    if (typeof brightness === 'number') {
+      setBrightnessValue(brightness);
+    } else {
+      setBrightnessValue(null);
+    }
+  }, [brightness]);
+
+  useEffect(() => {
+    if (typeof colorTemp === 'number') {
+      setColorTempValue(colorTemp);
+    } else {
+      setColorTempValue(null);
+    }
+  }, [colorTemp]);
+  // --- END LOCAL STATE ---
 
   const { 
     payload_on = 'ON', 
@@ -52,8 +66,6 @@ const LightComponent = ({ componentConfig }) => {
   
   const isReady = typeof stateData.state !== 'undefined';
   const isOff = !isOn;
-
-  // --- ОБРОБНИКИ КОМАНД (залишаються без змін, вони вже універсальні) ---
 
   const handleToggle = (event) => {
     const value = event.target.checked ? payload_on : payload_off;
@@ -65,9 +77,13 @@ const LightComponent = ({ componentConfig }) => {
   };
   
   const handleBrightnessChange = (event, newValue) => {
+    setBrightnessValue(newValue);
+  };
+
+  const handleBrightnessChangeCommitted = (event, newValue) => {
     const commandValue = { brightness: newValue };
      if (isOff && newValue > 0) {
-      commandValue.state = payload_on; // Автоматично вмикаємо світло, якщо змінюємо яскравість
+      commandValue.state = payload_on;
     }
     if (isJsonSchema) {
       commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: commandValue });
@@ -77,6 +93,10 @@ const LightComponent = ({ componentConfig }) => {
   };
 
   const handleColorTempChange = (event, newValue) => {
+    setColorTempValue(newValue);
+  };
+
+  const handleColorTempChangeCommitted = (event, newValue) => {
     if (isJsonSchema) {
         commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: { color_temp: newValue } });
     } else {
@@ -92,8 +112,6 @@ const LightComponent = ({ componentConfig }) => {
     }
   };
 
-  // --- UI РЕНДЕРИНГ НА ОСНОВІ МОЖЛИВОСТЕЙ ---
-
   return (
     <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
       <CardContent sx={{ display: 'flex', flexDirection: 'column', width: '100%', p: 2 }}>
@@ -103,13 +121,13 @@ const LightComponent = ({ componentConfig }) => {
         </Box>
         
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
-          {/* Показуємо слайдер, якщо пристрій ПІДТРИМУЄ яскравість */}
           {supportsBrightness && (
             <Box>
               <Typography gutterBottom variant="body2">Яскравість</Typography>
               <Slider
-                value={typeof brightness === 'number' ? brightness : 0}
-                onChangeCommitted={handleBrightnessChange}
+                value={brightnessValue ?? (typeof brightness === 'number' ? brightness : 0)}
+                onChange={handleBrightnessChange}
+                onChangeCommitted={handleBrightnessChangeCommitted}
                 min={0}
                 max={255}
                 step={1}
@@ -119,13 +137,13 @@ const LightComponent = ({ componentConfig }) => {
             </Box>
           )}
 
-          {/* Показуємо слайдер, якщо пристрій ПІДТРИМУЄ температуру кольору */}
           {supportsColorTemp && (
              <Box>
               <Typography gutterBottom variant="body2">Температура</Typography>
               <Slider
-                value={typeof colorTemp === 'number' ? colorTemp : 153}
-                onChangeCommitted={handleColorTempChange}
+                value={colorTempValue ?? (typeof colorTemp === 'number' ? colorTemp : 153)}
+                onChange={handleColorTempChange}
+                onChangeCommitted={handleColorTempChangeCommitted}
                 min={componentConfig.min_mireds || 153} // ~6500K
                 max={componentConfig.max_mireds || 500} // ~2000K
                 disabled={isOff}
@@ -134,12 +152,8 @@ const LightComponent = ({ componentConfig }) => {
               />
             </Box>
           )}
-          
-          {/* TODO: Тут можна додати color picker, якщо supportsRgb === true */}
-
         </Box>
 
-        {/* Показуємо список, якщо пристрій ПІДТРИМУЄ ефекти */}
         {supportsEffects && (
           <Box sx={{ mt: 'auto', pt: 1 }}>
             <FormControl fullWidth size="small" disabled={isOff}>

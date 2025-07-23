@@ -25,35 +25,35 @@ const NumberComponent = ({ componentConfig }) => {
     componentConfig?.unit_of_measurement ||
     "";
 
-  // Поточне значення з MQTT
   const currentValue = entity?.value;
   const isReady = currentValue !== null && typeof currentValue !== "undefined";
 
-  // Локальний стан для TextField в режимі 'box', щоб уникнути відправки команди на кожне натискання клавіші
   const [inputValue, setInputValue] = useState("");
+  // --- LOCAL STATE FOR SLIDER ---
+  const [sliderValue, setSliderValue] = useState(null);
 
-  // Синхронізуємо локальний стан з даними від MQTT
   useEffect(() => {
     if (isReady) {
       setInputValue(String(currentValue));
+      setSliderValue(Number(currentValue));
+    } else {
+      setSliderValue(null);
     }
   }, [currentValue, isReady]);
+  // --- END LOCAL STATE ---
 
-  // Універсальна функція для відправки команди
   const handleSetValue = (newValue) => {
     const numValue = parseFloat(newValue);
-    // Перевіряємо, чи є значення числом і чи знаходиться в межах min/max
     if (!isReady || isNaN(numValue)) return;
 
     const clampedValue = Math.max(min, Math.min(max, numValue));
 
     commandDispatcher.dispatch({
       entityId: componentConfig.id,
-      value: clampedValue, // Відправляємо тільки значення
+      value: clampedValue,
     });
   };
 
-  // Обробник для кнопок +/-
   const handleStepChange = (increment) => {
     if (!isReady) return;
     const newValue = parseFloat(currentValue) + increment * step;
@@ -64,7 +64,10 @@ const NumberComponent = ({ componentConfig }) => {
     );
   };
 
-  // --- Рендеринг елементів керування в залежності від режиму ---
+  const handleSliderChange = (event, newValue) => {
+    setSliderValue(newValue); // Update local state immediately
+  };
+
   let controls;
   if (mode === "box") {
     controls = (
@@ -85,10 +88,10 @@ const NumberComponent = ({ componentConfig }) => {
         <TextField
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onBlur={() => handleSetValue(inputValue)} // Відправляємо при втраті фокусу
+          onBlur={() => handleSetValue(inputValue)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSetValue(inputValue);
-          }} // Відправляємо при натисканні Enter
+          }}
           disabled={!isReady}
           variant="outlined"
           size="small"
@@ -114,7 +117,6 @@ const NumberComponent = ({ componentConfig }) => {
       </Box>
     );
   } else {
-    // За замовчуванням рендеримо слайдер
     controls = (
       <Box
         sx={{
@@ -126,8 +128,9 @@ const NumberComponent = ({ componentConfig }) => {
         }}
       >
         <Slider
-          value={isReady ? Number(currentValue) : min}
-          onChangeCommitted={(e, val) => handleSetValue(val)} // Використовуємо onChangeCommitted для відправки команди після завершення руху
+          value={sliderValue ?? (isReady ? Number(currentValue) : min)}
+          onChange={handleSliderChange}
+          onChangeCommitted={(e, val) => handleSetValue(val)}
           min={min}
           max={max}
           step={step}
@@ -136,7 +139,7 @@ const NumberComponent = ({ componentConfig }) => {
           sx={{ flexGrow: 1 }}
         />
         <Typography variant="h6" sx={{ minWidth: "60px", textAlign: "right" }}>
-          {isReady ? `${currentValue}${unit}` : `---${unit}`}
+          {isReady ? `${sliderValue ?? currentValue}${unit}` : `---${unit}`}
         </Typography>
       </Box>
     );
