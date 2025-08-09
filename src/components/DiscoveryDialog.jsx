@@ -67,6 +67,7 @@ const getEntityIcon = (componentType) => {
   }
 };
 
+// useless coment
 function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
   const [discovered, setDiscovered] = useState([]);
   const [openDevices, setOpenDevices] = useState({});
