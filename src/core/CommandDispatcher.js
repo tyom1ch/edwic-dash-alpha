@@ -19,35 +19,53 @@ class CommandDispatcher {
 
     const commandMappings = widgetDef.getCommandMappings(componentConfig);
     
-    // --- ОНОВЛЕНА ЛОГІКА ВИЗНАЧЕННЯ ТОПІКА ---
-    let targetTopicKey;
-    if (commandKey !== 'default') {
-      // Якщо передано конкретний ключ команди (напр., 'set_temperature'), використовуємо його.
-      targetTopicKey = commandKey;
-    } else {
-      // Інакше, для 'default', шукаємо перший відповідний топік (стара логіка).
-      targetTopicKey = Object.keys(commandMappings).find(k => k.endsWith('command_topic') || k.endsWith('cmd_t')) || 'default';
-    }
-    
-    const targetTopic = commandMappings[targetTopicKey];
-    // --- КІНЕЦЬ ОНОВЛЕНОЇ ЛОГІКИ ---
+    // 1. Отримуємо визначення команди з реєстру.
+    // Для 'default' у віджеті 'switch' це буде просто рядок-топік.
+    // Для 'set_brightness' у 'light' це буде об'єкт { topic: '...', transformer: ... }.
+    const commandDefinition = commandMappings[commandKey] || commandMappings['default'];
 
-    if (targetTopic) {
-      // The key for JSON commands is often 'json_command' or similar.
-      const isJsonCommand = targetTopicKey.toLowerCase().includes('json');
-      const payload = (isJsonCommand && typeof value === 'object' && value !== null)
-        ? JSON.stringify(value)
-        : String(value);
-
-      console.log(`[CommandDispatcher] Dispatching to broker '${componentConfig.brokerId}'. Topic: '${targetTopic}', Value: '${payload}'`);
-      connectionManager.publishToTopic(
-        componentConfig.brokerId,
-        targetTopic,
-        payload
-      );
-    } else {
-      console.error(`[CommandDispatcher] No command topic found for entity "${entityId}" with commandKey "${commandKey}". Check widgetRegistry.`);
+    if (!commandDefinition) {
+      console.error(`[CommandDispatcher] No command definition found for entity "${entityId}" with commandKey "${commandKey}".`);
+      return;
     }
+
+    // 2. Визначаємо топік та payload, виходячи з типу commandDefinition.
+    let topic;
+    let payload;
+
+    if (typeof commandDefinition === 'string') {
+      // Стандартний випадок (як для 'switch'): commandDefinition - це просто топік.
+      topic = commandDefinition;
+      payload = String(value);
+    } else if (typeof commandDefinition === 'object' && commandDefinition.topic) {
+      // Новий випадок (для 'light'): commandDefinition - це об'єкт.
+      topic = commandDefinition.topic;
+      
+      // Перевіряємо, чи є функція-трансформер.
+      if (typeof commandDefinition.transformer === 'function') {
+        // Якщо є, використовуємо її для перетворення значення.
+        payload = String(commandDefinition.transformer(value));
+      } else {
+        // Якщо немає, просто перетворюємо значення на рядок.
+        payload = String(value);
+      }
+    } else {
+      console.error(`[CommandDispatcher] Invalid command definition for entity "${entityId}" and commandKey "${commandKey}".`);
+      return;
+    }
+
+    if (!topic) {
+        console.error(`[CommandDispatcher] Command topic is missing for entity "${entityId}".`);
+        return;
+    }
+
+    // Відправляємо команду.
+    console.log(`[CommandDispatcher] Dispatching to broker '${componentConfig.brokerId}'. Topic: '${topic}', Payload: '${payload}'`);
+    connectionManager.publishToTopic(
+      componentConfig.brokerId,
+      topic,
+      payload
+    );
   }
 }
 
