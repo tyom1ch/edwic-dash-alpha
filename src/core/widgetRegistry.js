@@ -132,7 +132,7 @@ export const WIDGET_REGISTRY = [
       return `${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`.toUpperCase();
     },
 
-    // 3. Поля для UI налаштувань (без змін)
+    // 3. Поля для UI налаштувань
     getConfigFields: () => [
       { id: "state_topic", label: "Топік стану (ON/OFF)", keys: ["state_topic", "stat_t"] },
       { id: "command_topic", label: "Топік команд (ON/OFF)", keys: ["command_topic", "cmd_t"] },
@@ -160,14 +160,23 @@ export const WIDGET_REGISTRY = [
       if (this.isObkDevice(config)) {
         const deviceId = config["~"];
         return {
+          // --- Ключі для `DeviceRegistry` (щоб він оновлював стан) ---
           state: `${deviceId}/led_enableAll/get`,
           brightness: `${deviceId}/led_dimmer/get`,
           rgb: `${deviceId}/led_basecolor_rgb/get`,
           color_temp: `${deviceId}/led_temperature/get`,
+          
+          // --- Ключі для `LightComponent` та UI налаштувань ---
           state_topic: `${deviceId}/led_enableAll/get`,
           brightness_state_topic: `${deviceId}/led_dimmer/get`,
           rgb_state_topic: `${deviceId}/led_basecolor_rgb/get`,
           color_temp_state_topic: `${deviceId}/led_temperature/get`,
+          command_topic: `cmnd/${deviceId}/led_enableAll`,
+          brightness_command_topic: `cmnd/${deviceId}/led_dimmer`,
+          rgb_command_topic: `cmnd/${deviceId}/led_basecolor_rgb`,
+          color_temp_command_topic: `cmnd/${deviceId}/led_temperature`,
+
+          // --- ВАЖЛИВІ ПРАПОРЦІ ТА ПАРАМЕТРИ, які передадуться в компонент ---
           payload_on: "1",
           payload_off: "0",
           brightness_scale: 100,
@@ -175,7 +184,19 @@ export const WIDGET_REGISTRY = [
           supported_color_modes: ["color_temp", "rgb"],
         };
       }
-      // ... (стандартна логіка для інших пристроїв)
+
+      // Стандартна логіка для інших пристроїв (Home Assistant)
+      const baseTopic = config["~"];
+      if (config.schema?.toLowerCase() === "json") {
+        return { json_state: resolveTopic(config.state_topic || config.stat_t, baseTopic) };
+      }
+      return {
+        state: resolveTopic(config.state_topic || config.stat_t, baseTopic),
+        brightness: resolveTopic(config.brightness_state_topic || config.brit_stat_t, baseTopic),
+        rgb: resolveTopic(config.rgb_state_topic || config.rgb_stat_t, baseTopic),
+        color_temp: resolveTopic(config.color_temp_state_topic || config.clr_temp_stat_t, baseTopic),
+        effect: resolveTopic(config.effect_state_topic || config.fx_stat_t, baseTopic),
+      };
     },
 
     // 5. Мапінг топіків для відправки команд
@@ -193,13 +214,21 @@ export const WIDGET_REGISTRY = [
             transformer: (value) => this.rgbToHex(value),
           },
           set_color_temp: { topic: `cmnd/${deviceId}/led_temperature` },
-          command_topic: `cmnd/${deviceId}/led_enableAll`,
-          brightness_command_topic: `cmnd/${deviceId}/led_dimmer`,
-          rgb_command_topic: `cmnd/${deviceId}/led_basecolor_rgb`,
-          color_temp_command_topic: `cmnd/${deviceId}/led_temperature`,
         };
       }
-      // ... (стандартна логіка для інших пристроїв)
+
+      // Стандартна логіка для інших пристроїв (Home Assistant)
+      const baseTopic = config["~"];
+      if (config.schema?.toLowerCase() === "json") {
+        return { json_command: resolveTopic(config.command_topic || config.cmd_t, baseTopic) };
+      }
+      return {
+        set_state: resolveTopic(config.command_topic || config.cmd_t, baseTopic),
+        set_brightness: resolveTopic(config.brightness_command_topic || config.brit_cmd_t, baseTopic),
+        set_rgb: resolveTopic(config.rgb_command_topic || config.rgb_cmd_t, baseTopic),
+        set_color_temp: resolveTopic(config.color_temp_command_topic || config.clr_temp_cmd_t, baseTopic),
+        set_effect: resolveTopic(config.effect_command_topic || config.fx_cmd_t, baseTopic),
+      };
     },
   },
   {

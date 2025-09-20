@@ -7,73 +7,94 @@ import {
 import { Lightbulb } from '@mui/icons-material';
 import { MuiColorInput } from 'mui-color-input'; 
 import useEntity from '../../hooks/useEntity';
-import commandDispatcher from '../../core/CommandDispatcher';
+import connectionManager from '../../core/ConnectionManager'; 
 
-const hexToRgb = (hex) => {
-    if (!hex || typeof hex !== 'string') return { r: 0, g: 0, b: 0 };
+const hexToRgbString = (hex) => {
+    if (!hex || typeof hex !== 'string') return '#0000000000';
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.replace("#", ""));
-    return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 0, g: 0, b: 0 };
+    return result ? `#${result[1]}${result[2]}${result[3]}0000` : '#0000000000';
 };
 
 const LightComponent = ({ componentConfig }) => {
-  const entity = useEntity(componentConfig.id);
-  const stateData = { ...componentConfig, ...entity };
-
+  const entityState = useEntity(componentConfig.id) || {};
+  
   const {
-    payload_on = 'ON',
-    payload_off = 'OFF',
-    brightness_scale = 255,
+    // Статична конфігурація з `componentConfig`, яку згенерував `widgetRegistry`
+    brokerId,
+    state_topic,
+    command_topic,
     brightness_state_topic,
+    brightness_command_topic,
     color_temp_state_topic,
+    color_temp_command_topic,
     rgb_state_topic,
+    rgb_command_topic,
     min_mireds = 153,
     max_mireds = 500,
-  } = stateData;
+  } = componentConfig;
 
-  // +++ ГОЛОВНИЙ ФІКС ТУТ +++
+  // Динамічний стан з MQTT, який приходить через `useEntity`
+  const {
+    state,
+    brightness,
+    color_temp,
+    rgb,
+  } = entityState;
+
+  // Вирішуємо, що показувати, на основі НАЯВНОСТІ топіків у конфігурації
   const supportsBrightness = !!brightness_state_topic;
   const supportsColorTemp = !!color_temp_state_topic;
   const supportsRgb = !!rgb_state_topic;
 
-  const isOn = stateData.state == '1';
-  const currentBrightness = stateData.brightness;
-  const currentColorTemp = stateData.color_temp;
-  const currentRgbHex = stateData.rgb;
-
+  // Перевірка стану. `state` - це значення з MQTT.
+  const isOn = state == '1';
+  
+  // Локальний стан для плавності UI
   const [brightnessValue, setBrightnessValue] = useState(null);
   const [colorTempValue, setColorTempValue] = useState(null);
   const [colorValue, setColorValue] = useState('#000000');
 
-  useEffect(() => setBrightnessValue(parseFloat(currentBrightness) || null), [currentBrightness]);
-  useEffect(() => setColorTempValue(parseFloat(currentColorTemp) || null), [currentColorTemp]);
   useEffect(() => {
-    if (currentRgbHex) {
-        setColorValue(`#${currentRgbHex.replace("#", "")}`);
-    }
-  }, [currentRgbHex]);
+    const numericValue = parseFloat(brightness);
+    if (!isNaN(numericValue)) setBrightnessValue(numericValue);
+  }, [brightness]);
+  
+  useEffect(() => {
+    const numericValue = parseFloat(color_temp);
+    if (!isNaN(numericValue)) setColorTempValue(numericValue);
+  }, [color_temp]);
 
-  const isReady = typeof stateData.state !== 'undefined' && stateData.state !== null;
+  useEffect(() => {
+    if (rgb && typeof rgb === 'string' && !rgb.includes('/')) {
+        setColorValue(`#${rgb.replace("#", "")}`);
+    }
+  }, [rgb]);
+
+  const isReady = typeof state !== 'undefined' && state !== null;
   const isOff = !isOn;
 
-  // Обробники команд
+  // Функція для прямої відправки команд через connectionManager
+  const sendCommand = (topic, payload) => {
+    if (!brokerId || !topic) return;
+    console.log(`[LightComponent] Publishing directly. Broker: ${brokerId}, Topic: ${topic}, Payload: ${payload}`);
+    connectionManager.publishToTopic(brokerId, topic, String(payload));
+  };
+  
+  // Обробники UI-елементів
   const handleToggle = (event) => {
-    const valueToSend = event.target.checked ? payload_on : payload_off;
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_state', value: valueToSend });
+    sendCommand(command_topic, event.target.checked ? '1' : '0');
   };
   const handleBrightnessChangeCommitted = (event, newValue) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_brightness', value: newValue });
+    sendCommand(brightness_command_topic, newValue);
   };
   const handleColorTempChangeCommitted = (event, newValue) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_color_temp', value: newValue });
+    sendCommand(color_temp_command_topic, newValue);
   };
   const handleColorChange = (newColor) => {
     setColorValue(newColor);
-    commandDispatcher.dispatch({ 
-        entityId: componentConfig.id, 
-        commandKey: 'set_rgb', 
-        value: hexToRgb(newColor) 
-    });
+    sendCommand(rgb_command_topic, hexToRgbString(newColor));
   };
+
   const handleBrightnessChange = (e, v) => setBrightnessValue(v);
   const handleColorTempChange = (e, v) => setColorTempValue(v);
 
@@ -85,9 +106,24 @@ const LightComponent = ({ componentConfig }) => {
           <Switch checked={isOn} onChange={handleToggle} disabled={!isReady} />
         </Box>
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
-          {supportsBrightness && ( <Box> <Typography gutterBottom variant="body2">Яскравість</Typography> <Slider value={brightnessValue ?? 0} onChange={handleBrightnessChange} onChangeCommitted={handleBrightnessChangeCommitted} min={0} max={parseInt(brightness_scale, 10) || 100} step={1} disabled={isOff} valueLabelDisplay="auto" /> </Box> )}
-          {supportsColorTemp && ( <Box> <Typography gutterBottom variant="body2">Температура</Typography> <Slider value={colorTempValue ?? min_mireds} onChange={handleColorTempChange} onChangeCommitted={handleColorTempChangeCommitted} min={min_mireds} max={max_mireds} disabled={isOff} valueLabelDisplay="auto" marks={[{value: min_mireds, label: 'Холодний'}, {value: max_mireds, label: 'Теплий'}]} /> </Box> )}
-          {supportsRgb && ( <Box> <Typography gutterBottom variant="body2">Колір</Typography> <MuiColorInput value={colorValue} onChange={handleColorChange} format="hex" disabled={isOff} fullWidth /> </Box> )}
+          {supportsBrightness && (
+            <Box>
+              <Typography gutterBottom variant="body2">Яскравість</Typography>
+              <Slider value={brightnessValue ?? 0} onChange={handleBrightnessChange} onChangeCommitted={handleBrightnessChangeCommitted} min={0} max={100} step={1} disabled={isOff} valueLabelDisplay="auto" />
+            </Box>
+          )}
+          {supportsColorTemp && (
+            <Box>
+              <Typography gutterBottom variant="body2">Температура</Typography>
+              <Slider value={colorTempValue ?? min_mireds} onChange={handleColorTempChange} onChangeCommitted={handleColorTempChangeCommitted} min={min_mireds} max={max_mireds} disabled={isOff} valueLabelDisplay="auto" marks={[{value: min_mireds, label: 'Холодний'}, {value: max_mireds, label: 'Теплий'}]} />
+            </Box>
+          )}
+          {supportsRgb && (
+            <Box>
+              <Typography gutterBottom variant="body2">Колір</Typography>
+              <MuiColorInput value={colorValue} onChange={handleColorChange} format="hex" disabled={isOff} fullWidth />
+            </Box>
+          )}
         </Box>
       </CardContent>
     </Card>
