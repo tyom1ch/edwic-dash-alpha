@@ -2,8 +2,7 @@ import React from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { Edit, Delete, WarningAmber, DragIndicator } from "@mui/icons-material";
 import { getRequiredFields } from "../../core/widgetRegistry";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+// Видалено useSortable та CSS, бо ми використовуємо hello-pangea/dnd
 
 const WidgetWrapper = ({
   children,
@@ -12,6 +11,8 @@ const WidgetWrapper = ({
   onDelete,
   lockMode,
   onClick,
+  provided,
+  isDragging,
 }) => {
   const handleEdit = (e) => {
     e.stopPropagation();
@@ -55,26 +56,12 @@ const WidgetWrapper = ({
     return !hasValue; // Поле неповне, якщо не знайдено жодного ключа зі значенням
   });
 
-  // --- DND-KIT ПІДКЛЮЧЕННЯ (ТИМЧАСОВО ВИМКНЕНО) ---
-  /*
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: component.id,
-    disabled: lockMode, // Вимикаємо перетягування, якщо не в режимі редагування
-  });
-  */
+  // --- DND-KIT ПІДКЛЮЧЕННЯ (ВИДАЛЕНО) ---
 
   const style = {
-    // transform: CSS.Transform.toString(transform),
-    // transition,
-    // zIndex: isDragging ? 50 : "auto",
-    // opacity: isDragging ? 0.8 : 1,
+    // В hello-pangea інлайн стилі та трансформації приходять через provided.draggableProps.style
+    ...provided?.draggableProps?.style,
+    
     // Розрахунок розміру сітки: 
     // За замовчуванням w: 2, h: 2 (в старій системі 12 колонок).
     // Тепер це просто кількість ячейок CSS Grid
@@ -84,7 +71,8 @@ const WidgetWrapper = ({
 
   return (
     <Box
-      // ref={setNodeRef}
+      ref={provided?.innerRef}
+      {...provided?.draggableProps}
       style={style}
       elevation={3}
       sx={{
@@ -140,10 +128,9 @@ const WidgetWrapper = ({
           }}
         >
           {/* DRAG HANDLE (По центру віджета) */}
-          {/* Передаємо listeners та attributes ВИКЛЮЧНО сюди */}
+          {/* Передаємо dragHandleProps ВИКЛЮЧНО сюди */}
           <Box
-            // {...listeners}
-            // {...attributes}
+            {...provided?.dragHandleProps}
             sx={{
               display: "flex",
               alignItems: "center",

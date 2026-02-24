@@ -1,19 +1,6 @@
 import React, { useState } from "react";
 import { Box } from "@mui/material";
-import {
-  DndContext,
-  closestCenter,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
-import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import WidgetWrapper from "../components/widgets/WidgetWrapper";
 import { getWidgetById } from "../core/widgetRegistry";
@@ -66,43 +53,72 @@ function DashboardPage({
   };
 
   // ЛОГІКА ПЕРЕСОРТУВАННЯ
-  const handleDragEnd = (event) => {
-    // В тимчасовому режимі перетягування не працює
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    if (result.source.index === result.destination.index) {
+      return;
+    }
+
+    const items = Array.from(dashboard.components);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    onLayoutChange(items);
   };
 
   return (
     <>
       <Box sx={{ p: 2, pb: 10 }}>
-          <Box
-            sx={{
-              display: "grid",
-              // Адаптивна сітка: колонки мінімум 140px, розширюються рівномірно
-              gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-              gridAutoRows: "minmax(140px, auto)",
-              gap: 2,
-            }}
-          >
-            {dashboard.components.map((component) => {
-              const WidgetToRender = getWidgetById(component.type)?.component;
-
-              return (
-                <WidgetWrapper
-                  key={String(component.id)}
-                  component={component}
-                  onEdit={() => onEditComponent(component.id)}
-                  onDelete={() => onDeleteComponent(component.id)}
-                  lockMode={lockMode}
-                  onClick={handleWidgetClick}
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="dashboard-grid" direction="horizontal">
+              {(provided) => (
+                <Box
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  sx={{
+                    display: "grid",
+                    // Адаптивна сітка: колонки мінімум 140px, розширюються рівномірно. hello-pangea добре справляється з grid, якщо direction=horizontal і включені transition.
+                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                    gridAutoRows: "minmax(140px, auto)",
+                    gap: 2,
+                  }}
                 >
-                  {WidgetToRender ? (
-                    <WidgetToRender componentConfig={component} />
-                  ) : (
-                    <FallbackWidget componentConfig={component} />
-                  )}
-                </WidgetWrapper>
-              );
-            })}
-          </Box>
+                  {dashboard.components.map((component, index) => {
+                    const WidgetToRender = getWidgetById(component.type)?.component;
+
+                    return (
+                      <Draggable
+                        key={String(component.id)}
+                        draggableId={String(component.id)}
+                        index={index}
+                        isDragDisabled={lockMode} // Перетягування вимкнено, якщо дашборд заблокований. Тобто доступне тільки в Edit Mode (lockMode = false)
+                      >
+                        {(provided, snapshot) => (
+                          <WidgetWrapper
+                            component={component}
+                            onEdit={() => onEditComponent(component.id)}
+                            onDelete={() => onDeleteComponent(component.id)}
+                            lockMode={lockMode}
+                            onClick={handleWidgetClick}
+                            provided={provided} // Передаємо пропси hello-pangea вниз
+                            isDragging={snapshot.isDragging}
+                          >
+                            {WidgetToRender ? (
+                              <WidgetToRender componentConfig={component} />
+                            ) : (
+                              <FallbackWidget componentConfig={component} />
+                            )}
+                          </WidgetWrapper>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </Box>
+              )}
+            </Droppable>
+          </DragDropContext>
       </Box>
 
       <HistoryGraphDialog

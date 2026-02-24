@@ -2,30 +2,16 @@ import { useCallback } from "react";
 
 export const useComponentManager = (setAppConfig, currentDashboardId, handlers) => {
   const handleLayoutChange = useCallback(
-    (newLayout) => {
+    (newComponentsArray) => {
       if (!currentDashboardId) return;
       setAppConfig((prev) => {
         if (!prev.dashboards[currentDashboardId]) return prev;
         const updatedDashboards = { ...prev.dashboards };
         const updatedDashboard = { ...updatedDashboards[currentDashboardId] };
-        updatedDashboard.components = updatedDashboard.components.map(
-          (component) => {
-            const layoutItem = newLayout.find(
-              (item) => String(item.i) === String(component.id)
-            );
-            return layoutItem
-              ? {
-                  ...component,
-                  layout: {
-                    x: layoutItem.x,
-                    y: layoutItem.y,
-                    w: layoutItem.w,
-                    h: layoutItem.h,
-                  },
-                }
-              : component;
-          }
-        );
+        
+        // В новій системі DND (hello-pangea) розміщення будується через CSS Grid/Flex
+        // Тому ми просто зберігаємо новий порядок масиву віджетів
+        updatedDashboard.components = newComponentsArray;
         updatedDashboards[currentDashboardId] = updatedDashboard;
         return { ...prev, dashboards: updatedDashboards };
       });
