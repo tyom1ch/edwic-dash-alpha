@@ -6,7 +6,6 @@ import { getWidgetById } from "./widgetRegistry";
 class DeviceRegistry {
   constructor() {
     this.entities = new Map();
-    // FIX: Value is now an array of actions to support multiple entities on one topic.
     this.topicToActionMap = new Map(); 
     this.setupListeners();
     console.log("[DeviceRegistry] Initialized.");
@@ -42,25 +41,40 @@ class DeviceRegistry {
     const newTopicActionMap = new Map();
 
     allComponents.forEach((component) => {
-      const existingEntity = this.entities.get(component.id) || {};
-      newEntities.set(component.id, { ...existingEntity, ...component });
-
       const widgetDef = getWidgetById(component.type);
+      let finalComponentConfig = { ...component }; // Починаємо з конфігурації, збереженої в дашборді
+      let topicMappings = {};
+
       if (widgetDef?.getTopicMappings) {
-        const topicMappings = widgetDef.getTopicMappings(component);
-        for (const property in topicMappings) {
-          const topic = topicMappings[property];
-          if (topic && component.brokerId) {
-            // FIX: Handle multiple actions per topic
-            if (!newTopicActionMap.has(topic)) {
-              newTopicActionMap.set(topic, []);
-            }
-            newTopicActionMap.get(topic).push({
-              entityId: component.id,
-              property,
-              brokerId: component.brokerId,
-            });
+        // +++ ГОЛОВНИЙ ФІКС ТУТ +++
+        // 1. Отримуємо згенеровану конфігурацію з нашого реєстру
+        const generatedMappings = widgetDef.getTopicMappings(component);
+        
+        // 2. Розумно зливаємо її зі збереженою конфігурацією.
+        // Це гарантує, що прапорці типу `brightness: true` будуть додані.
+        finalComponentConfig = { ...generatedMappings, ...component };
+        
+        // 3. Для підписок використовуємо згенеровані мапінги
+        topicMappings = generatedMappings;
+      }
+      
+      // Зберігаємо фінальну, об'єднану конфігурацію
+      const existingEntity = this.entities.get(component.id) || {};
+      newEntities.set(component.id, { ...existingEntity, ...finalComponentConfig });
+
+      // Логіка підписок (залишається простою і надійною)
+      for (const property in topicMappings) {
+        const mappingValue = topicMappings[property];
+        if (typeof mappingValue === 'string') {
+          const topic = mappingValue;
+          if (!newTopicActionMap.has(topic)) {
+            newTopicActionMap.set(topic, []);
           }
+          newTopicActionMap.get(topic).push({
+            entityId: component.id,
+            property,
+            brokerId: component.brokerId,
+          });
         }
       }
     });
@@ -69,13 +83,13 @@ class DeviceRegistry {
     const allBrokerIds = new Set([...oldTopicsByBroker.keys(), ...newTopicsByBroker.keys()]);
 
     allBrokerIds.forEach(brokerId => {
-        const oldTopics = oldTopicsByBroker.get(brokerId) || new Set();
-        const newTopics = newTopicsByBroker.get(brokerId) || new Set();
-        const topicsToUnsubscribe = [...oldTopics].filter(t => !newTopics.has(t));
-        const topicsToSubscribe = [...newTopics].filter(t => !oldTopics.has(t));
+      const oldTopics = oldTopicsByBroker.get(brokerId) || new Set();
+      const newTopics = newTopicsByBroker.get(brokerId) || new Set();
+      const topicsToUnsubscribe = [...oldTopics].filter(t => !newTopics.has(t));
+      const topicsToSubscribe = [...newTopics].filter(t => !oldTopics.has(t));
 
-        topicsToUnsubscribe.forEach(topic => connectionManager.unsubscribeFromTopic(brokerId, topic));
-        topicsToSubscribe.forEach(topic => connectionManager.subscribeToTopic(brokerId, topic));
+      if (topicsToUnsubscribe.length > 0) connectionManager.unsubscribeFromTopic(brokerId, topicsToUnsubscribe);
+      if (topicsToSubscribe.length > 0) connectionManager.subscribeToTopic(brokerId, topicsToSubscribe);
     });
 
     this.entities = newEntities;
@@ -84,7 +98,6 @@ class DeviceRegistry {
   }
 
   handleBrokerConnected(brokerId) {
-    console.log(`[DeviceRegistry] Broker "${brokerId}" connected. Re-subscribing...`);
     this.topicToActionMap.forEach((actions, topic) => {
       if (actions.some(action => action.brokerId === brokerId)) {
         connectionManager.subscribeToTopic(brokerId, topic);
@@ -93,7 +106,7 @@ class DeviceRegistry {
   }
   
   handleMqttRawMessage(brokerId, topic, messageBuffer) {
-    const actions = this.topicToActionMap.get(topic); // Direct lookup
+    const actions = this.topicToActionMap.get(topic);
     if (actions) {
       const messageString = messageBuffer.toString();
       actions.forEach(action => {
@@ -102,26 +115,11 @@ class DeviceRegistry {
         const { entityId, property } = action;
         const entity = this.entities.get(entityId);
         if (entity) {
-          const jsonProperties = ["attributes", "json_state"];
-          let newValue;
-
-          if (jsonProperties.includes(property)) {
-            try {
-              newValue = messageString ? JSON.parse(messageString) : null;
-            } catch (e) {
-              console.warn(`[DeviceRegistry] Failed to parse JSON for property '${property}' of ${entityId}:`, messageString);
-              newValue = messageString;
-            }
-          } else {
-            newValue = messageString;
-          }
-          
           const updatedEntity = {
             ...entity,
-            [property]: newValue,
+            [property]: messageString, // Проста логіка - просто оновлюємо поле
             last_updated: new Date().toISOString(),
           };
-
           this.entities.set(entityId, updatedEntity);
           eventBus.emit(`entity:update:${entityId}`, updatedEntity);
         }

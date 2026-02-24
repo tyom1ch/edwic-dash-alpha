@@ -1,5 +1,3 @@
-// --- START OF FILE LightComponent.jsx (ФІНАЛЬНА ВЕРСІЯ) ---
-
 // src/components/widgets/LightComponent.jsx
 import React, { useState, useEffect } from 'react';
 import { 
@@ -7,113 +5,101 @@ import {
     FormControl, InputLabel, Select, MenuItem 
 } from '@mui/material';
 import { Lightbulb } from '@mui/icons-material';
+import { MuiColorInput } from 'mui-color-input'; 
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
 import { ModernWidgetCard } from './ModernWidgetCard';
+import connectionManager from '../../core/ConnectionManager';
 
-// TODO: В майбутньому можна додати компонент для вибору RGB кольору
-// import { MuiColorInput } from 'mui-color-input';
+const hexToRgbString = (hex) => {
+    if (!hex || typeof hex !== 'string') return '#0000000000';
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.replace("#", ""));
+    return result ? `#${result[1]}${result[2]}${result[3]}0000` : '#0000000000';
+};
 
 const LightComponent = ({ componentConfig }) => {
-  const entity = useEntity(componentConfig.id);
-
-  const supportedModes = componentConfig.supported_color_modes || [];
-  const supportsBrightness = componentConfig.brightness === true;
-  const supportsColorTemp = supportedModes.includes('color_temp');
+  const entityState = useEntity(componentConfig.id) || {};
   
-  const getEffectList = () => {
-    const effects = componentConfig.effect_list;
-    if (Array.isArray(effects)) return effects;
-    if (typeof effects === 'string' && effects.length > 0) return effects.split(',').map(e => e.trim());
-    return [];
-  };
-  const effect_list = getEffectList();
-  const supportsEffects = componentConfig.effect === true && effect_list.length > 0;
+  const {
+    // Статична конфігурація з `componentConfig`, яку згенерував `widgetRegistry`
+    brokerId,
+    state_topic,
+    command_topic,
+    brightness_state_topic,
+    brightness_command_topic,
+    color_temp_state_topic,
+    color_temp_command_topic,
+    rgb_state_topic,
+    rgb_command_topic,
+    min_mireds = 153,
+    max_mireds = 500,
+  } = componentConfig;
+
+  // Динамічний стан з MQTT, який приходить через `useEntity`
+  const {
+    state,
+    brightness,
+    color_temp,
+    rgb,
+  } = entityState;
+
+  // Вирішуємо, що показувати, на основі НАЯВНОСТІ топіків у конфігурації
+  const supportsBrightness = !!brightness_state_topic;
+  const supportsColorTemp = !!color_temp_state_topic;
+  const supportsRgb = !!rgb_state_topic;
+
+  // Перевірка стану. `state` - це значення з MQTT.
+  const isOn = state == '1';
   
-  const isJsonSchema = componentConfig.schema?.toLowerCase() === 'json';
-
-  const stateData = isJsonSchema ? entity?.json_state || {} : entity || {};
-
-  const isOn = stateData.state === 'ON';
-  const brightness = stateData.brightness;
-  const colorTemp = stateData.color_temp;
-  const effect = stateData.effect;
-
-  // --- LOCAL STATE FOR SLIDERS ---
+  // Локальний стан для плавності UI
   const [brightnessValue, setBrightnessValue] = useState(null);
   const [colorTempValue, setColorTempValue] = useState(null);
+  const [colorValue, setColorValue] = useState('#000000');
 
   useEffect(() => {
-    if (typeof brightness === 'number') {
-      setBrightnessValue(brightness);
-    } else {
-      setBrightnessValue(null);
-    }
+    const numericValue = parseFloat(brightness);
+    if (!isNaN(numericValue)) setBrightnessValue(numericValue);
   }, [brightness]);
+  
+  useEffect(() => {
+    const numericValue = parseFloat(color_temp);
+    if (!isNaN(numericValue)) setColorTempValue(numericValue);
+  }, [color_temp]);
 
   useEffect(() => {
-    if (typeof colorTemp === 'number') {
-      setColorTempValue(colorTemp);
-    } else {
-      setColorTempValue(null);
+    if (rgb && typeof rgb === 'string' && !rgb.includes('/')) {
+        setColorValue(`#${rgb.replace("#", "")}`);
     }
-  }, [colorTemp]);
-  // --- END LOCAL STATE ---
+  }, [rgb]);
 
-  const { 
-    payload_on = 'ON', 
-    payload_off = 'OFF' 
-  } = componentConfig;
-  
-  const isReady = typeof stateData.state !== 'undefined';
+  const isReady = typeof state !== 'undefined' && state !== null;
   const isOff = !isOn;
 
+  // Функція для прямої відправки команд через connectionManager
+  const sendCommand = (topic, payload) => {
+    if (!brokerId || !topic) return;
+    console.log(`[LightComponent] Publishing directly. Broker: ${brokerId}, Topic: ${topic}, Payload: ${payload}`);
+    connectionManager.publishToTopic(brokerId, topic, String(payload));
+  };
+  
+  // Обробники UI-елементів
   const handleToggle = (event) => {
-    const value = event.target.checked ? payload_on : payload_off;
-    if (isJsonSchema) {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: { state: value } });
-    } else {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_state', value });
-    }
+    sendCommand(command_topic, event.target.checked ? '1' : '0');
   };
-  
-  const handleBrightnessChange = (event, newValue) => {
-    setBrightnessValue(newValue);
-  };
-
   const handleBrightnessChangeCommitted = (event, newValue) => {
-    const commandValue = { brightness: newValue };
-     if (isOff && newValue > 0) {
-      commandValue.state = payload_on;
-    }
-    if (isJsonSchema) {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: commandValue });
-    } else {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_brightness', value: newValue });
-    }
+    sendCommand(brightness_command_topic, newValue);
   };
-
-  const handleColorTempChange = (event, newValue) => {
-    setColorTempValue(newValue);
-  };
-
   const handleColorTempChangeCommitted = (event, newValue) => {
-    if (isJsonSchema) {
-        commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: { color_temp: newValue } });
-    } else {
-        commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_color_temp', value: newValue });
-    }
+    sendCommand(color_temp_command_topic, newValue);
   };
-  
-  const handleEffectChange = (selectedEffect) => {
-    if (isJsonSchema) {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'json_command', value: { effect: selectedEffect } });
-    } else {
-      commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_effect', value: selectedEffect });
-    }
+  const handleColorChange = (newColor) => {
+    setColorValue(newColor);
+    sendCommand(rgb_command_topic, hexToRgbString(newColor));
   };
 
-  const label = componentConfig.label || entity?.name || "Освітлення";
+  const label = componentConfig.label || entityState?.name || "Освітлення";
+  const handleBrightnessChange = (e, v) => setBrightnessValue(v);
+  const handleColorTempChange = (e, v) => setColorTempValue(v);
 
   return (
     <ModernWidgetCard 
@@ -127,60 +113,26 @@ const LightComponent = ({ componentConfig }) => {
           </Typography>
           <Switch checked={isOn} onChange={handleToggle} disabled={!isReady} />
         </Box>
-        
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
           {supportsBrightness && (
             <Box>
               <Typography gutterBottom variant="body2">Яскравість</Typography>
-              <Slider
-                value={brightnessValue ?? (typeof brightness === 'number' ? brightness : 0)}
-                onChange={handleBrightnessChange}
-                onChangeCommitted={handleBrightnessChangeCommitted}
-                min={0}
-                max={255}
-                step={1}
-                disabled={isOff}
-                valueLabelDisplay="auto"
-              />
+              <Slider value={brightnessValue ?? 0} onChange={handleBrightnessChange} onChangeCommitted={handleBrightnessChangeCommitted} min={0} max={100} step={1} disabled={isOff} valueLabelDisplay="auto" />
             </Box>
           )}
-
           {supportsColorTemp && (
-             <Box>
+            <Box>
               <Typography gutterBottom variant="body2">Температура</Typography>
-              <Slider
-                value={colorTempValue ?? (typeof colorTemp === 'number' ? colorTemp : 153)}
-                onChange={handleColorTempChange}
-                onChangeCommitted={handleColorTempChangeCommitted}
-                min={componentConfig.min_mireds || 153} // ~6500K
-                max={componentConfig.max_mireds || 500} // ~2000K
-                disabled={isOff}
-                valueLabelDisplay="auto"
-                marks={[{value: 153, label: 'Холодний'}, {value: 500, label: 'Теплий'}]}
-              />
+              <Slider value={colorTempValue ?? min_mireds} onChange={handleColorTempChange} onChangeCommitted={handleColorTempChangeCommitted} min={min_mireds} max={max_mireds} disabled={isOff} valueLabelDisplay="auto" marks={[{value: min_mireds, label: 'Холодний'}, {value: max_mireds, label: 'Теплий'}]} />
+            </Box>
+          )}
+          {supportsRgb && (
+            <Box>
+              <Typography gutterBottom variant="body2">Колір</Typography>
+              <MuiColorInput value={colorValue} onChange={handleColorChange} format="hex" disabled={isOff} fullWidth />
             </Box>
           )}
         </Box>
-
-        {supportsEffects && (
-          <Box sx={{ mt: 'auto', pt: 1 }}>
-            <FormControl fullWidth size="small" disabled={isOff}>
-              <InputLabel id={`effect-select-label-${componentConfig.id}`}>Ефект</InputLabel>
-              <Select
-                labelId={`effect-select-label-${componentConfig.id}`}
-                value={effect || ''}
-                label="Ефект"
-                onChange={(e) => handleEffectChange(e.target.value)}
-              >
-                {effect_list.map((p) => (
-                  <MenuItem key={p} value={p}>
-                    {p}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        )}
     </ModernWidgetCard>
   );
 };
