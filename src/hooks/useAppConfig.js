@@ -1,10 +1,10 @@
 // src/hooks/useAppConfig.js
 import { useState, useEffect, useCallback, useMemo } from "react";
-import useLocalStorage from "./useLocalStorage";
+import { getAppConfig, saveAppConfig } from "../core/db";
 import eventBus from "../core/EventBus";
 import connectionManager from "../core/ConnectionManager";
 
-// Початкова конфігурація залишається тут
+// Початкова конфігурація
 const initialConfig = {
   brokers: [],
   dashboards: {
@@ -16,60 +16,105 @@ const initialConfig = {
 };
 
 const useAppConfig = () => {
-  const [storedConfig, setStoredConfig] = useLocalStorage(
-    "appConfig",
-    initialConfig
-  );
-  const [appConfig, setAppConfigState] = useState(storedConfig);
-
+  const [appConfig, setAppConfigState] = useState(initialConfig);
+  const [isLoading, setIsLoading] = useState(true);
   const [brokerStatuses, setBrokerStatuses] = useState({});
 
-  // Ця функція тепер єдина точка, що змінює конфіг.
-  // Вона оновлює стан React, localStorage і сповіщає CoreServices.
+  useEffect(() => {
+    const loadConfig = async () => {
+      let savedConfig = await getAppConfig();
+      
+      // Fallback to localStorage migration temporarily if Dexie is empty
+      if (!savedConfig) {
+        try {
+            const lsConfig = localStorage.getItem("appConfig");
+            if (lsConfig) {
+                savedConfig = JSON.parse(lsConfig);
+                // Save it to dexie for future
+                await saveAppConfig(savedConfig);
+            }
+        } catch(e) {
+            console.warn("Failed to migrate from localStorage:", e);
+        }
+      }
+
+      if (savedConfig) {
+        // Strip out the dexie 'id' if restoring
+        const { id, ...restConfig } = savedConfig;
+        setAppConfigState(restConfig);
+      }
+      setIsLoading(false);
+    };
+    loadConfig();
+  }, []);
+
   const setAppConfig = useCallback(
     (value) => {
       const newConfig = typeof value === "function" ? value(appConfig) : value;
       setAppConfigState(newConfig);
-      setStoredConfig(newConfig);
-      // Просто відправляємо подію. Решту зробить CoreServices.
+      saveAppConfig(newConfig); // Async save to Dexie
+      
       eventBus.emit("config:saved", newConfig);
     },
-    [appConfig, setStoredConfig]
+    [appConfig]
   );
+
+  const [brokerErrors, setBrokerErrors] = useState({});
 
   const globalConnectionStatus = useMemo(() => {
     if (!appConfig.brokers || appConfig.brokers.length === 0) {
-      return "Not Configured";
+      return "offline";
     }
-    const statuses = appConfig.brokers.map(
-      (b) => brokerStatuses[b.id] || "offline"
-    );
-    if (statuses.every((s) => s === "online")) return "All online";
-    if (statuses.some((s) => s === "online")) return "Partially online";
-    return "All offline";
+    
+    let connectedCount = 0;
+    let connectingCount = 0;
+    let errorCount = 0;
+
+    appConfig.brokers.forEach((b) => {
+      const status = brokerStatuses[b.id] || "offline";
+      if (status === "connected") connectedCount++;
+      else if (status === "connecting" || status === "reconnecting") connectingCount++;
+      else if (status === "error") errorCount++;
+    });
+
+    if (connectedCount === appConfig.brokers.length) return "connected";
+    if (connectedCount > 0) return "partial";
+    if (connectingCount > 0) return "connecting";
+    return "offline";
   }, [appConfig.brokers, brokerStatuses]);
 
-  // Ефект для відстеження статусу брокерів (залишається без змін)
   useEffect(() => {
-    const updateStatusForBroker = (brokerId) => {
-      const status = connectionManager.isConnected(brokerId)
-        ? "online"
-        : "offline";
-      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: status }));
+    if (isLoading) return;
+
+    const handleConnect = (brokerId) => {
+      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "connected" }));
+      setBrokerErrors((prev) => ({ ...prev, [brokerId]: null }));
     };
 
-    const handleConnect = (brokerId) => updateStatusForBroker(brokerId);
-    const handleDisconnect = (brokerId) => updateStatusForBroker(brokerId);
+    const handleDisconnect = (brokerId) => {
+      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "offline" }));
+    };
+
+    const handleError = (brokerId, err) => {
+      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "error" }));
+      setBrokerErrors((prev) => ({ ...prev, [brokerId]: err?.message || "Помилка з'єднання" }));
+    };
+
+    const handleReconnecting = (brokerId) => {
+      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "connecting" }));
+    };
 
     eventBus.on("broker:connected", handleConnect);
     eventBus.on("broker:disconnected", handleDisconnect);
+    eventBus.on("broker:error", handleError);
+    eventBus.on("broker:reconnecting", handleReconnecting);
 
     if (appConfig.brokers) {
       const initialStatuses = {};
       appConfig.brokers.forEach((b) => {
         initialStatuses[b.id] = connectionManager.isConnected(b.id)
-          ? "online"
-          : "offline";
+          ? "connected"
+          : "offline"; // ConnectionManager could be queried for exact states if we expand it, but offline is a safe default before events fire.
       });
       setBrokerStatuses(initialStatuses);
     }
@@ -77,10 +122,11 @@ const useAppConfig = () => {
     return () => {
       eventBus.off("broker:connected", handleConnect);
       eventBus.off("broker:disconnected", handleDisconnect);
+      eventBus.off("broker:error", handleError);
+      eventBus.off("broker:reconnecting", handleReconnecting);
     };
-  }, [appConfig.brokers]);
+  }, [appConfig.brokers, isLoading]);
   
-  // Обробники CRUD-операцій залишаються тут, вони керують станом UI
   const handleSetBrokers = useCallback((newBrokers) => {
     setAppConfig((prev) => ({ ...prev, brokers: newBrokers }));
   }, [setAppConfig]);
@@ -120,13 +166,13 @@ const useAppConfig = () => {
     });
   }, [setAppConfig]);
 
-  // Ефекти для синхронізації, які раніше були тут, тепер не потрібні,
-  // оскільки CoreServices централізовано обробляє подію 'config:saved'.
-
   return {
     appConfig,
+    isLoading,
     setAppConfig,
     globalConnectionStatus,
+    brokerStatuses,
+    brokerErrors,
     handlers: {
       handleSetBrokers,
       handleAddComponent,

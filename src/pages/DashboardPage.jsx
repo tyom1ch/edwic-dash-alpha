@@ -1,14 +1,23 @@
-// src/pages/DashboardPage.jsx
 import React, { useState } from "react";
-import { Responsive, WidthProvider } from "react-grid-layout";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import { Box } from "@mui/material";
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 
 import WidgetWrapper from "../components/widgets/WidgetWrapper";
 import { getWidgetById } from "../core/widgetRegistry";
 import HistoryGraphDialog from "../components/HistoryGraphDialog";
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const FallbackWidget = ({ componentConfig }) => (
   <div style={{ padding: '16px', border: '1px dashed grey', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -25,6 +34,10 @@ function DashboardPage({
 }) {
   const [isHistoryGraphOpen, setIsHistoryGraphOpen] = useState(false);
   const [selectedSensorWidget, setSelectedSensorWidget] = useState(null);
+
+  // --- ТИМЧАСОВЕ ВІДКЛЮЧЕННЯ DND-KIT ДЛЯ ДІАГНОСТИКИ ---
+  // const sensors = ...
+
 
   if (!dashboard) {
     return <div>Dashboard not found.</div>;
@@ -52,70 +65,45 @@ function DashboardPage({
     setSelectedSensorWidget(null);
   };
 
-  // --- ОНОВЛЕНА ЛОГІКА ГЕНЕРАЦІЇ РОЗКЛАДКИ ---
-  const layouts = {
-    lg: dashboard.components.map((comp, i) => {
-      // 1. Отримуємо інформацію про тип віджета з реєстру
-      const widgetInfo = getWidgetById(comp.type);
-      const defaultLayout = widgetInfo?.defaultLayout;
-
-      // 2. Визначаємо layout з пріоритетами
-      return {
-        i: String(comp.id),
-        
-        // Позиція: беремо збережену, або генеруємо нову
-        x: comp.layout?.x ?? (i % 4) * 3,
-        y: comp.layout?.y ?? Math.floor(i / 4) * 2,
-
-        // Розмір: беремо збережений, або з реєстру, або запасний
-        w: comp.layout?.w ?? defaultLayout?.w ?? 2,
-        h: comp.layout?.h ?? defaultLayout?.h ?? 2,
-
-        // Мінімальний розмір: беремо з реєстру, або запасний
-        minW: defaultLayout?.minW ?? 1,
-        minH: defaultLayout?.minH ?? 1,
-
-        maxW: defaultLayout?.maxW ?? 6,
-        maxH: defaultLayout?.maxH ?? 6,
-      };
-    }),
+  // ЛОГІКА ПЕРЕСОРТУВАННЯ
+  const handleDragEnd = (event) => {
+    // В тимчасовому режимі перетягування не працює
   };
 
   return (
     <>
-      <ResponsiveGridLayout
-        className="layout"
-        layouts={layouts}
-        onLayoutChange={(layout) => onLayoutChange(layout)}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={100}
-        isDraggable={!lockMode}
-        isResizable={!lockMode}
-        draggableCancel=".widget-no-drag"
-      >
-        {dashboard.components.map((component) => {
-          const WidgetToRender = getWidgetById(component.type)?.component;
+      <Box sx={{ p: 2, pb: 10 }}>
+          <Box
+            sx={{
+              display: "grid",
+              // Адаптивна сітка: колонки мінімум 140px, розширюються рівномірно
+              gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+              gridAutoRows: "minmax(140px, auto)",
+              gap: 2,
+            }}
+          >
+            {dashboard.components.map((component) => {
+              const WidgetToRender = getWidgetById(component.type)?.component;
 
-          return (
-            <div key={String(component.id)}>
-              <WidgetWrapper
-                component={component}
-                onEdit={() => onEditComponent(component.id)}
-                onDelete={() => onDeleteComponent(component.id)}
-                lockMode={lockMode}
-                onClick={handleWidgetClick}
-              >
-                {WidgetToRender ? (
-                  <WidgetToRender componentConfig={component} />
-                ) : (
-                  <FallbackWidget componentConfig={component} />
-                )}
-              </WidgetWrapper>
-            </div>
-          );
-        })}
-      </ResponsiveGridLayout>
+              return (
+                <WidgetWrapper
+                  key={String(component.id)}
+                  component={component}
+                  onEdit={() => onEditComponent(component.id)}
+                  onDelete={() => onDeleteComponent(component.id)}
+                  lockMode={lockMode}
+                  onClick={handleWidgetClick}
+                >
+                  {WidgetToRender ? (
+                    <WidgetToRender componentConfig={component} />
+                  ) : (
+                    <FallbackWidget componentConfig={component} />
+                  )}
+                </WidgetWrapper>
+              );
+            })}
+          </Box>
+      </Box>
 
       <HistoryGraphDialog
         isOpen={isHistoryGraphOpen}

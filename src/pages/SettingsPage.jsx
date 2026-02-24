@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   Box,
   Button,
@@ -15,101 +15,126 @@ import {
   Card,
   CardContent,
   useColorScheme,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
+  Tooltip,
 } from "@mui/material";
 import {
   LightMode,
   DarkMode,
   SettingsSystemDaydream,
   GitHub,
+  Delete,
+  Edit,
+  Add,
+  CloudDone,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import useLocalStorage from "../hooks/useLocalStorage";
+
+const defaultBrokerState = {
+  id: "",
+  name: "Мій брокер",
+  host: "",
+  port: "",
+  username: "",
+  password: "",
+  discovery_topic: "homeassistant",
+  secure: false,
+  basepath: "",
+};
 
 function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const navigate = useNavigate();
-  const { appConfig, setAppConfig } = useAppConfig();
-
+  const { appConfig, setAppConfig, brokerStatuses, brokerErrors } = useAppConfig();
   const { setMode } = useColorScheme();
-
   const fileInputRef = useRef(null);
 
-  const initialBrokerState = brokers?.length
-    ? { ...brokers[0] }
-    : {
-        id: "",
-        name: "Основний брокер",
-        host: "",
-        port: "",
-        username: "",
-        password: "",
-        discovery_topic: "homeassistant",
-        secure: false,
-        basepath: "",
-      };
-
-  const [currentBrokerConfig, setCurrentBrokerConfig] =
-    useState(initialBrokerState);
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (brokers?.length) {
-      setCurrentBrokerConfig({ ...brokers[0] });
-    } else {
-      setCurrentBrokerConfig(initialBrokerState);
-    }
-  }, [brokers]);
+  const [isBrokerDialogOpen, setIsBrokerDialogOpen] = useState(false);
+  const [editingBroker, setEditingBroker] = useState(defaultBrokerState);
 
-  const handleBrokerConfigChange = (e) => {
+  // --- Broker CRUD Handlers ---
+
+  const handleOpenBrokerDialog = (broker = null) => {
+    setEditingBroker(broker ? { ...broker } : { ...defaultBrokerState });
+    setError("");
+    setIsBrokerDialogOpen(true);
+  };
+
+  const handleCloseBrokerDialog = () => {
+    setIsBrokerDialogOpen(false);
+  };
+
+  const handleBrokerFieldChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setCurrentBrokerConfig((prev) => ({
+    setEditingBroker((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSaveBroker = async () => {
+  const handleSaveBroker = () => {
     setError("");
-    setLoading(true);
     try {
-      if (!currentBrokerConfig.host || !currentBrokerConfig.port) {
-        throw new Error("Host та Port брокера є обов'язковими.");
+      if (!editingBroker.host || !editingBroker.port) {
+        throw new Error("Хост та порт є обов'язковими.");
       }
-      const newBrokerId = currentBrokerConfig.id || `broker-${Date.now()}`;
+
       const brokerToSave = {
-        ...currentBrokerConfig,
-        id: newBrokerId,
-        port: parseInt(currentBrokerConfig.port, 10),
-        basepath: currentBrokerConfig.basepath || "",
-        discovery_topic:
-          currentBrokerConfig.discovery_topic?.trim() || "homeassistant",
+        ...editingBroker,
+        port: parseInt(editingBroker.port, 10),
+        basepath: editingBroker.basepath || "",
+        discovery_topic: editingBroker.discovery_topic?.trim() || "homeassistant",
       };
-      const updatedBrokers = brokers?.length
-        ? brokers.map((b, index) => (index === 0 ? brokerToSave : b))
-        : [brokerToSave];
+
+      let updatedBrokers;
+      if (brokerToSave.id) {
+        // Edit existing
+        updatedBrokers = brokers.map((b) =>
+          b.id === brokerToSave.id ? brokerToSave : b
+        );
+      } else {
+        // Add new
+        brokerToSave.id = `broker-${Date.now()}`;
+        updatedBrokers = [...(brokers || []), brokerToSave];
+      }
+
       setBrokers(updatedBrokers);
-      alert(
-        "Налаштування брокера збережено. З'єднання буде оновлено автоматично."
-      );
+      setIsBrokerDialogOpen(false);
     } catch (err) {
       setError(err.message);
-      console.error("Помилка збереження налаштувань брокера:", err);
-    } finally {
-      setLoading(false);
     }
   };
+
+  const handleDeleteBroker = (id) => {
+    if (window.confirm("Дійсно видалити цього брокера?")) {
+      setBrokers((brokers || []).filter((b) => b.id !== id));
+    }
+  };
+
+  // --- Export / Import Handlers ---
 
   const handleExportConfig = async () => {
     setError("");
     setLoading(true);
-
     try {
-      const fileName = `edwic-backup-${new Date().toISOString().split("T")[0]}.json`;
+      const fileName = `edwic-backup-${
+        new Date().toISOString().split("T")[0]
+      }.json`;
       const json = JSON.stringify(appConfig, null, 2);
 
       if (Capacitor.isNativePlatform()) {
@@ -124,26 +149,22 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           title: "Резервна копія EdwIC",
           text: "💾 Збережіть цей файл у надійному місці.",
           url: result.uri,
-          dialogTitle: "Зберегти або Поділитися резервною копією",
+          dialogTitle: "Зберегти або Поділитися",
         });
       } else {
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-
         link.href = url;
         link.download = fileName;
-
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
         URL.revokeObjectURL(url);
       }
     } catch (err) {
       if (err.message !== "Share canceled") {
         setError(`Помилка експорту: ${err.message}`);
-        console.error("Помилка при експорті конфігурації:", err);
       }
     } finally {
       setLoading(false);
@@ -159,24 +180,21 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
     reader.onload = (e) => {
       try {
         const importedConfig = JSON.parse(e.target.result);
-        if (importedConfig?.brokers && importedConfig?.dashboards) {
+        if (importedConfig?.dashboards) {
           if (
             window.confirm(
-              "Ви впевнені, що хочете імпортувати нові налаштування? Поточні налаштування будуть перезаписані."
+              "Ви впевнені, що хочете імпортувати нові налаштування? Поточні будуть перезаписані."
             )
           ) {
             setAppConfig(importedConfig);
-            alert(
-              "Налаштування успішно імпортовано! Додаток буде перезавантажено."
-            );
+            alert("Налаштування успішно імпортовано!");
             window.location.reload();
           }
         } else {
-          throw new Error("Некоректний формат файлу конфігурації.");
+          throw new Error("Некоректний формат файлу.");
         }
       } catch (err) {
         setError(`Помилка імпорту: ${err.message}`);
-        console.error("Import error:", err);
       }
     };
     reader.readAsText(file);
@@ -186,16 +204,17 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const handleReset = () => {
     if (
       window.confirm(
-        "ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування брокера. Відмінити це буде неможливо."
+        "ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування. Відмінити це неможливо."
       )
     ) {
       localStorage.removeItem("appConfig");
-      alert("Всі налаштування скинуто. Додаток буде перезавантажено.");
+      // Dexie database should ideally be cleared as well. We'll reload for now as db migration 
+      // depends on empty states.
+      alert("Налаштування скинуто.");
       window.location.reload();
     }
   };
 
-  // Новий обробник для зміни теми
   const handleThemeChange = (e, newMode) => {
     if (!newMode) return;
     setThemeMode(newMode);
@@ -212,167 +231,196 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         value={tabIndex}
         onChange={(e, newIndex) => setTabIndex(newIndex)}
         sx={{ mb: 2 }}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
+        variant="fullWidth"
       >
-        <Tab label="Резервування" />
-        <Tab label="Брокер" />
+        <Tab label="Брокери" />
+        <Tab label="Система" />
         <Tab label="Додатково" />
       </Tabs>
 
-      {/* Резервне копіювання та відновлення */}
+      {/* ВКЛАДКА 1: Брокери */}
       {tabIndex === 0 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Резервне копіювання та відновлення
-          </Typography>
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleExportConfig}
-            disabled={loading}
-            sx={{ mb: 2 }}
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
           >
-            {loading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              "Експорт конфігурації"
-            )}
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-            accept=".json"
-          />
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mb: 1 }}
-            onClick={handleImportClick}
-          >
-            Імпорт Налаштувань (JSON)
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            fullWidth
-            onClick={handleReset}
-          >
-            Скинути Всі Налаштування
-          </Button>
-          <Typography
-            variant="caption"
-            display="block"
-            sx={{ mt: 1, color: "text.secondary" }}
-          >
-            Це скине всі брокери, дашборди та віджети!
-          </Typography>
-          {error && (
-            <Typography color="error" sx={{ mt: 2, wordBreak: "break-word" }}>
-              {error}
-            </Typography>
-          )}
-        </Box>
-      )}
+            <Typography variant="h6">MQTT Брокери</Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenBrokerDialog()}
+              size="small"
+            >
+              Додати
+            </Button>
+          </Stack>
 
-      {/* Конфігурація Брокера */}
-      {tabIndex === 1 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Конфігурація Основного MQTT Брокера
-          </Typography>
-          <TextField
-            fullWidth
-            label="IP брокера / Hostname"
-            name="host"
-            value={currentBrokerConfig.host}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            required
-          />
-          <TextField
-            fullWidth
-            label="Порт брокера (WebSockets, напр. 8083)"
-            name="port"
-            value={currentBrokerConfig.port}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            type="number"
-            required
-          />
-          <TextField
-            fullWidth
-            label="Логін"
-            name="username"
-            value={currentBrokerConfig.username}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Пароль"
-            type="password"
-            name="password"
-            value={currentBrokerConfig.password}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Базовий шлях (Basepath, напр. /ws)"
-            name="basepath"
-            value={currentBrokerConfig.basepath}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Якщо брокер вимагає шлях у URL для WebSockets (напр. /ws, /mqtt)"
-          />
-          <TextField
-            fullWidth
-            label="Топік для Discovery"
-            name="discovery_topic"
-            value={currentBrokerConfig.discovery_topic}
-            onChange={handleBrokerConfigChange}
-            sx={{ mb: 2 }}
-            helperText="Наприклад, 'homeassistant' (без #). Якщо залишити порожнім, буде використано 'homeassistant'."
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={!!currentBrokerConfig.secure}
-                onChange={handleBrokerConfigChange}
-                name="secure"
+          {(!brokers || brokers.length === 0) ? (
+            <Card variant="outlined" sx={{ mb: 2, textAlign: "center", py: 3 }}>
+              <Typography color="text.secondary">
+                Немає налаштованих брокерів.
+              </Typography>
+            </Card>
+          ) : (
+            <List sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {brokers.map((broker) => {
+                const status = brokerStatuses[broker.id] || "offline";
+                const errorMsg = brokerErrors[broker.id];
+
+                let statusDotColor = "#f44336"; // offline or error
+                if (status === "connected") statusDotColor = "#4caf50";
+                else if (status === "connecting" || status === "reconnecting") statusDotColor = "#2196f3";
+
+                return (
+                <Card variant="outlined" key={broker.id}>
+                  <ListItem
+                    disablePadding
+                    secondaryAction={
+                      <Stack direction="row" spacing={1}>
+                        <Tooltip title="Редагувати">
+                          <IconButton onClick={() => handleOpenBrokerDialog(broker)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Видалити">
+                          <IconButton
+                            color="error"
+                            onClick={() => handleDeleteBroker(broker.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    }
+                  >
+                    <Box sx={{ px: 2, py: 1.5, width: '100%' }}>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: statusDotColor }} />
+                            <Typography fontWeight="bold">{broker.name || broker.host}</Typography>
+                          </Stack>
+                        }
+                        secondary={
+                          <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              {`${broker.secure ? "wss://" : "ws://"}${broker.host}:${broker.port}${broker.basepath || ""}`}
+                            </Typography>
+                            {(status === "error" || status === "offline") && errorMsg && (
+                              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                                Помилка: {errorMsg}
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </Box>
+                  </ListItem>
+                </Card>
+                );
+              })}
+            </List>
+          )}
+
+          {/* Діалог Додавання/Редагування */}
+          <Dialog open={isBrokerDialogOpen} onClose={handleCloseBrokerDialog} fullWidth>
+            <DialogTitle>
+              {editingBroker.id ? "Редагувати брокера" : "Новий брокер"}
+            </DialogTitle>
+            <DialogContent dividers>
+              <TextField
+                fullWidth
+                label="Назва (напр. 'Домашній')"
+                name="name"
+                value={editingBroker.name}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2, mt: 1 }}
               />
-            }
-            label="Використовувати Secure WebSockets (WSS)"
-            sx={{ mb: 2 }}
-          />
-          {error && (
-            <Typography color="error" sx={{ mb: 2 }}>
-              {error}
-            </Typography>
-          )}
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleSaveBroker}
-            disabled={loading}
-          >
-            {loading ? (
-              <CircularProgress size={24} />
-            ) : (
-              "Зберегти Налаштування Брокера"
-            )}
-          </Button>
+              <TextField
+                fullWidth
+                label="IP брокера / Hostname *"
+                name="host"
+                value={editingBroker.host}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+                required
+              />
+              <TextField
+                fullWidth
+                label="Порт брокера (WebSockets) *"
+                name="port"
+                value={editingBroker.port}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+                type="number"
+                required
+              />
+              <TextField
+                fullWidth
+                label="Логін"
+                name="username"
+                value={editingBroker.username}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Пароль"
+                type="password"
+                name="password"
+                value={editingBroker.password}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Базовий шлях (/ws)"
+                name="basepath"
+                value={editingBroker.basepath}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Топік Home Assistant Discovery"
+                name="discovery_topic"
+                value={editingBroker.discovery_topic}
+                onChange={handleBrokerFieldChange}
+                sx={{ mb: 2 }}
+                helperText="Стандартно: 'homeassistant'"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!editingBroker.secure}
+                    onChange={handleBrokerFieldChange}
+                    name="secure"
+                  />
+                }
+                label="Використовувати Secure WebSockets (WSS)"
+              />
+              {error && (
+                <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+                  {error}
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseBrokerDialog}>Скасувати</Button>
+              <Button onClick={handleSaveBroker} variant="contained">
+                Зберегти
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       )}
 
-      {/* НОВА ВКЛАДКА: Візуальні налаштування */}
-      {tabIndex === 2 && (
-        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 4 }}>
-          {/* Налаштування теми */}
+      {/* ВКЛАДКА 2: Системні налаштування (Візуальні) */}
+      {tabIndex === 1 && (
+        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
           <Box>
             <Typography variant="h6" gutterBottom>
               Тема додатку
@@ -382,70 +430,94 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               value={themeMode}
               exclusive
               onChange={handleThemeChange}
-              aria-label="theme mode"
               fullWidth
             >
-              <ToggleButton value="light" aria-label="світла тема">
+              <ToggleButton value="light">
                 <LightMode sx={{ mr: 1 }} />
                 Світла
               </ToggleButton>
-              <ToggleButton value="dark" aria-label="темна тема">
+              <ToggleButton value="dark">
                 <DarkMode sx={{ mr: 1 }} />
                 Темна
               </ToggleButton>
-              <ToggleButton value="system" aria-label="системна тема">
+              <ToggleButton value="system">
                 <SettingsSystemDaydream sx={{ mr: 1 }} />
                 Системна
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
+        </Box>
+      )}
 
-          {/* Зворотний зв'язок */}
-          <Box>
-            <Divider sx={{ mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Зворотний зв'язок
-            </Typography>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="body1" gutterBottom>
-                  Знайшли помилку чи маєте ідею?
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Ваш відгук допомагає зробити EdwIC кращим. Найкращий спосіб
-                  повідомити про проблему або запропонувати нову функцію —
-                  створити запит на GitHub.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<GitHub />}
-                  href="https://github.com/tyom1ch/edwic-dash-alpha/issues/new/choose"
-                  target="_blank" // Відкриває посилання в новій вкладці
-                  rel="noopener noreferrer" // Добра практика для безпеки
-                  fullWidth
-                >
-                  Повідомити на GitHub
-                </Button>
-              </CardContent>
-            </Card>
+      {/* ВКЛАДКА 3: Додатково (Резервні копії) */}
+      {tabIndex === 2 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Резервне копіювання
+          </Typography>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleExportConfig}
+            disabled={loading}
+            sx={{ mb: 2 }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Експорт (JSON)"}
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+            accept=".json"
+          />
+          <Button
+            variant="outlined"
+            fullWidth
+            sx={{ mb: 4 }}
+            onClick={handleImportClick}
+          >
+            Відновити з файлу
+          </Button>
+
+          <Divider sx={{ mb: 3 }} />
+          
+          <Typography variant="h6" gutterBottom>
+            Небезпечна зона
+          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            fullWidth
+            onClick={handleReset}
+          >
+            Скинути Дашборди та Брокери
+          </Button>
+
+          <Box mt={4}>
+            <Button
+              variant="text"
+              startIcon={<GitHub />}
+              href="https://github.com/tyom1ch/edwic-dash-alpha/issues"
+              target="_blank"
+              fullWidth
+            >
+              Код та Зворотній зв'язок (GitHub)
+            </Button>
           </Box>
         </Box>
       )}
 
-      <Button
-        variant="outlined"
-        fullWidth
-        sx={{ mt: 4 }}
-        onClick={() =>
-          navigate(`/${Object.keys(appConfig.dashboards)[0] || ""}`)
-        }
-      >
-        Повернутися на Дашборд
-      </Button>
+      {Object.keys(appConfig.dashboards).length > 0 && (
+        <Button
+          variant="text"
+          fullWidth
+          sx={{ mt: 4 }}
+          onClick={() => navigate(`/${Object.keys(appConfig.dashboards)[0]}`)}
+        >
+          Повернутися на Дашборд
+        </Button>
+      )}
     </Box>
   );
 }

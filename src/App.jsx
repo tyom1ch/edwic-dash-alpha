@@ -4,6 +4,8 @@ import {
   createTheme,
 } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
 import { BrowserRouter as Router } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar } from "@capacitor/status-bar";
@@ -18,7 +20,7 @@ const App = () => {
   );
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const { appConfig, setAppConfig, globalConnectionStatus, ...handlers } =
+  const { appConfig, isLoading, setAppConfig, globalConnectionStatus, ...handlers } =
     useAppConfig();
 
   useEffect(() => {
@@ -26,13 +28,11 @@ const App = () => {
   }, [themeMode]);
 
   useEffect(() => {
-    if (!isInitialized) {
+    if (!isLoading && !isInitialized) {
       CoreServices.initialize(appConfig);
-      eventBus.on("broker:connected", () => {
-        setIsInitialized(true);
-      });
+      setIsInitialized(true);
     }
-  }, [appConfig]);
+  }, [appConfig, isLoading, isInitialized]);
 
   const hideStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -61,16 +61,22 @@ const App = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
-      <Router>
-        <AppLayout
-          appConfig={appConfig}
-          setAppConfig={setAppConfig}
-          globalConnectionStatus={globalConnectionStatus}
-          {...handlers}
-          themeMode={themeMode}
-          setThemeMode={setThemeMode}
-        />
-      </Router>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Router>
+          <AppLayout
+            appConfig={appConfig}
+            setAppConfig={setAppConfig}
+            globalConnectionStatus={globalConnectionStatus}
+            {...handlers}
+            themeMode={themeMode}
+            setThemeMode={setThemeMode}
+          />
+        </Router>
+      )}
     </CssVarsProvider>
   );
 };
