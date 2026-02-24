@@ -123,7 +123,7 @@ class DeviceRegistry {
           };
 
           this.entities.set(entityId, updatedEntity);
-          eventBus.emit("entity:update", updatedEntity);
+          eventBus.emit(`entity:update:${entityId}`, updatedEntity);
         }
       });
     }

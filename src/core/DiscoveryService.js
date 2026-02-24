@@ -86,7 +86,10 @@ setupListeners() {
     }
 
     handleMqttMessage(brokerId, topic, messageBuffer) {
-        const message = messageBuffer.toString();
+        // Очищаємо payload від null-байтів (\x00) та зайвих пробілів, 
+        // які часто надсилають ESP-мікроконтролери та публічні тестові брокери.
+        const message = messageBuffer.toString('utf8').replace(/\0/g, '').trim();
+        
         if (!this.currentDiscoveryTopic) return;
 
         const baseTopic = this.currentDiscoveryTopic.replace('/#', '');
@@ -110,7 +113,9 @@ setupListeners() {
         try {
             const config = JSON.parse(message);
             const uniqueId = config.unique_id || config.uniq_id;
-            if (!uniqueId) return;
+            
+            // Validate minimal required fields.
+            if (!uniqueId || (!config.state_topic && !config.stat_t && config.componentType !== 'button')) return;
 
             const deviceId = this._getDeviceId(config);
             if (!deviceId) return;
@@ -185,7 +190,9 @@ setupListeners() {
             eventBus.emit('discovery:updated', this.getDiscoveredDevices());
 
         } catch (e) {
-            console.error(`[DiscoveryService] Error parsing config from topic ${topic}:`, e);
+            // Log a warning instead of a full stack trace to prevent flooding the console 
+            // when subscribed to a public wildcard topic filled with broken/truncated retained messages (like test.mosquitto.org)
+            console.warn(`[DiscoveryService] Dropped malformed JSON from ${topic}. Details: ${e.message}`);
         }
     }
     

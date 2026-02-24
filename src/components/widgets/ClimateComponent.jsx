@@ -1,8 +1,6 @@
 // src/components/widgets/ClimateComponent.jsx
 import React, { useState, useEffect } from "react";
 import {
-  Card,
-  CardContent,
   Typography,
   Box,
   IconButton,
@@ -22,6 +20,7 @@ import {
 } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
 import commandDispatcher from "../../core/CommandDispatcher";
+import { ModernWidgetCard } from "./ModernWidgetCard";
 
 const ClimateComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -216,23 +215,20 @@ const ClimateComponent = ({ componentConfig }) => {
   };
   const actionProps = getActionProps();
 
+  const label = componentConfig.label || entity?.name || "Клімат";
+
   return (
-    <Card variant="outlined" sx={{ height: "100%", display: "flex" }}>
-      <CardContent
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          width: "100%",
-          p: 2,
-        }}
-      >
+    <ModernWidgetCard 
+      title={label}
+      highlightColor={isOff ? "transparent" : actionProps.color}
+    >
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             mb: 1,
+            width: "100%",
           }}
         >
           <Thermostat fontSize="large" color={isOff ? "disabled" : "action"} />
@@ -306,8 +302,7 @@ const ClimateComponent = ({ componentConfig }) => {
             }}
           />
         </Box>
-      </CardContent>
-    </Card>
+    </ModernWidgetCard>
   );
 };
 

@@ -1,7 +1,8 @@
 import React from "react";
-import { Card, CardContent, Typography } from "@mui/material";
 import useEntity from "../../hooks/useEntity";
-import { useFitText } from "../../hooks/useFitText";
+import { AutoScalableText } from "./AutoScalableText";
+import { ModernWidgetCard } from "./ModernWidgetCard";
+import { Sensors } from "@mui/icons-material";
 
 const BinarySensorComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -14,8 +15,8 @@ const BinarySensorComponent = ({ componentConfig }) => {
 
   const state = entity?.value;
   const lastUpdated = entity?.last_updated
-    ? new Date(entity.last_updated).toLocaleString()
-    : "Не оновлювалось";
+    ? new Date(entity.last_updated).toLocaleTimeString()
+    : "Невідомо";
 
   const isOn =
     state !== null && state !== undefined
@@ -29,7 +30,7 @@ const BinarySensorComponent = ({ componentConfig }) => {
       case "window":
         return isOn ? "Відчинено" : "Зачинено";
       case "motion":
-        return isOn ? "Рух" : "Немає руху";
+        return isOn ? "Рух" : "Спокій";
       case "presence":
         return isOn ? "Присутній" : "Відсутній";
       case "plug":
@@ -40,65 +41,20 @@ const BinarySensorComponent = ({ componentConfig }) => {
   };
 
   const displayValue = getStateText(isOn, device_class);
-  const { containerRef, valueRef } = useFitText([displayValue]);
-  
-  const getShortLabel = (text) => {
-    if (!text) return "Сенсор";
-    return text.length > 25 ? text.slice(0, 25) + "…" : text;
-  };
+  const label = componentConfig.label || entity?.name || "Датчик";
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-      }}
+    <ModernWidgetCard 
+      title={label} 
+      highlightColor={isOn ? "#f44336" : "transparent"} // Red/alert color for active binary sensor
+      statusIcon={<Sensors color={isOn ? "error" : "disabled"} />}
     >
-      <CardContent
-        ref={containerRef}
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          p: 1,
-        }}
-      >
-        <Typography sx={{ whiteSpace: "nowrap", textAlign: 'center' }}>
-          {getShortLabel(componentConfig.label || entity?.name)}
-        </Typography>
-        <Typography
-          ref={valueRef}
-          component="span"
-          sx={{
-            fontWeight: "bold",
-            lineHeight: 1,
-            whiteSpace: "nowrap",
-            fontSize: "4rem",
-          }}
-        >
-          {displayValue}
-        </Typography>
-
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{
-            pt: 1,
-            whiteSpace: "nowrap",
-            width: "100%",
-            textAlign: "center",
-            fontSize: "0.75rem",
-          }}
-        >
-          {lastUpdated}
-        </Typography>
-      </CardContent>
-    </Card>
+      <AutoScalableText
+        text={displayValue}
+        subText={`Оновлено: ${lastUpdated}`}
+        color={isOn ? "error.main" : "text.secondary"}
+      />
+    </ModernWidgetCard>
   );
 };
 

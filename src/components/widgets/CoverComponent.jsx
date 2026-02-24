@@ -4,6 +4,7 @@ import { Card, CardContent, Typography, Box, IconButton, Slider } from '@mui/mat
 import { ArrowUpward, ArrowDownward, Stop } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
+import { ModernWidgetCard } from './ModernWidgetCard';
 
 const CoverComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -59,12 +60,18 @@ const CoverComponent = ({ componentConfig }) => {
     return translations[state] || state;
   }
 
+  const label = componentConfig.label || entity?.name || "Ролети";
+
   return (
-    <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', width: '100%', p: 2, justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Стан:</Typography>
-          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>{getStateText()}</Typography>
+    <ModernWidgetCard 
+      title={label}
+      highlightColor={isOpen ? "#4caf50" : (isClosed ? "transparent" : "#ff9800")}
+    >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Typography variant="body2" color="text.secondary">Стан:</Typography>
+          <Typography variant="body2" color={isOpen ? "success.main" : "text.primary"} sx={{ fontWeight: 'bold' }}>
+            {getStateText()}
+          </Typography>
         </Box>
 
         {hasPositionControl && (
@@ -94,8 +101,7 @@ const CoverComponent = ({ componentConfig }) => {
             <ArrowDownward fontSize="large" />
           </IconButton>
         </Box>
-      </CardContent>
-    </Card>
+    </ModernWidgetCard>
   );
 };
 

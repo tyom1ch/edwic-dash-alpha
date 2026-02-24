@@ -9,6 +9,7 @@ import {
 import { Lightbulb } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import commandDispatcher from '../../core/CommandDispatcher';
+import { ModernWidgetCard } from './ModernWidgetCard';
 
 // TODO: В майбутньому можна додати компонент для вибору RGB кольору
 // import { MuiColorInput } from 'mui-color-input';
@@ -112,11 +113,18 @@ const LightComponent = ({ componentConfig }) => {
     }
   };
 
+  const label = componentConfig.label || entity?.name || "Освітлення";
+
   return (
-    <Card variant="outlined" sx={{ height: '100%', display: 'flex' }}>
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', width: '100%', p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Lightbulb fontSize="large" color={isOff ? 'disabled' : 'warning'} />
+    <ModernWidgetCard 
+      title={label}
+      highlightColor={isOn ? "#ffb300" : "transparent"}
+      statusIcon={<Lightbulb color={isOff ? 'disabled' : 'warning'} />}
+    >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Typography variant="body2" color={isOn ? "text.primary" : "text.secondary"}>
+             {isReady ? (isOn ? 'Увімкнено' : 'Вимкнено') : 'Немає зв\'язку'}
+          </Typography>
           <Switch checked={isOn} onChange={handleToggle} disabled={!isReady} />
         </Box>
         
@@ -173,8 +181,7 @@ const LightComponent = ({ componentConfig }) => {
             </FormControl>
           </Box>
         )}
-      </CardContent>
-    </Card>
+    </ModernWidgetCard>
   );
 };
 

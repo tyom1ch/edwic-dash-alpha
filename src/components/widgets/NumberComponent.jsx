@@ -12,6 +12,7 @@ import {
 import { Add, Remove } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
 import commandDispatcher from "../../core/CommandDispatcher";
+import { ModernWidgetCard } from "./ModernWidgetCard";
 
 const NumberComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -144,23 +145,10 @@ const NumberComponent = ({ componentConfig }) => {
       </Box>
     );
   }
-
   return (
-    <Card variant="outlined" sx={{ height: "100%", display: "flex" }}>
-      <CardContent
-        sx={{ display: "flex", flexDirection: "column", width: "100%", p: 2 }}
-      >
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ textAlign: "center" }}
-        >
-          {componentConfig.label || entity?.name || "Number Input"}
-        </Typography>
-
-        <Box sx={{ flexGrow: 1, display: "flex" }}>{controls}</Box>
-      </CardContent>
-    </Card>
+    <ModernWidgetCard title={componentConfig.label || entity?.name || "Числове значення"}>
+      <Box sx={{ flexGrow: 1, display: "flex", width: "100%" }}>{controls}</Box>
+    </ModernWidgetCard>
   );
 };
 

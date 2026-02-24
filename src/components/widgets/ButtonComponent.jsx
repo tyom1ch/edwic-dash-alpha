@@ -1,9 +1,10 @@
 // src/components/widgets/ButtonComponent.jsx
 import React from 'react';
-import { Card, ButtonBase, Typography } from '@mui/material';
+import { ButtonBase, Typography } from '@mui/material';
 import { SmartButton, RestartAlt, SystemUpdateAlt } from '@mui/icons-material';
 import commandDispatcher from '../../core/CommandDispatcher';
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { ModernWidgetCard } from './ModernWidgetCard';
 
 const hapticsImpact = async () => {
   try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { /* ignore */ }
@@ -29,24 +30,13 @@ const ButtonComponent = ({ componentConfig }) => {
   };
 
   return (
-    <Card sx={{ height: '100%' }}>
-      <ButtonBase
-        onClick={handleClick}
-        sx={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 1,
-          p: 2,
-        }}
-      >
-        {getIcon(device_class)}
-        <Typography variant="button" textAlign="center">{label}</Typography>
-      </ButtonBase>
-    </Card>
+    <ModernWidgetCard 
+      title={label || "Кнопка"}
+      onClick={handleClick}
+      statusIcon={getIcon(device_class)}
+    >
+      <Typography variant="button" textAlign="center" sx={{ mt: 2 }}>{label}</Typography>
+    </ModernWidgetCard>
   );
 };
 

@@ -26,9 +26,9 @@ class MqttClientWrapper extends EventEmitter {
     this.options = {
       username: brokerConfig.username,
       password: brokerConfig.password,
-      reconnectPeriod: 1000, // не менше 500
+      reconnectPeriod: 2000, // Починаємо з 2 секунд (замість 1000)
       keepalive: 15,
-      connectTimeout: 3000, // швидкий фейл
+      connectTimeout: 5000, // даємо трохи більше часу на підключення
       clean: true,
       resubscribe: true,
       clientId: `edwic-${Math.random().toString(16).substr(2, 8)}`,
@@ -60,6 +60,10 @@ class MqttClientWrapper extends EventEmitter {
         console.log(
           `[MQTT] Successfully connected to ${this.config.host} (ID: ${this.config.id})`
         );
+        // Скидаємо таймер перепідключення після успішного з'єднання
+        if (this.client && this.client.options) {
+          this.client.options.reconnectPeriod = 2000;
+        }
         this.emit("connect", this.config.id);
         resolve();
       });
@@ -69,6 +73,16 @@ class MqttClientWrapper extends EventEmitter {
           `[MQTT] Error for ${this.config.id} (${this.config.host}):`,
           error.message
         );
+        
+        // Exponential Backoff: запобігаємо спаму перепідключень при неправильному паролі
+        if (this.client && this.client.options && typeof this.client.options.reconnectPeriod === 'number') {
+          const currentPeriod = this.client.options.reconnectPeriod;
+          if (currentPeriod < 60000) {
+            this.client.options.reconnectPeriod = Math.min(60000, currentPeriod * 1.5);
+            console.warn(`[MQTT] Increasing reconnect delay for ${this.config.id} to ${Math.round(this.client.options.reconnectPeriod)}ms`);
+          }
+        }
+
         this.emit("error", this.config.id, error);
       });
 
@@ -77,6 +91,12 @@ class MqttClientWrapper extends EventEmitter {
           `[MQTT] Disconnected from ${this.config.host} (ID: ${this.config.id})`
         );
         this.emit("disconnect", this.config.id);
+      });
+
+      this.client.on("offline", () => {
+        console.warn(`[MQTT] Client went offline for ${this.config.id}`);
+        // Емітимо фіктивну помилку, бо mqtt може не кидати подію 'error' при втраті мережі
+        this.emit("error", this.config.id, { message: "Брокер недоступний (Offline)" });
       });
 
       this.client.on("message", (topic, message) => {

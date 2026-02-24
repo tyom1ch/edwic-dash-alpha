@@ -1,7 +1,8 @@
 // src/components/widgets/GenericInfoComponent.jsx
 import React from 'react';
-import { Card, CardContent, Typography, Box } from '@mui/material';
+import { Box } from '@mui/material';
 import useEntity from '../../hooks/useEntity';
+import { ModernWidgetCard } from './ModernWidgetCard';
 
 const GenericInfoComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -14,26 +15,28 @@ const GenericInfoComponent = ({ componentConfig }) => {
   };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
-        <Typography variant="h6" gutterBottom>
-          {componentConfig.label || 'Generic Info'}
-        </Typography>
+    <ModernWidgetCard title={componentConfig.label || 'Інформація (JSON)'}>
         <Box
           component="pre"
           sx={{
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-all',
-            fontSize: '0.8rem',
-            backgroundColor: 'action.hover',
+            fontSize: '0.75rem',
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
             borderRadius: 1,
             p: 1,
+            m: 0,
+            overflow: 'auto',
+            width: '100%',
+            height: '100%',
+            fontFamily: 'monospace'
           }}
         >
           {JSON.stringify(displayData, null, 2)}
         </Box>
-      </CardContent>
-    </Card>
+    </ModernWidgetCard>
   );
 };
 

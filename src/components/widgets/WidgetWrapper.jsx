@@ -1,8 +1,9 @@
-// src/components/widgets/WidgetWrapper.jsx
 import React from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
-import { Edit, Delete, WarningAmber } from "@mui/icons-material";
+import { Edit, Delete, WarningAmber, DragIndicator } from "@mui/icons-material";
 import { getRequiredFields } from "../../core/widgetRegistry";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const WidgetWrapper = ({
   children,
@@ -54,8 +55,37 @@ const WidgetWrapper = ({
     return !hasValue; // Поле неповне, якщо не знайдено жодного ключа зі значенням
   });
 
+  // --- DND-KIT ПІДКЛЮЧЕННЯ (ТИМЧАСОВО ВИМКНЕНО) ---
+  /*
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: component.id,
+    disabled: lockMode, // Вимикаємо перетягування, якщо не в режимі редагування
+  });
+  */
+
+  const style = {
+    // transform: CSS.Transform.toString(transform),
+    // transition,
+    // zIndex: isDragging ? 50 : "auto",
+    // opacity: isDragging ? 0.8 : 1,
+    // Розрахунок розміру сітки: 
+    // За замовчуванням w: 2, h: 2 (в старій системі 12 колонок).
+    // Тепер це просто кількість ячейок CSS Grid
+    gridColumn: `span ${Math.max(1, Math.floor((component.layout?.w || 2) / 2))}`,
+    gridRow: `span ${Math.max(1, Math.floor((component.layout?.h || 2) / 2))}`,
+  };
+
   return (
     <Box
+      // ref={setNodeRef}
+      style={style}
       elevation={3}
       sx={{
         position: "relative",
@@ -64,10 +94,11 @@ const WidgetWrapper = ({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        cursor: lockMode ? (onClick ? "pointer" : "default") : "move",
+        cursor: lockMode ? (onClick ? "pointer" : "default") : "default",
         // Додаємо рамку для виділення в режимі редагування
         borderRadius: "4px",
         boxSizing: "border-box",
+        boxShadow: lockMode ? 1 : 4, // Трохи піднімемо в режимі редагування
       }}
       onClick={handleClick}
     >
@@ -100,11 +131,38 @@ const WidgetWrapper = ({
             left: 0,
             width: "100%",
             height: "100%",
-            pointerEvents: "none",
+            backgroundColor: "rgba(0, 0, 0, 0.2)", // Затемнення, щоб показати режим редагування
+            zIndex: 20, // Поверх контенту
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
+          {/* DRAG HANDLE (По центру віджета) */}
+          {/* Передаємо listeners та attributes ВИКЛЮЧНО сюди */}
           <Box
-            className="widget-no-drag"
+            // {...listeners}
+            // {...attributes}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.6)",
+              borderRadius: "50%",
+              width: 48,
+              height: 48,
+              cursor: "move",
+              pointerEvents: "auto", // Дозволяємо захоплювати
+              color: "white",
+              boxShadow: 3,
+            }}
+          >
+            <DragIndicator fontSize="large" />
+          </Box>
+
+          {/* Кнопки Редагування / Видалення */}
+          <Box
             sx={{
               position: "absolute",
               top: "8px",
