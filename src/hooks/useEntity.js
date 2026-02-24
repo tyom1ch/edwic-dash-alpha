@@ -38,14 +38,9 @@ const useEntity = (entityId) => {
    * Функція залежить тільки від `entityId`, тому вона буде стабільною протягом життя компонента.
    */
   const handleUpdate = useCallback((updatedEntity) => {
-    // Перевіряємо, чи оновлення стосується саме тієї сутності, яку відстежує цей хук.
-    // Використовуємо String() для надійного порівняння ID.
-    if (updatedEntity && String(updatedEntity.id) === String(entityId)) {
-      // console.log(`[useEntity] Matched and updating component for entityId: ${entityId}`);
-      // Оновлюємо локальний стан компонента, що викликає його перерендер.
-      setEntity(updatedEntity);
-    }
-  }, [entityId]); // Залежність тільки від entityId
+    // We already know this update is for this entityId because we subscribed to specific topic.
+    setEntity(updatedEntity);
+  }, []);
 
   /**
    * Ефект, який керує життєвим циклом підписки на події.
@@ -62,13 +57,13 @@ const useEntity = (entityId) => {
       setEntity(currentState);
     }
     
-    // Підписуємось на майбутні оновлення сутностей.
-    eventBus.on('entity:update', handleUpdate);
+    // Підписуємось на майбутні оновлення сутностей (специфічно для цього entityId).
+    eventBus.on(`entity:update:${entityId}`, handleUpdate);
 
     // Функція очищення, яка викликається при розмонтуванні компонента.
     // Вона прибирає слухача, щоб уникнути витоків пам'яті.
     return () => {
-      eventBus.off('entity:update', handleUpdate);
+      eventBus.off(`entity:update:${entityId}`, handleUpdate);
     };
   }, [entityId, handleUpdate, entity]); // Залежності ефекту
 
