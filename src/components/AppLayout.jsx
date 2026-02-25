@@ -127,10 +127,31 @@ function AppLayout({
 
   const {
     handleLayoutChange,
+    handleDragEnd,
     handleAddComponent,
     handleSaveComponent,
     handleDeleteComponent,
   } = useComponentManager(setAppConfig, currentDashboardId, handlers);
+
+  // Which section the user clicked [+ Add widget] in
+  const pendingSectionIdRef = React.useRef(null);
+
+  // Called from SectionColumn's [+] button
+  const handleAddToSection = (sectionId) => {
+    pendingSectionIdRef.current = sectionId;
+    openComponentDialog();
+  };
+
+  // Wrapped add – ensures component goes into the right section
+  const handleAddComponentToSection = (newComponent, dashId = currentDashboardId) => {
+    handlers.handleAddComponent(newComponent, dashId, pendingSectionIdRef.current);
+    pendingSectionIdRef.current = null;
+  };
+
+  // Section-level handlers
+  const handleAddSection = () => handlers.handleAddSection(currentDashboardId);
+  const handleDeleteSection = (sectionId) => handlers.handleDeleteSection(currentDashboardId, sectionId);
+  const handleRenameSection = (sectionId, newTitle) => handlers.handleRenameSection(currentDashboardId, sectionId, newTitle);
 
   useEffect(() => {
     if (
@@ -209,6 +230,11 @@ function AppLayout({
                   onEditComponent={handleEditComponentClick}
                   onDeleteComponent={handleDeleteComponent}
                   onLayoutChange={handleLayoutChange}
+                  onDragEnd={handleDragEnd}
+                  onAddSection={handleAddSection}
+                  onDeleteSection={handleDeleteSection}
+                  onRenameSection={handleRenameSection}
+                  onAddComponentToSection={handleAddToSection}
                   lockMode={!isEditMode}
                 />
               }
@@ -258,7 +284,7 @@ function AppLayout({
         isOpen={isComponentModalOpen}
         onClose={closeComponentDialog}
         onSave={handleSaveComponent}
-        onAdd={handleAddComponent}
+        onAdd={handleAddComponentToSection}
         component={editComponent}
         isEdit={!!editComponent}
       />

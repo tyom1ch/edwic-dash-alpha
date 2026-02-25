@@ -3,186 +3,286 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { getAppConfig, saveAppConfig } from "../core/db";
 import eventBus from "../core/EventBus";
 import connectionManager from "../core/ConnectionManager";
-// +++ ІМПОРТУЄМО РЕЄСТР ВІДЖЕТІВ +++
 import { getWidgetById } from "../core/widgetRegistry";
 
-// Початкова конфігурація
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+const makeSection = (title = "Нова секція", cards = []) => ({
+  id: `sec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  title,
+  column_span: 1,
+  cards,
+});
+
+/** Migrate old flat `components[]` to a single default section */
+const migrateDashboard = (dashboard) => {
+  if (dashboard.sections) return dashboard; // already migrated
+  const cards = dashboard.components || [];
+  return {
+    ...dashboard,
+    sections: [makeSection("Головний", cards)],
+    components: undefined, // clean up old key
+  };
+};
+
+// ─── initial config ──────────────────────────────────────────────────────────
+
 const initialConfig = {
   brokers: [],
   dashboards: {
     "dashboard-1": {
       title: "Головний",
-      components: [],
+      sections: [makeSection("Головний")],
     },
   },
 };
+
+// ─── hook ────────────────────────────────────────────────────────────────────
 
 const useAppConfig = () => {
   const [appConfig, setAppConfigState] = useState(initialConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [brokerStatuses, setBrokerStatuses] = useState({});
+  const [brokerErrors, setBrokerErrors] = useState({});
 
+  // Load & migrate on mount
   useEffect(() => {
     const loadConfig = async () => {
       let savedConfig = await getAppConfig();
-      
-      // Fallback to localStorage migration temporarily if Dexie is empty
+
       if (!savedConfig) {
         try {
-            const lsConfig = localStorage.getItem("appConfig");
-            if (lsConfig) {
-                savedConfig = JSON.parse(lsConfig);
-                // Save it to dexie for future
-                await saveAppConfig(savedConfig);
-            }
-        } catch(e) {
-            console.warn("Failed to migrate from localStorage:", e);
+          const lsConfig = localStorage.getItem("appConfig");
+          if (lsConfig) {
+            savedConfig = JSON.parse(lsConfig);
+            await saveAppConfig(savedConfig);
+          }
+        } catch (e) {
+          console.warn("Failed to migrate from localStorage:", e);
         }
       }
 
       if (savedConfig) {
-        // Strip out the dexie 'id' if restoring
         const { id, ...restConfig } = savedConfig;
-        setAppConfigState(restConfig);
+        // Migrate every dashboard
+        const migratedDashboards = {};
+        for (const dashId in restConfig.dashboards) {
+          migratedDashboards[dashId] = migrateDashboard(restConfig.dashboards[dashId]);
+        }
+        setAppConfigState({ ...restConfig, dashboards: migratedDashboards });
       }
       setIsLoading(false);
     };
     loadConfig();
   }, []);
+
   const setAppConfig = useCallback(
     (value) => {
-      const newConfig = typeof value === "function" ? value(appConfig) : value;
-      setAppConfigState(newConfig);
-      saveAppConfig(newConfig); // Async save to Dexie
-      eventBus.emit("config:saved", newConfig);
+      if (typeof value === "function") {
+        // Always use functional form so React guarantees latest state
+        setAppConfigState((prev) => {
+          const next = value(prev);
+          // Side-effects: persist & notify (async, after render)
+          Promise.resolve().then(() => {
+            saveAppConfig(next);
+            eventBus.emit("config:saved", next);
+          });
+          return next;
+        });
+      } else {
+        setAppConfigState(value);
+        saveAppConfig(value);
+        eventBus.emit("config:saved", value);
+      }
     },
-    [appConfig]
+    [] // no deps needed since we only use the setter (stable) and async effects
   );
 
-  const [brokerErrors, setBrokerErrors] = useState({});
+  // ─── broker status tracking ────────────────────────────────────────────────
 
   const globalConnectionStatus = useMemo(() => {
-    if (!appConfig.brokers || appConfig.brokers.length === 0) {
-      return "offline";
-    }
-    
-    let connectedCount = 0;
-    let connectingCount = 0;
-    let errorCount = 0;
-
+    if (!appConfig.brokers || appConfig.brokers.length === 0) return "offline";
+    let connected = 0, connecting = 0;
     appConfig.brokers.forEach((b) => {
-      const status = brokerStatuses[b.id] || "offline";
-      if (status === "connected") connectedCount++;
-      else if (status === "connecting" || status === "reconnecting") connectingCount++;
-      else if (status === "error") errorCount++;
+      const s = brokerStatuses[b.id] || "offline";
+      if (s === "connected") connected++;
+      else if (s === "connecting" || s === "reconnecting") connecting++;
     });
-
-    if (connectedCount === appConfig.brokers.length) return "connected";
-    if (connectedCount > 0) return "partial";
-    if (connectingCount > 0) return "connecting";
+    if (connected === appConfig.brokers.length) return "connected";
+    if (connected > 0) return "partial";
+    if (connecting > 0) return "connecting";
     return "offline";
   }, [appConfig.brokers, brokerStatuses]);
 
   useEffect(() => {
     if (isLoading) return;
-
-    const handleConnect = (brokerId) => {
-      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "connected" }));
-      setBrokerErrors((prev) => ({ ...prev, [brokerId]: null }));
+    const on = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connected" }));
+    const off = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "offline" }));
+    const err = (brokerId, e) => {
+      setBrokerStatuses((p) => ({ ...p, [brokerId]: "error" }));
+      setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || "Помилка" }));
     };
+    const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
 
-    const handleDisconnect = (brokerId) => {
-      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "offline" }));
-    };
-
-    const handleError = (brokerId, err) => {
-      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "error" }));
-      setBrokerErrors((prev) => ({ ...prev, [brokerId]: err?.message || "Помилка з'єднання" }));
-    };
-
-    const handleReconnecting = (brokerId) => {
-      setBrokerStatuses((prev) => ({ ...prev, [brokerId]: "connecting" }));
-    };
-
-    eventBus.on("broker:connected", handleConnect);
-    eventBus.on("broker:disconnected", handleDisconnect);
-    eventBus.on("broker:error", handleError);
-    eventBus.on("broker:reconnecting", handleReconnecting);
+    eventBus.on("broker:connected", on);
+    eventBus.on("broker:disconnected", off);
+    eventBus.on("broker:error", err);
+    eventBus.on("broker:reconnecting", rc);
 
     if (appConfig.brokers) {
-      const initialStatuses = {};
+      const init = {};
       appConfig.brokers.forEach((b) => {
-        initialStatuses[b.id] = connectionManager.isConnected(b.id)
-          ? "connected"
-          : "offline"; // ConnectionManager could be queried for exact states if we expand it, but offline is a safe default before events fire.
+        init[b.id] = connectionManager.isConnected(b.id) ? "connected" : "offline";
       });
-      setBrokerStatuses(initialStatuses);
+      setBrokerStatuses(init);
     }
 
     return () => {
-      eventBus.off("broker:connected", handleConnect);
-      eventBus.off("broker:disconnected", handleDisconnect);
-      eventBus.off("broker:error", handleError);
-      eventBus.off("broker:reconnecting", handleReconnecting);
+      eventBus.off("broker:connected", on);
+      eventBus.off("broker:disconnected", off);
+      eventBus.off("broker:error", err);
+      eventBus.off("broker:reconnecting", rc);
     };
   }, [appConfig.brokers, isLoading]);
-  
-  const handleSetBrokers = useCallback((newBrokers) => {
-    setAppConfig((prev) => ({ ...prev, brokers: newBrokers }));
-  }, [setAppConfig]);
 
-  // +++ ОСЬ ГОЛОВНИЙ ФІКС +++
-  const handleAddComponent = useCallback((newComponent, dashboardId) => {
-    // 1. Знаходимо визначення віджета в реєстрі
-    const widgetDef = getWidgetById(newComponent.type);
-    let generatedConfig = {};
+  // ─── broker handler ────────────────────────────────────────────────────────
 
-    // 2. Якщо для цього віджета є функція getTopicMappings, викликаємо її,
-    // щоб отримати згенеровану конфігурацію (з топіками, brightness: true і т.д.)
-    if (widgetDef && widgetDef.getTopicMappings) {
+  const handleSetBrokers = useCallback(
+    (newBrokers) => setAppConfig((prev) => ({ ...prev, brokers: newBrokers })),
+    [setAppConfig]
+  );
+
+  // ─── section handlers ──────────────────────────────────────────────────────
+
+  const handleAddSection = useCallback(
+    (dashboardId) => {
+      setAppConfig((prev) => {
+        const dash = prev.dashboards[dashboardId];
+        if (!dash) return prev;
+        const updated = {
+          ...dash,
+          sections: [...(dash.sections || []), makeSection()],
+        };
+        return { ...prev, dashboards: { ...prev.dashboards, [dashboardId]: updated } };
+      });
+    },
+    [setAppConfig]
+  );
+
+  const handleDeleteSection = useCallback(
+    (dashboardId, sectionId) => {
+      setAppConfig((prev) => {
+        const dash = prev.dashboards[dashboardId];
+        if (!dash) return prev;
+        const updated = {
+          ...dash,
+          sections: dash.sections.filter((s) => s.id !== sectionId),
+        };
+        return { ...prev, dashboards: { ...prev.dashboards, [dashboardId]: updated } };
+      });
+    },
+    [setAppConfig]
+  );
+
+  const handleRenameSection = useCallback(
+    (dashboardId, sectionId, newTitle) => {
+      setAppConfig((prev) => {
+        const dash = prev.dashboards[dashboardId];
+        if (!dash) return prev;
+        const updated = {
+          ...dash,
+          sections: dash.sections.map((s) =>
+            s.id === sectionId ? { ...s, title: newTitle } : s
+          ),
+        };
+        return { ...prev, dashboards: { ...prev.dashboards, [dashboardId]: updated } };
+      });
+    },
+    [setAppConfig]
+  );
+
+  // ─── component (card) handlers ─────────────────────────────────────────────
+
+  /** sectionId: if provided, add to that section; else add to first section */
+  const handleAddComponent = useCallback(
+    (newComponent, dashboardId, sectionId) => {
+      const widgetDef = getWidgetById(newComponent.type);
+      let generatedConfig = {};
+      if (widgetDef?.getTopicMappings) {
         generatedConfig = widgetDef.getTopicMappings(newComponent);
-    }
-    
-    // 3. Створюємо фінальний об'єкт для збереження, правильно зливаючи конфігурації
-    const componentToAdd = {
-        ...generatedConfig, // Спочатку йде згенерована конфігурація (з brightness: true)
-        ...newComponent,    // Потім йде конфігурація з Discovery (з uniq_id, name)
-        id: `comp-${Date.now()}` // Додаємо унікальний ID
-    };
-
-    setAppConfig((prev) => {
-      const newDashboards = { ...prev.dashboards };
-      if (newDashboards[dashboardId]) {
-        newDashboards[dashboardId].components.push(componentToAdd);
       }
-      return { ...prev, dashboards: newDashboards };
-    });
-  }, [setAppConfig]);
-  // +++ КІНЕЦЬ ФІКСУ +++
+      // Stamp HA grid_options so the card knows its own size
+      const grid_options =
+        newComponent.grid_options ??
+        widgetDef?.defaultGridOptions ??
+        { columns: 1, rows: 1 };
+      const componentToAdd = {
+        ...generatedConfig,
+        ...newComponent,
+        grid_options,
+        id: `comp-${Date.now()}`,
+      };
 
-  const handleDeleteComponent = useCallback((componentId) => {
-    setAppConfig((prev) => {
-      const newDashboards = { ...prev.dashboards };
-      for (const dashId in newDashboards) {
-        newDashboards[dashId].components = newDashboards[dashId].components.filter((c) => c.id !== componentId);
-      }
-      return { ...prev, dashboards: newDashboards };
-    });
-  }, [setAppConfig]);
+      setAppConfig((prev) => {
+        const dash = prev.dashboards[dashboardId];
+        if (!dash) return prev;
+        const sections = (dash.sections || []).map((sec, idx) => {
+          const isTarget = sectionId ? sec.id === sectionId : idx === 0;
+          if (!isTarget) return sec;
+          return { ...sec, cards: [...sec.cards, componentToAdd] };
+        });
+        return {
+          ...prev,
+          dashboards: { ...prev.dashboards, [dashboardId]: { ...dash, sections } },
+        };
+      });
+    },
+    [setAppConfig]
+  );
 
-  const handleSaveComponent = useCallback((updatedComponent) => {
-    setAppConfig((prev) => {
-      const newDashboards = { ...prev.dashboards };
-      for (const dashId in newDashboards) {
-        const index = newDashboards[dashId].components.findIndex((c) => c.id === updatedComponent.id);
-        if (index !== -1) {
-          newDashboards[dashId].components[index] = updatedComponent;
-          break;
+  const handleDeleteComponent = useCallback(
+    (componentId) => {
+      setAppConfig((prev) => {
+        const newDashboards = { ...prev.dashboards };
+        for (const dashId in newDashboards) {
+          const dash = newDashboards[dashId];
+          newDashboards[dashId] = {
+            ...dash,
+            sections: (dash.sections || []).map((sec) => ({
+              ...sec,
+              cards: sec.cards.filter((c) => c.id !== componentId),
+            })),
+          };
         }
-      }
-      return { ...prev, dashboards: newDashboards };
-    });
-  }, [setAppConfig]);
+        return { ...prev, dashboards: newDashboards };
+      });
+    },
+    [setAppConfig]
+  );
+
+  const handleSaveComponent = useCallback(
+    (updatedComponent) => {
+      setAppConfig((prev) => {
+        const newDashboards = { ...prev.dashboards };
+        for (const dashId in newDashboards) {
+          const dash = newDashboards[dashId];
+          newDashboards[dashId] = {
+            ...dash,
+            sections: (dash.sections || []).map((sec) => ({
+              ...sec,
+              cards: sec.cards.map((c) =>
+                c.id === updatedComponent.id ? updatedComponent : c
+              ),
+            })),
+          };
+        }
+        return { ...prev, dashboards: newDashboards };
+      });
+    },
+    [setAppConfig]
+  );
+
+  // ─── return ────────────────────────────────────────────────────────────────
 
   return {
     appConfig,
@@ -196,6 +296,9 @@ const useAppConfig = () => {
       handleAddComponent,
       handleDeleteComponent,
       handleSaveComponent,
+      handleAddSection,
+      handleDeleteSection,
+      handleRenameSection,
     },
   };
 };

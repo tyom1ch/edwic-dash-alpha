@@ -34,7 +34,7 @@ export const WIDGET_REGISTRY = [
     type: "sensor",
     label: "Сенсор (тільки читання)",
     component: SensorComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 1, rows: 1 },
     getConfigFields: () => [
       {
         id: "state_topic",
@@ -61,7 +61,7 @@ export const WIDGET_REGISTRY = [
     type: "switch",
     label: "Перемикач (ON/OFF)",
     component: SwitchComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 1, rows: 1 },
     getConfigFields: () => [
       {
         id: "state_topic",
@@ -95,7 +95,7 @@ export const WIDGET_REGISTRY = [
     type: "binary_sensor",
     label: "Бінарний Сенсор (ON/OFF)",
     component: BinarySensorComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 1, rows: 1 },
     getConfigFields: () => [
       {
         id: "state_topic",
@@ -119,7 +119,7 @@ export const WIDGET_REGISTRY = [
     type: "light",
     label: "Світло",
     component: LightComponent,
-    defaultLayout: { w: 2, h: 2, minW: 2, minH: 2, maxW: 4, maxH: 3 },
+    defaultGridOptions: { columns: 2, rows: 2 },
 
     // 2. Допоміжні функції
     isObkDevice: (config) => {
@@ -235,7 +235,7 @@ export const WIDGET_REGISTRY = [
     type: "fan",
     label: "Вентилятор",
     component: FanComponent,
-    defaultLayout: { w: 2, h: 2, minW: 2, minH: 2, maxW: 4, maxH: 3 },
+    defaultGridOptions: { columns: 2, rows: 2 },
     getConfigFields: () => [
       {
         id: "state_topic",
@@ -304,7 +304,7 @@ export const WIDGET_REGISTRY = [
     type: "cover",
     label: "Ролети / Ворота",
     component: CoverComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 1, rows: 1 },
     getConfigFields: () => [
       {
         id: "state_topic",
@@ -370,7 +370,7 @@ export const WIDGET_REGISTRY = [
     type: "climate",
     label: "Клімат-контроль",
     component: ClimateComponent,
-    defaultLayout: { w: 3, h: 2, minW: 3, minH: 2, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 2, rows: 4 },
     variants: [
       { id: "single", label: "Термостат" },
       { id: "range", label: "Дводіапазонний" },
@@ -533,7 +533,7 @@ export const WIDGET_REGISTRY = [
     type: "number",
     label: "Число (Slider/Box)",
     component: NumberComponent,
-    defaultLayout: { w: 2, h: 1, minW: 2, minH: 1, maxW: 4, maxH: 2 },
+    defaultGridOptions: { columns: 2, rows: 1 },
     getConfigFields: () => [
       // Редаговані
       {
@@ -574,7 +574,7 @@ export const WIDGET_REGISTRY = [
     type: "button",
     label: "Кнопка (Дія)",
     component: ButtonComponent,
-    defaultLayout: { w: 2, h: 1, minW: 1, minH: 1, maxW: 4, maxH: 1 },
+    defaultGridOptions: { columns: 2, rows: 1 },
     getConfigFields: () => [
       {
         id: "command_topic",
@@ -604,7 +604,7 @@ export const WIDGET_REGISTRY = [
     type: "generic_info",
     label: "Загальна інформація (JSON)",
     component: GenericInfoComponent,
-    defaultLayout: { w: 3, h: 2, minW: 2, minH: 2 },
+    defaultGridOptions: { columns: 2, rows: 2 },
     getConfigFields: () => [
       {
         id: "state_topic",

@@ -19,15 +19,7 @@ export const ModernWidgetCard = ({ title, children, highlightColor, statusIcon, 
         "&:hover": onClick ? { boxShadow: 4, borderColor: "primary.main" } : {},
       }}
     >
-      {/* Subtle top border highlight if specified */}
-      {highlightColor && (
-        <Box 
-          sx={{ 
-            position: "absolute", top: 0, left: 0, right: 0, height: 4, 
-            backgroundColor: highlightColor 
-          }} 
-        />
-      )}
+
 
       {/* Modern Widget Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.5, pb: 0 }}>

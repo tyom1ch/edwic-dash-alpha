@@ -1,186 +1,284 @@
-import React from "react";
+// src/components/widgets/WidgetWrapper.jsx
+import React, { useState } from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
-import { Edit, Delete, WarningAmber, DragIndicator } from "@mui/icons-material";
+import { Edit, Delete, WarningAmber, OpenWith } from "@mui/icons-material";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { getRequiredFields } from "../../core/widgetRegistry";
-// Видалено useSortable та CSS, бо ми використовуємо hello-pangea/dnd
 
 const WidgetWrapper = ({
   children,
   component,
   onEdit,
   onDelete,
+  onResize,
   lockMode,
   onClick,
-  provided,
-  isDragging,
 }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: component.id,
+    disabled: lockMode,
+    data: { type: "card" },
+  });
+
+  // Local state for resize preview
+  const [resizePreview, setResizePreview] = useState(null); // { deltaColumns, deltaRows }
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const handleEdit = (e) => {
     e.stopPropagation();
-    onEdit(component.id);
+    onEdit?.(component.id);
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    if (
-      window.confirm(
-        `Ви впевнені, що хочете видалити віджет "${
-          component.label || component.id
-        }"?`
-      )
-    ) {
-      onDelete(component.id);
+    if (window.confirm(`Видалити "${component.label || component.id}"?`)) {
+      onDelete?.(component.id);
     }
   };
 
-  const handleClick = (e) => {
-    if (onClick && lockMode && !e.target.closest(".widget-no-drag")) {
-      onClick(component);
-    }
+  const handleClick = () => {
+    if (onClick && lockMode) onClick(component);
   };
 
-  // --- ОНОВЛЕНА ЛОГІКА ПЕРЕВІРКИ ---
-  // Отримуємо повні дані про обов'язкові поля, передаючи варіант для віджетів (напр. клімату)
   const requiredFields = getRequiredFields(component.type, component.variant);
-
-  // Перевіряємо, чи якесь з обов'язкових полів не заповнене.
-  // Поле вважається незаповненим, якщо ЖОДЕН з його можливих ключів (`keys`) не має значення.
-  const isIncomplete = requiredFields.some((field) => {
-    const hasValue = field.keys.some((key) => {
+  const isIncomplete = requiredFields.some((field) =>
+    field.keys.every((key) => {
+      if (key === "unit_of_meas") return false;
       const val = component[key];
-      
-      if (key === "unit_of_meas") {
-        return true;
-      }
-      return val !== undefined && val !== null && val.toString().trim() !== "";
-    });
-    return !hasValue; // Поле неповне, якщо не знайдено жодного ключа зі значенням
-  });
+      return val === undefined || val === null || val.toString().trim() === "";
+    })
+  );
 
-  // --- DND-KIT ПІДКЛЮЧЕННЯ (ВИДАЛЕНО) ---
-
-  const style = {
-    // В hello-pangea інлайн стилі та трансформації приходять через provided.draggableProps.style
-    ...provided?.draggableProps?.style,
-    
-    // Розрахунок розміру сітки: 
-    // За замовчуванням w: 2, h: 2 (в старій системі 12 колонок).
-    // Тепер це просто кількість ячейок CSS Grid
-    gridColumn: `span ${Math.max(1, Math.floor((component.layout?.w || 2) / 2))}`,
-    gridRow: `span ${Math.max(1, Math.floor((component.layout?.h || 2) / 2))}`,
-  };
+  // Constants for computing grid resize preview
+  const ROW_HEIGHT = 56;
+  const GAP = 8;
+  const GRID_COLS = 4;
+  
+  // Get current dimensions for the preview box calculation
+  const go = component.grid_options || { columns: 1, rows: 1 };
+  const curCols = go.columns === "full" ? GRID_COLS : Math.min(go.columns ?? 1, GRID_COLS);
+  const curRows = go.rows === "auto" ? 1 : (go.rows ?? 1);
 
   return (
     <Box
-      ref={provided?.innerRef}
-      {...provided?.draggableProps}
+      ref={setNodeRef}
       style={style}
-      elevation={3}
+      className="widget-card"
+      data-card-id={component.id}
+      {...attributes}
+      {...(!lockMode ? listeners : {})}
       sx={{
         position: "relative",
         height: "100%",
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
-        cursor: lockMode ? (onClick ? "pointer" : "default") : "default",
-        // Додаємо рамку для виділення в режимі редагування
-        borderRadius: "4px",
+        cursor: lockMode ? (onClick ? "pointer" : "default") : "grab",
+        borderRadius: "12px",
         boxSizing: "border-box",
-        boxShadow: lockMode ? 1 : 4, // Трохи піднімемо в режимі редагування
+        bgcolor: "rgba(255,255,255,0.04)",
+        border: lockMode ? "none" : "1px solid rgba(255,255,255,0.08)",
+        // Origin placeholder styling during drag
+        opacity: isDragging ? 0.2 : 1,
+        zIndex: isDragging ? 0 : "auto",
+        "&:active": { cursor: !lockMode ? "grabbing" : undefined },
+        "& .widget-controls": {
+          opacity: 0,
+          transition: "opacity 0.15s",
+        },
+        "&:hover .widget-controls": {
+          opacity: 1,
+        },
       }}
       onClick={handleClick}
     >
-      {/* --- ОНОВЛЕНИЙ ІНДИКАТОР НЕПОВНОЇ КОНФІГУРАЦІЇ --- */}
-      {/* Показуємо його тільки в режимі редагування (!lockMode) */}
+      {/* ── Тултіп ──────── */}
       {!lockMode && isIncomplete && (
-        <Tooltip title="Неповна конфігурація. Заповніть обов'язкові поля в налаштуваннях.">
+        <Tooltip title="Неповна конфігурація" placement="top">
           <Box
             sx={{
               position: "absolute",
-              top: 10,
-              left: 10,
-              zIndex: 10,
+              top: 6,
+              left: 6,
+              zIndex: 15,
               color: "warning.main",
+              cursor: "help",
             }}
           >
-            <WarningAmber />
+            <WarningAmber sx={{ fontSize: 16 }} />
           </Box>
         </Tooltip>
       )}
 
-      {children}
+      {/* ── The actual content is wrapped to ensure overflow hidden applies locally, 
+            while the preview overlay can exceed bounds ──────── */}
+      <Box sx={{ 
+        flex: 1, 
+        overflow: "hidden", 
+        display: "flex", 
+        flexDirection: "column",
+        minHeight: 0,
+        minWidth: 0,
+        containerType: "size" 
+      }}>
+        {children}
+      </Box>
 
-      {/* --- ЕЛЕМЕНТИ КЕРУВАННЯ --- */}
+      {/* ── Кнопки ────── */}
       {!lockMode && (
+        <Box
+          className="widget-controls no-drag"
+          data-no-drag="true"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          sx={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            zIndex: 30,
+            display: "flex",
+            gap: "2px",
+            bgcolor: "rgba(0,0,0,0.75)",
+            borderRadius: "10px",
+            p: "2px",
+          }}
+        >
+          <Tooltip title="Редагувати">
+            <IconButton size="small" onClick={handleEdit} sx={{ color: "rgba(255,255,255,0.8)", p: "3px" }}>
+              <Edit sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Видалити">
+            <IconButton size="small" onClick={handleDelete} sx={{ color: "rgba(255,255,255,0.8)", p: "3px" }}>
+              <Delete sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+
+      {/* ── Visual Resize Preview Overlay ───── */}
+      {!lockMode && resizePreview && (
         <Box
           sx={{
             position: "absolute",
             top: 0,
             left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.2)", // Затемнення, щоб показати режим редагування
-            zIndex: 20, // Поверх контенту
+            // Calculate pixel dimensions for the preview frame based on the base card and deltas
+            // The card's current width is 100% of its slot. To draw the extended size, we calculate:
+            // width = 100% + (deltaCols * cellWidth) + (deltaCols * gap)
+            // But doing it via calc on parent's 100% is tricky, it's safer to base it on CSS percentages relative
+            // to the outer grid or by just projecting the absolute pixel offsets.
+            // Wait, we can't easily position purely with 100% if we want to spill out to the right/bottom accurately
+            // without knowing exactly parent width.
+            // Better to use CSS calc: newWidth = (curCols+deltaCols)/curCols * 100% 
+            // taking gaps into account: (100% + GAP) * (newCols/curCols) - GAP
+            width: `calc((100% + ${GAP}px) * ${(curCols + resizePreview.deltaColumns) / curCols} - ${GAP}px)`,
+            height: `calc((100% + ${GAP}px) * ${(curRows + resizePreview.deltaRows) / curRows} - ${GAP}px)`,
+            zIndex: 100,
+            pointerEvents: "none",
+            borderRadius: "12px",
+            border: "2px dashed rgba(3,169,244,0.8)",
+            bgcolor: "rgba(3,169,244,0.15)",
+            transition: "width 0.1s, height 0.1s",
+          }}
+        />
+      )}
+
+      {/* ── Ресайз ───── */}
+      {!lockMode && onResize && (
+        <Box
+          className="widget-controls no-drag"
+          data-no-drag="true"
+          title="Змінити розмір"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const el = e.currentTarget;
+            el.setPointerCapture(e.pointerId);
+            document.body.style.cursor = "nwse-resize";
+
+            const startX = e.clientX;
+            const startY = e.clientY;
+            
+            const cardEl = el.closest(".widget-card");
+            // Find accurate cell sizes
+            const cellW = cardEl ? (cardEl.offsetWidth + GAP) / curCols : 80;
+            const cellH = ROW_HEIGHT + GAP; 
+
+            let currentDeltaCols = 0;
+            let currentDeltaRows = 0;
+
+            const onMove = (ev) => {
+              // Calculate potential deltas
+              const rawDeltaX = ev.clientX - startX;
+              const rawDeltaY = ev.clientY - startY;
+
+              let deltaCols = Math.round(rawDeltaX / cellW);
+              let deltaRows = Math.round(rawDeltaY / cellH);
+
+              // Clamp constraints
+              const maxCols = GRID_COLS - curCols;
+              const minCols = 1 - curCols;
+              const minRows = 1 - curRows;
+              
+              deltaCols = Math.max(minCols, Math.min(deltaCols, maxCols));
+              deltaRows = Math.max(minRows, deltaRows);
+
+              if (deltaCols !== currentDeltaCols || deltaRows !== currentDeltaRows) {
+                currentDeltaCols = deltaCols;
+                currentDeltaRows = deltaRows;
+                setResizePreview({ deltaColumns: deltaCols, deltaRows: deltaRows });
+              }
+            };
+
+            const onUp = (ev) => {
+              el.releasePointerCapture(ev.pointerId);
+              document.body.style.cursor = "";
+              el.removeEventListener("pointermove", onMove);
+              el.removeEventListener("pointerup", onUp);
+              
+              if (currentDeltaCols !== 0 || currentDeltaRows !== 0) {
+                onResize(component.id, currentDeltaCols, currentDeltaRows);
+              }
+              setResizePreview(null);
+            };
+
+            el.addEventListener("pointermove", onMove);
+            el.addEventListener("pointerup", onUp);
+          }}
+          sx={{
+            position: "absolute",
+            bottom: { xs: 0, sm: 3 },
+            right: { xs: 0, sm: 3 },
+            zIndex: 110,
+            width: { xs: 48, sm: 24 },
+            height: { xs: 48, sm: 24 },
+            cursor: "nwse-resize",
+            color: "rgba(255,255,255,0.35)",
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems: { xs: "flex-end", sm: "center" },
+            justifyContent: { xs: "flex-end", sm: "center" },
+            p: { xs: "8px", sm: 0 },
+            touchAction: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            "&:hover": { color: "rgba(3,169,244,0.8)" },
           }}
         >
-          {/* DRAG HANDLE (По центру віджета) */}
-          {/* Передаємо dragHandleProps ВИКЛЮЧНО сюди */}
-          <Box
-            {...provided?.dragHandleProps}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              borderRadius: "50%",
-              width: 48,
-              height: 48,
-              cursor: "move",
-              pointerEvents: "auto", // Дозволяємо захоплювати
-              color: "white",
-              boxShadow: 3,
-            }}
-          >
-            <DragIndicator fontSize="large" />
-          </Box>
-
-          {/* Кнопки Редагування / Видалення */}
-          <Box
-            sx={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-              pointerEvents: "auto",
-              display: "flex",
-              gap: "4px",
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              borderRadius: "18px",
-              p: "2px",
-            }}
-          >
-            <Tooltip title="Редагувати">
-              <IconButton
-                size="small"
-                onClick={handleEdit}
-                sx={{ color: "white" }}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Видалити">
-              <IconButton
-                size="small"
-                onClick={handleDelete}
-                sx={{ color: "white" }}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
+          <OpenWith sx={{ fontSize: 12 }} />
         </Box>
       )}
     </Box>

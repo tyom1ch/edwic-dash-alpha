@@ -9,7 +9,8 @@ export const useDialogs = (appConfig) => {
   const handleEditComponentClick = useCallback(
     (id) => {
       const component = Object.values(appConfig.dashboards)
-        .flatMap((d) => d.components)
+        .flatMap((d) => d.sections || [])
+        .flatMap((s) => s.cards || [])
         .find((c) => c.id === id);
       setEditComponent(component);
       setComponentModalOpen(true);

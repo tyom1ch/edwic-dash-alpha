@@ -29,10 +29,12 @@ class DeviceRegistry {
     return topicsByBroker;
   }
 
-  syncFromAppConfig(appConfig) {
+syncFromAppConfig(appConfig) {
     console.log("[DeviceRegistry] Syncing with new application config...");
     const allComponents = (appConfig?.dashboards)
-      ? Object.values(appConfig.dashboards).flatMap(d => d.components || [])
+      ? Object.values(appConfig.dashboards).flatMap(d =>
+          (d.sections || []).flatMap(s => s.cards || [])
+        )
       : [];
 
     const oldTopicsByBroker = this._getTopicsByBroker(this.topicToActionMap);
@@ -42,27 +44,29 @@ class DeviceRegistry {
 
     allComponents.forEach((component) => {
       const widgetDef = getWidgetById(component.type);
-      let finalComponentConfig = { ...component }; // Починаємо з конфігурації, збереженої в дашборді
+      let finalComponentConfig = { ...component }; 
       let topicMappings = {};
 
       if (widgetDef?.getTopicMappings) {
-        // +++ ГОЛОВНИЙ ФІКС ТУТ +++
-        // 1. Отримуємо згенеровану конфігурацію з нашого реєстру
         const generatedMappings = widgetDef.getTopicMappings(component);
-        
-        // 2. Розумно зливаємо її зі збереженою конфігурацією.
-        // Це гарантує, що прапорці типу `brightness: true` будуть додані.
         finalComponentConfig = { ...generatedMappings, ...component };
-        
-        // 3. Для підписок використовуємо згенеровані мапінги
         topicMappings = generatedMappings;
       }
       
-      // Зберігаємо фінальну, об'єднану конфігурацію
       const existingEntity = this.entities.get(component.id) || {};
-      newEntities.set(component.id, { ...existingEntity, ...finalComponentConfig });
+      const newEntity = { ...existingEntity, ...finalComponentConfig };
 
-      // Логіка підписок (залишається простою і надійною)
+      // ТУТ ФІКС: Відновлюємо живі дані, щоб конфіг їх не затер
+      if (existingEntity._live_keys) {
+        newEntity.last_updated = existingEntity.last_updated;
+        newEntity._live_keys = existingEntity._live_keys;
+        for (const prop in existingEntity._live_keys) {
+          newEntity[prop] = existingEntity[prop]; 
+        }
+      }
+
+      newEntities.set(component.id, newEntity);
+
       for (const property in topicMappings) {
         const mappingValue = topicMappings[property];
         if (typeof mappingValue === 'string') {
@@ -105,7 +109,7 @@ class DeviceRegistry {
     });
   }
   
-  handleMqttRawMessage(brokerId, topic, messageBuffer) {
+handleMqttRawMessage(brokerId, topic, messageBuffer) {
     const actions = this.topicToActionMap.get(topic);
     if (actions) {
       const messageString = messageBuffer.toString();
@@ -117,8 +121,10 @@ class DeviceRegistry {
         if (entity) {
           const updatedEntity = {
             ...entity,
-            [property]: messageString, // Проста логіка - просто оновлюємо поле
+            [property]: messageString,
             last_updated: new Date().toISOString(),
+            // +++ ДОДАЄМО МАРКЕР ЖИВИХ ДАНИХ +++
+            _live_keys: { ...(entity._live_keys || {}), [property]: true }
           };
           this.entities.set(entityId, updatedEntity);
           eventBus.emit(`entity:update:${entityId}`, updatedEntity);
