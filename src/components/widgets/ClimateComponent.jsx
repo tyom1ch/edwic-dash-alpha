@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Box, Typography, IconButton, Chip } from "@mui/material";
 import { Add, Remove, AcUnit, WbSunny, Air, PowerSettingsNew } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
-import commandDispatcher from "../../core/CommandDispatcher";
+import deviceRegistry from "../../core/DeviceRegistry";
 
 // ─── HA design tokens ────────────────────────────────────────────────────────
 const ACTION_COLORS = {
@@ -171,30 +171,18 @@ const ClimateComponent = ({ componentConfig }) => {
     if (targetTemperature === null) return;
     const newTemp = parseFloat(targetTemperature) + delta;
     if (newTemp >= min_temp && newTemp <= max_temp) {
-      commandDispatcher.dispatch({
-        entityId: componentConfig.id,
-        commandKey: "set_temperature",
-        value: newTemp.toFixed(1),
-      });
+      deviceRegistry.sendCommand(componentConfig.id, newTemp.toFixed(1), "set_temperature");
     }
   }, [targetTemperature, min_temp, max_temp, componentConfig.id]);
 
   const cycleMode = useCallback(() => {
     const idx = modes.indexOf(mode);
     const next = modes[(idx + 1) % modes.length];
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      commandKey: "set_mode",
-      value: next,
-    });
+    deviceRegistry.sendCommand(componentConfig.id, next, "set_mode");
   }, [mode, modes, componentConfig.id]);
 
   const handlePresetChange = useCallback((preset) => {
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      commandKey: "set_preset_mode",
-      value: preset,
-    });
+    deviceRegistry.sendCommand(componentConfig.id, preset, "set_preset_mode");
   }, [componentConfig.id]);
 
   const actionColor = ACTION_COLORS[action] ?? ACTION_COLORS.idle;

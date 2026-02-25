@@ -4,7 +4,7 @@ import { Card, CardContent, Typography, Box, IconButton, Slider, Chip } from '@m
 import { PowerSettingsNew } from '@mui/icons-material';
 import FanIcon from '@mui/icons-material/ModeFanOff';
 import useEntity from '../../hooks/useEntity';
-import commandDispatcher from '../../core/CommandDispatcher';
+import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
 
 const FanComponent = ({ componentConfig }) => {
@@ -41,7 +41,7 @@ const FanComponent = ({ componentConfig }) => {
 
   const handleToggle = () => {
     const value = isOn ? payload_off : payload_on;
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_state', value });
+    deviceRegistry.sendCommand(componentConfig.id, value, 'set_state');
   };
   
   const handleSpeedChange = (event, newValue) => {
@@ -49,11 +49,11 @@ const FanComponent = ({ componentConfig }) => {
   };
 
   const handleSpeedChangeCommitted = (event, newValue) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_percentage', value: newValue });
+    deviceRegistry.sendCommand(componentConfig.id, newValue, 'set_percentage');
   };
   
   const handlePresetChange = (preset) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_preset_mode', value: preset });
+    deviceRegistry.sendCommand(componentConfig.id, preset, 'set_preset_mode');
   };
   
   const label = componentConfig.label || entity?.name || "Вентилятор";

@@ -1,7 +1,7 @@
 import React from "react";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import useEntity from "../../hooks/useEntity";
-import commandDispatcher from "../../core/CommandDispatcher";
+import deviceRegistry from "../../core/DeviceRegistry";
 import { AutoScalableText } from "./AutoScalableText";
 import { ModernWidgetCard } from "./ModernWidgetCard";
 import { PowerSettingsNew } from "@mui/icons-material";
@@ -31,17 +31,15 @@ const SwitchComponent = ({ componentConfig }) => {
   const isOn = String(state) === String(payload_on);
   const isUnknown = state === null || typeof state === "undefined";
 
-  const handleToggle = () => {
+  const handleToggle = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     if (isUnknown) return;
 
     hapticsImpactLight();
 
     const commandValue = isOn ? payload_off : payload_on;
 
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      value: commandValue,
-    });
+    deviceRegistry.sendCommand(componentConfig.id, commandValue);
   };
 
   const label = componentConfig.label || entity?.name || "Перемикач";

@@ -7,9 +7,8 @@ import {
 import { Lightbulb } from '@mui/icons-material';
 import { MuiColorInput } from 'mui-color-input'; 
 import useEntity from '../../hooks/useEntity';
-import commandDispatcher from '../../core/CommandDispatcher';
+import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
-import connectionManager from '../../core/ConnectionManager';
 
 const hexToRgbString = (hex) => {
     if (!hex || typeof hex !== 'string') return '#0000000000';
@@ -75,26 +74,19 @@ const LightComponent = ({ componentConfig }) => {
   const isReady = typeof state !== 'undefined' && state !== null;
   const isOff = !isOn;
 
-  // Функція для прямої відправки команд через connectionManager
-  const sendCommand = (topic, payload) => {
-    if (!brokerId || !topic) return;
-    console.log(`[LightComponent] Publishing directly. Broker: ${brokerId}, Topic: ${topic}, Payload: ${payload}`);
-    connectionManager.publishToTopic(brokerId, topic, String(payload));
-  };
-  
-  // Обробники UI-елементів
+  // Обробники UI-елементів (без прямих мережних викликів)
   const handleToggle = (event) => {
-    sendCommand(command_topic, event.target.checked ? '1' : '0');
+    deviceRegistry.sendCommand(componentConfig.id, event.target.checked ? '1' : '0', 'default');
   };
   const handleBrightnessChangeCommitted = (event, newValue) => {
-    sendCommand(brightness_command_topic, newValue);
+    deviceRegistry.sendCommand(componentConfig.id, newValue, 'set_brightness');
   };
   const handleColorTempChangeCommitted = (event, newValue) => {
-    sendCommand(color_temp_command_topic, newValue);
+    deviceRegistry.sendCommand(componentConfig.id, newValue, 'set_color_temp');
   };
   const handleColorChange = (newColor) => {
     setColorValue(newColor);
-    sendCommand(rgb_command_topic, hexToRgbString(newColor));
+    deviceRegistry.sendCommand(componentConfig.id, hexToRgbString(newColor), 'set_rgb');
   };
 
   const label = componentConfig.label || entityState?.name || "Освітлення";

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, Typography, Box, IconButton, Slider } from '@mui/material';
 import { ArrowUpward, ArrowDownward, Stop } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
-import commandDispatcher from '../../core/CommandDispatcher';
+import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
 
 const CoverComponent = ({ componentConfig }) => {
@@ -37,11 +37,11 @@ const CoverComponent = ({ componentConfig }) => {
   const hasPositionControl = typeof position !== 'undefined';
 
   const sendCommand = (value) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_command', value });
+    deviceRegistry.sendCommand(componentConfig.id, value, 'set_command');
   };
 
   const handleSetPosition = (event, newValue) => {
-    commandDispatcher.dispatch({ entityId: componentConfig.id, commandKey: 'set_position', value: newValue });
+    deviceRegistry.sendCommand(componentConfig.id, newValue, 'set_position');
   };
 
   const handleSliderChange = (event, newValue) => {

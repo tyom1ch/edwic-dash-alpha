@@ -2,7 +2,7 @@
 import React from 'react';
 import { ButtonBase, Typography } from '@mui/material';
 import { SmartButton, RestartAlt, SystemUpdateAlt } from '@mui/icons-material';
-import commandDispatcher from '../../core/CommandDispatcher';
+import deviceRegistry from '../../core/DeviceRegistry';
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { ModernWidgetCard } from './ModernWidgetCard';
 
@@ -23,10 +23,7 @@ const ButtonComponent = ({ componentConfig }) => {
 
   const handleClick = () => {
     hapticsImpact();
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      value: payload_press,
-    });
+    deviceRegistry.sendCommand(componentConfig.id, payload_press, "default");
   };
 
   return (

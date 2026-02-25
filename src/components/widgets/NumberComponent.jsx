@@ -9,9 +9,8 @@ import {
   Slider,
   TextField,
 } from "@mui/material";
-import { Add, Remove } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
-import commandDispatcher from "../../core/CommandDispatcher";
+import deviceRegistry from "../../core/DeviceRegistry";
 import { ModernWidgetCard } from "./ModernWidgetCard";
 
 const NumberComponent = ({ componentConfig }) => {
@@ -49,10 +48,8 @@ const NumberComponent = ({ componentConfig }) => {
 
     const clampedValue = Math.max(min, Math.min(max, numValue));
 
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      value: clampedValue,
-    });
+    // Refactored to use DeviceRegistry.sendCommand
+    deviceRegistry.sendCommand(componentConfig.id, clampedValue);
   };
 
   const handleStepChange = (increment) => {

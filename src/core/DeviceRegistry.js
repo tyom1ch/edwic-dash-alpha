@@ -136,6 +136,51 @@ handleMqttRawMessage(brokerId, topic, messageBuffer) {
   getEntity(entityId) {
     return this.entities.get(entityId);
   }
+
+  sendCommand(entityId, payload, commandKey = 'default') {
+    const entity = this.entities.get(entityId);
+    if (!entity) {
+        console.warn(`[DeviceRegistry] Cannot send command: Entity ${entityId} not found.`);
+        return;
+    }
+
+    const brokerId = entity.brokerId;
+    if (!brokerId) {
+        console.warn(`[DeviceRegistry] Cannot send command: Missing brokerId for ${entityId}.`);
+        return;
+    }
+
+    // Attempt to get specific command mapping from widget definition if available
+    let topicToPublish = null;
+    let finalPayload = payload;
+
+    const widgetDef = getWidgetById(entity.type);
+    if (widgetDef?.getCommandMappings) {
+        const mappings = widgetDef.getCommandMappings(entity);
+        const commandDef = mappings[commandKey] || mappings['default'];
+        
+        if (typeof commandDef === 'string') {
+            topicToPublish = commandDef;
+        } else if (commandDef && typeof commandDef === 'object') {
+            topicToPublish = commandDef.topic;
+            if (typeof commandDef.transformer === 'function') {
+                finalPayload = commandDef.transformer(payload);
+            }
+        }
+    }
+
+    // Fallback to legacy default command topics if no mapping matched
+    if (!topicToPublish && (commandKey === 'default' || !commandKey)) {
+        topicToPublish = entity.command_topic || entity.cmd_t;
+    }
+    
+    if (!topicToPublish) {
+        console.warn(`[DeviceRegistry] Cannot send command: Missing topic for entity ${entityId} and commandKey '${commandKey}'.`);
+        return;
+    }
+
+    connectionManager.publishToTopic(brokerId, topicToPublish, String(finalPayload));
+  }
 }
 
 export default new DeviceRegistry();
