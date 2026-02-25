@@ -7,8 +7,6 @@ import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { BrowserRouter as Router } from "react-router-dom";
-import { Capacitor } from "@capacitor/core";
-import { StatusBar } from "@capacitor/status-bar";
 import AppLayout from "./components/AppLayout";
 import useAppConfig from "./hooks/useAppConfig";
 import eventBus from "./core/EventBus";
@@ -34,21 +32,6 @@ const App = () => {
     }
   }, [appConfig, isLoading, isInitialized]);
 
-  const hideStatusBar = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await StatusBar.hide();
-      } catch (e) {
-        console.error("Не вдалося приховати статусбар:", e);
-      }
-    }
-  };
-
-  useEffect(() => {
-    hideStatusBar();
-    window.addEventListener("click", hideStatusBar);
-    return () => window.removeEventListener("click", hideStatusBar);
-  }, []);
 
   const theme = createTheme({
     cssVarPrefix: "toolpad",
