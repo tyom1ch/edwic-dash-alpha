@@ -63,12 +63,10 @@ const App = () => {
         try {
           // Identify if MUI is currently rendering dark or light
           const isDark = activeTheme.palette.mode === 'dark';
-          // Find the exact background color to prevent phantom borders.
-          // We MUST pass exact Hex codes because Capacitor Native code cannot parse React CSS var(--mui-palette-...) strings.
-          const bgColor = isDark ? '#121212' : '#ffffff';
           
-          // Force edge-to-edge background to exactly match the React background
-          EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
+          // Force edge-to-edge background to be completely transparent (#00000000)
+          // This allows the root React Box (`bgcolor: background.default`) to visibly fill the entire screen behind the safe areas.
+          EdgeToEdge.setBackgroundColor({ color: '#00000000' }).catch(console.error);
           
           // Style.Dark means 'dark background' so icons should be light, and vice versa.
           const iconStyle = isDark ? Style.Dark : Style.Light;

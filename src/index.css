@@ -1,4 +1,6 @@
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
   margin: 0;
@@ -6,6 +8,6 @@ html, body, #root {
 }
 
 body {
-  background-color: var(--toolpad-palette-background-default, #121212);
+  background-color: transparent !important;
   color: var(--toolpad-palette-text-primary, #ffffff);
 }
