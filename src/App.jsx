@@ -12,6 +12,7 @@ import useAppConfig from "./hooks/useAppConfig";
 import eventBus from "./core/EventBus";
 import CoreServices from "./core/CoreServices";
 import { EdgeToEdge } from '@capawesome/capacitor-android-edge-to-edge-support';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
 const App = () => {
@@ -25,6 +26,12 @@ const App = () => {
 
   useEffect(() => {
     localStorage.setItem("toolpad-mode", themeMode);
+
+    if (Capacitor.isNativePlatform()) {
+      const isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const style = isDark ? Style.Dark : Style.Light;
+      StatusBar.setStyle({ style }).catch(console.error);
+    }
   }, [themeMode]);
 
   useEffect(() => {
