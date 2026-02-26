@@ -4,7 +4,6 @@ import {
   createTheme,
 } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import GlobalStyles from "@mui/material/GlobalStyles";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { BrowserRouter as Router } from "react-router-dom";
@@ -46,18 +45,6 @@ const App = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
-      <GlobalStyles styles={{
-        'html, body, #root': {
-          height: '100%',
-          width: '100%',
-          margin: 0,
-          padding: 0,
-        },
-        body: {
-          backgroundColor: 'var(--toolpad-palette-background-default)',
-          color: 'var(--toolpad-palette-text-primary)',
-        },
-      }} />
       {isLoading ? (
         <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>
           <CircularProgress />
