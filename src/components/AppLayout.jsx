@@ -203,6 +203,8 @@ function AppLayout({
         width: '100vw',
         display: 'flex',
         flexDirection: 'column',
+        bgcolor: 'background.default',
+        color: 'text.primary',
         pt: 'env(safe-area-inset-top, 0px)',
         pb: 'env(safe-area-inset-bottom, 0px)',
         pl: 'env(safe-area-inset-left, 0px)',
@@ -298,6 +300,7 @@ function AppLayout({
         onAdd={handleAddComponentToSection}
         component={editComponent}
         isEdit={!!editComponent}
+        brokers={appConfig.brokers}
       />
       <DiscoveryDialog
         isOpen={isDiscoveryOpen}

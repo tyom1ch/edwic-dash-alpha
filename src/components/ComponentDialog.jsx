@@ -19,7 +19,6 @@ import {
   Checkbox,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import useAppConfig from "../hooks/useAppConfig";
 import { getWidgetById, WIDGET_REGISTRY } from "../core/widgetRegistry";
 
 const getInitialState = () => ({
@@ -43,9 +42,9 @@ function ComponentDialog({
   onAdd,
   component,
   isEdit,
+  brokers = [],
 }) {
-  const { appConfig } = useAppConfig();
-  const availableBrokers = appConfig.brokers || [];
+  const availableBrokers = brokers;
   const [localComponent, setLocalComponent] = useState(getInitialState());
 
   useEffect(() => {
