@@ -10,5 +10,10 @@
     "CapacitorHttp": {
       "enabled": true
     }
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false
+    }
   }
 }
