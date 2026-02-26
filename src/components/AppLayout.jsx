@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { IconButton, Snackbar, Alert } from "@mui/material";
+import { IconButton, Snackbar, Alert, Box } from "@mui/material";
 import { AppProvider, DashboardLayout } from "@toolpad/core";
 import {
   Settings,
@@ -198,6 +198,16 @@ function AppLayout({
         { segment: "settings", title: "Налаштування", icon: <Settings /> },
       ]}
     >
+      <Box sx={{
+        height: '100vh',
+        width: '100vw',
+        display: 'flex',
+        flexDirection: 'column',
+        pt: 'env(safe-area-inset-top, 0px)',
+        pb: 'env(safe-area-inset-bottom, 0px)',
+        pl: 'env(safe-area-inset-left, 0px)',
+        pr: 'env(safe-area-inset-right, 0px)'
+      }}>
       <DashboardLayout
         slots={{
           appTitle: () => (
@@ -259,6 +269,7 @@ function AppLayout({
           brokerErrors={brokerErrors} 
         />
       </DashboardLayout>
+      </Box>
 
       <DashboardMenu
         anchorEl={dashMenuAnchorEl}
