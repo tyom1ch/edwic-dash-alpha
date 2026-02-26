@@ -24,6 +24,14 @@ const App = () => {
   const { appConfig, isLoading, setAppConfig, globalConnectionStatus, ...handlers } =
     useAppConfig();
 
+  // 1. Run immediately on app boot to prevent Android from drawing solid bars
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      EdgeToEdge.enable().catch(console.error);
+    }
+  }, []);
+
+  // 2. Sync system bar icons with the theme
   useEffect(() => {
     localStorage.setItem("toolpad-mode", themeMode);
 
@@ -34,11 +42,9 @@ const App = () => {
     }
   }, [themeMode]);
 
+  // 3. Initialize Core Services once config is loaded
   useEffect(() => {
     if (!isLoading && !isInitialized) {
-      if (Capacitor.isNativePlatform()) {
-        EdgeToEdge.enable().catch(console.error);
-      }
       CoreServices.initialize(appConfig);
       setIsInitialized(true);
     }
@@ -58,7 +64,19 @@ const App = () => {
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
       {isLoading ? (
-        <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          minHeight: '100dvh', 
+          width: '100vw',
+          justifyContent: 'center', 
+          alignItems: 'center',
+          bgcolor: 'background.default',
+          color: 'text.primary',
+          pt: 'env(safe-area-inset-top, 0px)',
+          pb: 'env(safe-area-inset-bottom, 0px)',
+          pl: 'env(safe-area-inset-left, 0px)',
+          pr: 'env(safe-area-inset-right, 0px)'
+        }}>
           <CircularProgress />
         </Box>
       ) : (
