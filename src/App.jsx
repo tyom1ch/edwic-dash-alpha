@@ -63,8 +63,9 @@ const App = () => {
         try {
           // Identify if MUI is currently rendering dark or light
           const isDark = activeTheme.palette.mode === 'dark';
-          // Find the exact background color to prevent phantom borders
-          const bgColor = activeTheme.palette.background.default;
+          // Find the exact background color to prevent phantom borders.
+          // We MUST pass exact Hex codes because Capacitor Native code cannot parse React CSS var(--mui-palette-...) strings.
+          const bgColor = isDark ? '#121212' : '#ffffff';
           
           // Force edge-to-edge background to exactly match the React background
           EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
@@ -94,6 +95,7 @@ const App = () => {
           alignItems: 'center',
           bgcolor: 'background.default',
           color: 'text.primary',
+          transition: 'background-color 0.3s',
           pt: 'env(safe-area-inset-top, 0px)',
           pb: 'env(safe-area-inset-bottom, 0px)',
           pl: 'env(safe-area-inset-left, 0px)',

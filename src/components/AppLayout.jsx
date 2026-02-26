@@ -205,6 +205,7 @@ function AppLayout({
         flexDirection: 'column',
         bgcolor: 'background.default',
         color: 'text.primary',
+        transition: 'background-color 0.3s',
         pt: 'env(safe-area-inset-top, 0px)',
         pb: 'env(safe-area-inset-bottom, 0px)',
         pl: 'env(safe-area-inset-left, 0px)',
