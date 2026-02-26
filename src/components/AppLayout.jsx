@@ -199,7 +199,7 @@ function AppLayout({
       ]}
     >
       <Box sx={{
-        height: '100vh',
+        minHeight: '100dvh',
         width: '100vw',
         display: 'flex',
         flexDirection: 'column',
