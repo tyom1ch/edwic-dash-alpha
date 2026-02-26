@@ -46,6 +46,18 @@ const App = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
+      <GlobalStyles styles={(theme) => ({
+        'html, body, #root': {
+          height: '100%',
+          width: '100%',
+          margin: 0,
+          padding: 0,
+        },
+        body: {
+          backgroundColor: theme.vars.palette.background.default,
+          color: theme.vars.palette.text.primary,
+        },
+      })} />
       {isLoading ? (
         <Box sx={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>
           <CircularProgress />
