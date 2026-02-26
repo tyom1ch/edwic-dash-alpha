@@ -15,6 +15,9 @@
     "StatusBar": {
       "overlaysWebView": true,
       "backgroundColor": "#00000000"
+    },
+    "EdgeToEdge": {
+      "backgroundColor": "#00000000"
     }
   }
 }
