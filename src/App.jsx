@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Experimental_CssVarsProvider as CssVarsProvider,
   createTheme,
+  useTheme
 } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -31,15 +32,9 @@ const App = () => {
     }
   }, []);
 
-  // 2. Sync system bar icons with the theme
+  // 2. Persist user selection
   useEffect(() => {
     localStorage.setItem("toolpad-mode", themeMode);
-
-    if (Capacitor.isNativePlatform()) {
-      const isDark = themeMode === 'dark' || (themeMode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      const style = isDark ? Style.Dark : Style.Light;
-      StatusBar.setStyle({ style }).catch(console.error);
-    }
   }, [themeMode]);
 
   // 3. Initialize Core Services once config is loaded
@@ -60,9 +55,36 @@ const App = () => {
     },
   });
 
+  // A component inside the provider to access the dynamically resolved theme properties
+  const EdgeToEdgeThemeSync = () => {
+    const activeTheme = useTheme();
+    useEffect(() => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Identify if MUI is currently rendering dark or light
+          const isDark = activeTheme.palette.mode === 'dark';
+          // Find the exact background color to prevent phantom borders
+          const bgColor = activeTheme.palette.background.default;
+          
+          // Force edge-to-edge background to exactly match the React background
+          EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
+          
+          // Style.Dark means 'dark background' so icons should be light, and vice versa.
+          const iconStyle = isDark ? Style.Dark : Style.Light;
+          StatusBar.setStyle({ style: iconStyle }).catch(console.error);
+        } catch (e) {
+          console.error("Failed to sync EdgeToEdge colors", e);
+        }
+      }
+    }, [activeTheme]);
+    
+    return null;
+  };
+
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
+      <EdgeToEdgeThemeSync />
       {isLoading ? (
         <Box sx={{ 
           display: 'flex', 
