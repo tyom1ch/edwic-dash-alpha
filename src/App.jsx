@@ -86,20 +86,26 @@ const App = () => {
       <EdgeToEdgeThemeSync />
       {isLoading ? (
         <Box sx={{ 
-          display: 'flex', 
           minHeight: '100dvh', 
           width: '100vw',
-          justifyContent: 'center', 
-          alignItems: 'center',
           bgcolor: 'background.default',
           color: 'text.primary',
           transition: 'background-color 0.3s',
-          pt: 'env(safe-area-inset-top, 0px)',
-          pb: 'env(safe-area-inset-bottom, 0px)',
-          pl: 'env(safe-area-inset-left, 0px)',
-          pr: 'env(safe-area-inset-right, 0px)'
+          display: 'flex',
+          flexDirection: 'column'
         }}>
-          <CircularProgress />
+          <Box sx={{
+            display: 'flex', 
+            flexGrow: 1,
+            justifyContent: 'center', 
+            alignItems: 'center',
+            pt: 'env(safe-area-inset-top, 0px)',
+            pb: 'env(safe-area-inset-bottom, 0px)',
+            pl: 'env(safe-area-inset-left, 0px)',
+            pr: 'env(safe-area-inset-right, 0px)'
+          }}>
+            <CircularProgress />
+          </Box>
         </Box>
       ) : (
         <Router>
