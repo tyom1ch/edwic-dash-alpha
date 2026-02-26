@@ -11,6 +11,8 @@ import AppLayout from "./components/AppLayout";
 import useAppConfig from "./hooks/useAppConfig";
 import eventBus from "./core/EventBus";
 import CoreServices from "./core/CoreServices";
+import { EdgeToEdge } from '@capawesome/capacitor-android-edge-to-edge-support';
+import { Capacitor } from '@capacitor/core';
 
 const App = () => {
   const [themeMode, setThemeMode] = useState(
@@ -27,6 +29,9 @@ const App = () => {
 
   useEffect(() => {
     if (!isLoading && !isInitialized) {
+      if (Capacitor.isNativePlatform()) {
+        EdgeToEdge.enable().catch(console.error);
+      }
       CoreServices.initialize(appConfig);
       setIsInitialized(true);
     }
