@@ -46,6 +46,7 @@ class ConnectionManager {
         client.on('connect', (id) => eventBus.emit('broker:connected', id, client.config));
         client.on('disconnect', (id) => eventBus.emit('broker:disconnected', id));
         client.on('error', (id, err) => eventBus.emit('broker:error', id, err));
+        client.on('reconnecting', (id) => eventBus.emit('broker:reconnecting', id));
         client.on('message', (id, topic, message) => eventBus.emit('mqtt:raw_message', id, topic, message));
 
         console.log(`[ConnectionManager] Adding new broker and connecting: ${brokerConfig.id}`);

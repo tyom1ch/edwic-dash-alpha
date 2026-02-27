@@ -6,7 +6,8 @@ class MqttClientWrapper extends EventEmitter {
   constructor(brokerConfig) {
     super();
     this.client = null;
-    this.updateConfig(brokerConfig); // Використовуємо метод для початкового налаштування
+    this._intentionalDisconnect = false;
+    this.updateConfig(brokerConfig);
   }
 
   updateConfig(brokerConfig) {
@@ -54,6 +55,7 @@ class MqttClientWrapper extends EventEmitter {
       console.log(
         `[MQTT] Connecting to ${this.mqttUrl} (ID: ${this.config.id})...`
       );
+      this._intentionalDisconnect = false;
       this.client = mqtt.connect(this.mqttUrl, this.options);
 
       this.client.on("connect", () => {
@@ -87,10 +89,18 @@ class MqttClientWrapper extends EventEmitter {
       });
 
       this.client.on("close", () => {
-        console.log(
-          `[MQTT] Disconnected from ${this.config.host} (ID: ${this.config.id})`
-        );
-        this.emit("disconnect", this.config.id);
+        if (this._intentionalDisconnect) {
+          console.log(
+            `[MQTT] Disconnected from ${this.config.host} (ID: ${this.config.id})`
+          );
+          this.emit("disconnect", this.config.id);
+        } else {
+          // This is an automatic reconnection cycle, not a real disconnect
+          console.log(
+            `[MQTT] Connection closed for ${this.config.id}, will auto-reconnect...`
+          );
+          this.emit("reconnecting", this.config.id);
+        }
       });
 
       this.client.on("offline", () => {
@@ -108,7 +118,8 @@ class MqttClientWrapper extends EventEmitter {
   async disconnect() {
     return new Promise((resolve) => {
       if (this.client) {
-        // Видаляємо всі слухачі, щоб уникнути витоків пам'яті
+        this._intentionalDisconnect = true;
+        // Delete all listeners to avoid leaks
         this.client.removeAllListeners();
         this.client.end(true, () => {
           // true - примусово закрити
