@@ -9,6 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { App } from '@capacitor/app';
+import { KeepAwake } from '@capacitor-community/keep-awake';
 
 let isCoreInitialized = false;
 let isForegroundServiceStarted = false;
@@ -173,6 +174,10 @@ export default {
             
             isForegroundServiceStarted = true;
             console.log("[ForegroundService] Started successfully.");
+
+            // Утримуємо процесор/екран від переходу в глибокий сон (Doze Mode)
+            await KeepAwake.keepAwake();
+            console.log("[KeepAwake] Wakelock acquired.");
 
             setInterval(() => {
               appUptimeSeconds++;

@@ -9,6 +9,17 @@ class ConnectionManager {
         this.startWatchdog();
     }
 
+    _isConfigEqual(oldConf, newConf) {
+        if (!oldConf || !newConf) return false;
+        return oldConf.host === newConf.host &&
+               oldConf.port === newConf.port &&
+               oldConf.protocol === newConf.protocol &&
+               oldConf.username === newConf.username &&
+               oldConf.password === newConf.password &&
+               oldConf.clientId === newConf.clientId &&
+               oldConf.path === newConf.path;
+    }
+
     startWatchdog() {
         // Коножні 15 секунд перевіряємо, чи всі клієнти підключені
         // Це допомагає підтримувати зв'язок, коли WebView засинає і прокидається
@@ -39,7 +50,7 @@ class ConnectionManager {
             const existingClient = this.mqttClients.get(brokerConfig.id);
 
             if (existingClient) {
-                if (JSON.stringify(existingClient.config) !== JSON.stringify(brokerConfig)) {
+                if (!this._isConfigEqual(existingClient.config, brokerConfig)) {
                     console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
                     // Сповіщаємо систему, що брокер зараз буде переконфігурований
                     eventBus.emit('broker:reconnecting', brokerConfig.id);
