@@ -74,8 +74,11 @@ public class NativeMqttPlugin extends Plugin {
             return;
         }
 
+        JSArray alertsArr = call.getArray("alerts"); // Optional alerts
+
         try {
             JSONArray brokersJson = new JSONArray(brokersArr.toString());
+            JSONArray alertsJson = alertsArr != null ? new JSONArray(alertsArr.toString()) : new JSONArray();
 
             Context context = getContext();
             Intent serviceIntent = new Intent(context, MqttBackgroundService.class);
@@ -94,13 +97,15 @@ public class NativeMqttPlugin extends Plugin {
             getActivity().getWindow().getDecorView().postDelayed(() -> {
                 if (mqttService != null) {
                     mqttService.configureBrokers(brokersJson);
-                    Log.i(TAG, "Brokers configured via startService.");
+                    mqttService.configureAlerts(alertsJson);
+                    Log.i(TAG, "Brokers + alerts configured via startService.");
                 } else {
                     Log.w(TAG, "Service not yet bound, retrying in 500ms...");
                     getActivity().getWindow().getDecorView().postDelayed(() -> {
                         if (mqttService != null) {
                             mqttService.configureBrokers(brokersJson);
-                            Log.i(TAG, "Brokers configured (retry).");
+                            mqttService.configureAlerts(alertsJson);
+                            Log.i(TAG, "Brokers + alerts configured (retry).");
                         } else {
                             Log.e(TAG, "Service still not bound after retry!");
                         }
@@ -146,6 +151,26 @@ public class NativeMqttPlugin extends Plugin {
         try {
             JSONArray brokersJson = new JSONArray(brokersArr.toString());
             mqttService.configureBrokers(brokersJson);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void configureAlerts(PluginCall call) {
+        if (mqttService == null) {
+            call.reject("Service not running");
+            return;
+        }
+        JSArray alertsArr = call.getArray("alerts");
+        if (alertsArr == null) {
+            call.reject("Missing 'alerts' parameter");
+            return;
+        }
+        try {
+            JSONArray alertsJson = new JSONArray(alertsArr.toString());
+            mqttService.configureAlerts(alertsJson);
             call.resolve();
         } catch (Exception e) {
             call.reject("Error: " + e.getMessage());

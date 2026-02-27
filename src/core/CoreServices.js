@@ -30,6 +30,10 @@ const setupEventListeners = () => {
       NativeMqtt.updateBrokers({ brokers: newConfig.brokers || [] }).catch(e => {
         console.error("[NativeMqtt] Failed to update brokers:", e);
       });
+      // Push alert rules to native for background notification evaluation
+      NativeMqtt.configureAlerts({ alerts: newConfig.alerts || [] }).catch(e => {
+        console.error("[NativeMqtt] Failed to update alerts:", e);
+      });
     }
 
     // Оновлюємо внутрішній стан для UI
@@ -171,7 +175,10 @@ export default {
           
           const startNativeService = async () => {
             try {
-              await NativeMqtt.startService({ brokers: config.brokers || [] });
+              await NativeMqtt.startService({ 
+                brokers: config.brokers || [],
+                alerts: config.alerts || []
+              });
               isNativeMqttStarted = true;
               console.log("[NativeMqtt] Native MQTT service started successfully.");
             } catch (e) {

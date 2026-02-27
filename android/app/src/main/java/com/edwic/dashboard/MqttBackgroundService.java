@@ -34,11 +34,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MqttBackgroundService extends Service {
 
     private static final String TAG = "MqttBgService";
     private static final String CHANNEL_ID = "mqtt_background_channel";
+    private static final String ALERT_CHANNEL_ID = "mqtt_alert_channel";
     private static final int NOTIFICATION_ID = 9999;
 
     private final IBinder binder = new LocalBinder();
@@ -46,6 +48,11 @@ public class MqttBackgroundService extends Service {
     private final Map<String, JSONObject> clientConfigs = new ConcurrentHashMap<>();
     private final Map<String, String> clientStatuses = new ConcurrentHashMap<>();
     private final Map<String, List<String>> clientSubscriptions = new ConcurrentHashMap<>();
+
+    // Alert rules (evaluated natively — no JS needed)
+    private final List<JSONObject> alertRules = new ArrayList<>();
+    private final Map<String, Long> alertLastFired = new ConcurrentHashMap<>();
+    private final AtomicInteger alertNotificationId = new AtomicInteger(10000);
 
     // Message buffer for when WebView is sleeping
     private final List<JSONObject> messageBuffer = new ArrayList<>();
@@ -82,7 +89,7 @@ public class MqttBackgroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
+        createNotificationChannels();
         Log.i(TAG, "Service created.");
     }
 
@@ -115,28 +122,24 @@ public class MqttBackgroundService extends Service {
     public void configureBrokers(JSONArray brokersJson) {
         Log.i(TAG, "Configuring " + brokersJson.length() + " broker(s)...");
 
-        // Determine which brokers to remove
         List<String> existingIds = new ArrayList<>(clients.keySet());
         List<String> newIds = new ArrayList<>();
 
         for (int i = 0; i < brokersJson.length(); i++) {
             try {
                 JSONObject broker = brokersJson.getJSONObject(i);
-                String id = broker.getString("id");
-                newIds.add(id);
+                newIds.add(broker.getString("id"));
             } catch (JSONException e) {
                 Log.e(TAG, "Error parsing broker config at index " + i, e);
             }
         }
 
-        // Remove old brokers that aren't in new config
         for (String existingId : existingIds) {
             if (!newIds.contains(existingId)) {
                 disconnectBroker(existingId);
             }
         }
 
-        // Add or update brokers
         for (int i = 0; i < brokersJson.length(); i++) {
             try {
                 JSONObject broker = brokersJson.getJSONObject(i);
@@ -148,7 +151,6 @@ public class MqttBackgroundService extends Service {
                     continue;
                 }
 
-                // Disconnect old one if exists
                 if (clients.containsKey(id)) {
                     disconnectBroker(id);
                 }
@@ -157,6 +159,28 @@ public class MqttBackgroundService extends Service {
             } catch (JSONException e) {
                 Log.e(TAG, "Error configuring broker at index " + i, e);
             }
+        }
+    }
+
+    /**
+     * Update alert rules. Called from JS whenever config changes.
+     * These rules are evaluated NATIVELY when messages arrive, 
+     * and notifications are fired directly via Android NotificationManager.
+     */
+    public void configureAlerts(JSONArray alertsJson) {
+        synchronized (alertRules) {
+            alertRules.clear();
+            for (int i = 0; i < alertsJson.length(); i++) {
+                try {
+                    JSONObject alert = alertsJson.getJSONObject(i);
+                    if (alert.optBoolean("enabled", true)) {
+                        alertRules.add(alert);
+                    }
+                } catch (JSONException e) {
+                    Log.e(TAG, "Error parsing alert at index " + i, e);
+                }
+            }
+            Log.i(TAG, "Configured " + alertRules.size() + " active alert rule(s).");
         }
     }
 
@@ -174,7 +198,6 @@ public class MqttBackgroundService extends Service {
                 Log.e(TAG, "Error subscribing to " + topic, e);
             }
         } else {
-            // Buffer subscriptions — they'll be applied on connect
             List<String> subs = clientSubscriptions.computeIfAbsent(brokerId, k -> new ArrayList<>());
             if (!subs.contains(topic)) {
                 subs.add(topic);
@@ -251,9 +274,22 @@ public class MqttBackgroundService extends Service {
             String basepath = brokerConfig.optString("basepath", "");
             String name = brokerConfig.optString("name", host);
 
-            // Build server URI — use tcp:// for native MQTT (more reliable than ws://)
-            String protocol = secure ? "ssl" : "tcp";
-            String serverUri = protocol + "://" + host + ":" + port;
+            // Determine protocol: if basepath is set or port looks like WebSocket, use ws://
+            // Otherwise use native TCP which is more reliable for background
+            String serverUri;
+            boolean useWebSocket = (basepath != null && !basepath.isEmpty());
+
+            if (useWebSocket) {
+                String wsProtocol = secure ? "wss" : "ws";
+                String cleanBasepath = basepath.startsWith("/") ? basepath : "/" + basepath;
+                if (cleanBasepath.endsWith("/")) {
+                    cleanBasepath = cleanBasepath.substring(0, cleanBasepath.length() - 1);
+                }
+                serverUri = wsProtocol + "://" + host + ":" + port + cleanBasepath;
+            } else {
+                String tcpProtocol = secure ? "ssl" : "tcp";
+                serverUri = tcpProtocol + "://" + host + ":" + port;
+            }
 
             String clientId = "edwic-native-" + id.substring(0, Math.min(8, id.length()));
 
@@ -287,12 +323,15 @@ public class MqttBackgroundService extends Service {
                     String payload = new String(message.getPayload());
                     Log.d(TAG, "Message on " + id + " topic=" + topic + " len=" + payload.length());
 
-                    // Try to notify JS immediately
+                    // 1. Evaluate alert rules NATIVELY — fire notifications immediately
+                    evaluateAlerts(id, topic, payload);
+
+                    // 2. Try to notify JS (may be frozen — that's OK)
                     if (eventListener != null) {
                         eventListener.onMessage(id, topic, payload);
                     }
 
-                    // Also buffer for when WebView wakes up
+                    // 3. Buffer for when WebView wakes up
                     synchronized (messageBuffer) {
                         try {
                             JSONObject msg = new JSONObject();
@@ -311,9 +350,7 @@ public class MqttBackgroundService extends Service {
                 }
 
                 @Override
-                public void deliveryComplete(IMqttDeliveryToken token) {
-                    // Not needed for subscribers
-                }
+                public void deliveryComplete(IMqttDeliveryToken token) {}
             });
 
             clients.put(id, client);
@@ -326,7 +363,6 @@ public class MqttBackgroundService extends Service {
                     Log.i(TAG, "Broker " + id + " connected successfully!");
                     updateBrokerStatus(id, "connected");
 
-                    // Re-subscribe to all buffered topics
                     List<String> subs = clientSubscriptions.get(id);
                     if (subs != null) {
                         for (String topic : subs) {
@@ -399,21 +435,129 @@ public class MqttBackgroundService extends Service {
         }
     }
 
-    // ---- NOTIFICATION ----
+    // ---- NATIVE ALERT EVALUATION ----
 
-    private void createNotificationChannel() {
+    private void evaluateAlerts(String brokerId, String topic, String payload) {
+        synchronized (alertRules) {
+            for (JSONObject alert : alertRules) {
+                try {
+                    String alertBrokerId = alert.optString("brokerId", "");
+                    String alertTopic = alert.optString("topic", "");
+
+                    if (!alertBrokerId.equals(brokerId) || !alertTopic.equals(topic)) {
+                        continue;
+                    }
+
+                    String condition = alert.optString("condition", "");
+                    String threshold = alert.optString("threshold", "");
+                    String alertId = alert.optString("id", "");
+
+                    // Parse numeric values
+                    double numericPayload = Double.NaN;
+                    double numericThreshold = Double.NaN;
+                    try { numericPayload = Double.parseDouble(payload); } catch (NumberFormatException ignored) {}
+                    try { numericThreshold = Double.parseDouble(threshold); } catch (NumberFormatException ignored) {}
+
+                    boolean isNumeric = !Double.isNaN(numericPayload) && !Double.isNaN(numericThreshold);
+                    boolean triggered = false;
+
+                    switch (condition) {
+                        case ">":
+                            triggered = isNumeric ? (numericPayload > numericThreshold) : (payload.compareTo(threshold) > 0);
+                            break;
+                        case "<":
+                            triggered = isNumeric ? (numericPayload < numericThreshold) : (payload.compareTo(threshold) < 0);
+                            break;
+                        case "==":
+                            triggered = isNumeric ? (numericPayload == numericThreshold) : payload.equals(threshold);
+                            break;
+                        case "!=":
+                            triggered = isNumeric ? (numericPayload != numericThreshold) : !payload.equals(threshold);
+                            break;
+                    }
+
+                    if (triggered) {
+                        fireAlertNotification(alert, payload, alertId);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error evaluating alert", e);
+                }
+            }
+        }
+    }
+
+    private void fireAlertNotification(JSONObject alert, String value, String alertId) {
+        long now = System.currentTimeMillis();
+        Long lastFired = alertLastFired.get(alertId);
+        long intervalMs = alert.optLong("intervalMs", 5 * 60 * 1000); // Default 5 min
+
+        if (lastFired != null && (now - lastFired) < intervalMs) {
+            return; // Rate limited
+        }
+        alertLastFired.put(alertId, now);
+
+        String alertName = alert.optString("name", "Алерт");
+        String alertTopic = alert.optString("topic", "");
+        String messageTemplate = alert.optString("messageTemplate", "");
+
+        String body;
+        if (messageTemplate != null && !messageTemplate.isEmpty()) {
+            body = messageTemplate.replace("{value}", value).replace("{topic}", alertTopic);
+        } else {
+            body = "Алерт: " + alertName + " (" + value + ")";
+        }
+
+        Log.i(TAG, "ALERT FIRED: " + alertName + " — " + body);
+
+        // Fire native Android notification directly — no JS needed!
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager != null) {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this,
+                    alertNotificationId.get(), intent, PendingIntent.FLAG_IMMUTABLE);
+
+            Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                    .setContentTitle(alertName)
+                    .setContentText(body)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setDefaults(NotificationCompat.DEFAULT_ALL)
+                    .build();
+
+            manager.notify(alertNotificationId.getAndIncrement(), notification);
+        }
+    }
+
+    // ---- NOTIFICATION CHANNELS ----
+
+    private void createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager == null) return;
+
+            // Background service channel (silent)
+            NotificationChannel bgChannel = new NotificationChannel(
                     CHANNEL_ID,
                     "MQTT Background Service",
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Keeps MQTT connections alive in background");
-            channel.setShowBadge(false);
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+            bgChannel.setDescription("Keeps MQTT connections alive in background");
+            bgChannel.setShowBadge(false);
+            manager.createNotificationChannel(bgChannel);
+
+            // Alert channel (high priority, sound + vibration)
+            NotificationChannel alertChannel = new NotificationChannel(
+                    ALERT_CHANNEL_ID,
+                    "MQTT Алерти",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            alertChannel.setDescription("Сповіщення про спрацювання правил моніторингу");
+            alertChannel.enableVibration(true);
+            alertChannel.setShowBadge(true);
+            manager.createNotificationChannel(alertChannel);
         }
     }
 
@@ -436,7 +580,6 @@ public class MqttBackgroundService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
                 notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
-        // Build status text
         StringBuilder statusText = new StringBuilder();
         statusText.append(formatUptime(uptimeSeconds));
 
@@ -502,7 +645,7 @@ public class MqttBackgroundService extends Service {
             public void run() {
                 if (isRunning) {
                     uptimeSeconds++;
-                    if (uptimeSeconds % 5 == 0) { // Update notification every 5 seconds
+                    if (uptimeSeconds % 5 == 0) {
                         updateNotification();
                     }
                     uptimeHandler.postDelayed(this, 1000);
