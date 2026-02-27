@@ -28,6 +28,7 @@ const migrateDashboard = (dashboard) => {
 // ─── initial config ──────────────────────────────────────────────────────────
 
 const initialConfig = {
+  hasSeenWelcome: false,
   brokers: [],
   alerts: [],
   dashboards: {
@@ -65,12 +66,18 @@ const useAppConfig = () => {
 
       if (savedConfig) {
         const { id, ...restConfig } = savedConfig;
+        
+        // If config existed but didn't have hasSeenWelcome, default to true 
+        // because it's an existing user migrating to the new version.
+        const hasSeenWelcome = restConfig.hasSeenWelcome ?? true;
+
         // Migrate every dashboard
         const migratedDashboards = {};
         for (const dashId in restConfig.dashboards) {
           migratedDashboards[dashId] = migrateDashboard(restConfig.dashboards[dashId]);
         }
         setAppConfigState({ 
+            hasSeenWelcome,
             alerts: [], 
             ...restConfig, 
             dashboards: migratedDashboards 
@@ -159,6 +166,11 @@ const useAppConfig = () => {
 
   const handleSetAlerts = useCallback(
     (newAlerts) => setAppConfig((prev) => ({ ...prev, alerts: newAlerts })),
+    [setAppConfig]
+  );
+
+  const handleFinishWelcome = useCallback(
+    () => setAppConfig((prev) => ({ ...prev, hasSeenWelcome: true })),
     [setAppConfig]
   );
 
@@ -304,6 +316,7 @@ const useAppConfig = () => {
     handlers: {
       handleSetBrokers,
       handleSetAlerts,
+      handleFinishWelcome,
       handleAddComponent,
       handleDeleteComponent,
       handleSaveComponent,

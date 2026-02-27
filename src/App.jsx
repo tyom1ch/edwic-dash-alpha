@@ -9,8 +9,9 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
-import { BrowserRouter as Router } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
+import WelcomePage from "./pages/WelcomePage";
 import useAppConfig from "./hooks/useAppConfig";
 import eventBus from "./core/EventBus";
 import CoreServices from "./core/CoreServices";
@@ -100,14 +101,25 @@ const App = () => {
         </Box>
       ) : (
         <Router>
-          <AppLayout
-            appConfig={appConfig}
-            setAppConfig={setAppConfig}
-            globalConnectionStatus={globalConnectionStatus}
-            {...handlers}
-            themeMode={themeMode}
-            setThemeMode={setThemeMode}
-          />
+          {!appConfig.hasSeenWelcome ? (
+            <Routes>
+              <Route path="*" element={
+                <WelcomePage 
+                  setAppConfig={setAppConfig} 
+                  handleFinishWelcome={handlers.handleFinishWelcome} 
+                />
+              } />
+            </Routes>
+          ) : (
+            <AppLayout
+              appConfig={appConfig}
+              setAppConfig={setAppConfig}
+              globalConnectionStatus={globalConnectionStatus}
+              {...handlers}
+              themeMode={themeMode}
+              setThemeMode={setThemeMode}
+            />
+          )}
         </Router>
       )}
     </CssVarsProvider>
