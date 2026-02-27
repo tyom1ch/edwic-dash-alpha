@@ -1,14 +1,10 @@
 // src/components/widgets/HistoryGraphWidget.jsx
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, Typography, Box } from '@mui/material';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale, Filler } from 'chart.js';
-import 'chartjs-adapter-date-fns';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, Typography, Box, useTheme } from '@mui/material';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { db } from '../../core/db';
 import eventBus from '../../core/EventBus';
 import WidgetWrapper from './WidgetWrapper';
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, TimeScale, Filler);
 
 export const HistoryGraphWidgetConfig = {
     id: 'history-graph',
@@ -22,6 +18,7 @@ export const HistoryGraphWidgetConfig = {
 function HistoryGraphWidget({ component, isEditMode }) {
     const { title, brokerId, graph_topic, color = '#2196f3' } = component;
     const [dataPoints, setDataPoints] = useState([]);
+    const theme = useTheme();
 
     useEffect(() => {
         if (!brokerId || !graph_topic) return;
@@ -40,8 +37,8 @@ function HistoryGraphWidget({ component, isEditMode }) {
                 
                 if (isMounted) {
                     setDataPoints(history.map(item => ({
-                        x: item.timestamp,
-                        y: item.value
+                        timestamp: item.timestamp,
+                        value: item.value
                     })));
                 }
             } catch (e) {
@@ -56,8 +53,9 @@ function HistoryGraphWidget({ component, isEditMode }) {
                 const val = parseFloat(messageBuffer.toString());
                 if (!isNaN(val)) {
                     setDataPoints(prev => {
-                        const newPt = { x: Date.now(), y: val };
-                        return [...prev, newPt];
+                        const newPt = { timestamp: Date.now(), value: val };
+                        // keep only last points locally (e.g. 500) so the live array doesn't crash browser
+                        return [...prev, newPt].slice(-500);
                     });
                 }
             }
@@ -71,65 +69,90 @@ function HistoryGraphWidget({ component, isEditMode }) {
         };
     }, [brokerId, graph_topic]);
 
-    const chartData = {
-        datasets: [{
-            label: title || 'Значення',
-            data: dataPoints,
-            borderColor: color,
-            backgroundColor: (context) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-                gradient.addColorStop(0, `${color}66`); // 40% opacity
-                gradient.addColorStop(1, `${color}00`); // 0% opacity
-                return gradient;
-            },
-            fill: true,
-            tension: 0.4, // Smooth curve
-            borderWidth: 2,
-            pointRadius: 0, // hide dots until hover
-            pointHoverRadius: 5,
-        }]
+    // Format X Axis timestamp
+    const formatTime = (unixTime) => {
+        const d = new Date(unixTime);
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 0 }, // Disable animation for live updates
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-            x: {
-                type: 'time',
-                time: {
-                    unit: 'minute',
-                    displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                    tooltipFormat: 'dd MMM, HH:mm:ss'
-                },
-                grid: { display: false },
-                ticks: { autoSkip: true, maxTicksLimit: 6 }
-            },
-            y: {
-                grid: { color: 'rgba(128, 128, 128, 0.1)' }
-            }
-        },
-        plugins: {
-            legend: { display: false }
+    // Advanced Tooltip Formatter
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+            return (
+                <Box sx={{ 
+                    bgcolor: 'background.paper', 
+                    p: 1.5, 
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 1,
+                    boxShadow: theme.shadows[3]
+                 }}>
+                    <Typography variant="body2" color="text.secondary" mb={0.5}>
+                        {new Date(label).toLocaleString()}
+                    </Typography>
+                    <Typography variant="subtitle2" color={color} fontWeight="bold">
+                        {payload[0].value}
+                    </Typography>
+                </Box>
+            );
         }
+        return null;
     };
 
     return (
         <WidgetWrapper component={component} isEditMode={isEditMode}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flexGrow: 1, p: 2, pb: "16px !important", display: 'flex', flexDirection: 'column' }}>
-                    <Typography variant="subtitle2" color="text.secondary" noWrap>
-                        {title || graph_topic || 'Графік'}
-                    </Typography>
-                    <Box sx={{ flexGrow: 1, minHeight: 0, mt: 1 }}>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <CardContent sx={{ flexGrow: 1, p: 0, pb: "0px !important", display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ px: 2, pt: 2, pb: 1, zIndex: 1 }}>
+                        <Typography variant="body1" fontWeight={500} color="text.secondary" noWrap>
+                            {title || graph_topic || 'Графік'}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, mt: 0.5 }}>
+                            <Typography variant="h4" fontWeight="bold">
+                                {dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].value : '--'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    
+                    <Box sx={{ flexGrow: 1, minHeight: 100, width: '100%', mt: -1 }}>
                         {(!brokerId || !graph_topic) ? (
-                             <Typography variant="body2" color="error" textAlign="center" mt={4}>Не налаштовано топік</Typography>
+                            <Typography variant="body2" color="error" textAlign="center" mt={4}>Не налаштовано топік</Typography>
                         ) : dataPoints.length === 0 ? (
-                             <Typography variant="body2" color="text.secondary" textAlign="center" mt={4}>Немає даних або завантаження...</Typography>
+                            <Typography variant="body2" color="text.secondary" textAlign="center" mt={4}>Немає даних...</Typography>
                         ) : (
-                             <Line data={chartData} options={chartOptions} />
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={dataPoints} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id={`colorGradient-${component.id}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={color} stopOpacity={0.5} />
+                                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis 
+                                        dataKey="timestamp" 
+                                        tickFormatter={formatTime} 
+                                        minTickGap={40}
+                                        tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        dy={-10}
+                                    />
+                                    <YAxis 
+                                        domain={['auto', 'auto']}
+                                        hide={true} // Home Assistant style hides Y axis
+                                    />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: theme.palette.divider, strokeWidth: 1, strokeDasharray: '3 3' }} />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke={color} 
+                                        strokeWidth={2}
+                                        fillOpacity={1} 
+                                        fill={`url(#colorGradient-${component.id})`}
+                                        isAnimationActive={false}
+                                        activeDot={{ r: 4, strokeWidth: 0, fill: color }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         )}
                     </Box>
                 </CardContent>

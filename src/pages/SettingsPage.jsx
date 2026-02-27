@@ -271,7 +271,9 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         value={tabIndex}
         onChange={(e, newIndex) => setTabIndex(newIndex)}
         sx={{ mb: 2 }}
-        variant="fullWidth"
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
       >
         <Tab label="Брокери" />
         <Tab label="Алерти" />

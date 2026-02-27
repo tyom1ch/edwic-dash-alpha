@@ -10,5 +10,16 @@
 		"CapacitorHttp": {
 			"enabled": true
 		}
+	},
+	"plugins": {
+		"SystemBars": {
+			"insetsHandling": "disable"
+		},
+		"Keyboard": {
+			"resizeOnFullScreen": false
+		},
+		"EdgeToEdge": {
+			"backgroundColor": "#00000000"
+		}
 	}
 }

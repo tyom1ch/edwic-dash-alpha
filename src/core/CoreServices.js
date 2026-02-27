@@ -4,6 +4,7 @@ import deviceRegistry from './DeviceRegistry';
 import eventBus from './EventBus';
 import './DiscoveryService'; // Імпортуємо, щоб він почав слухати події
 import './AlertService'; // Background rules & push notifications listener
+import historyLogger from './HistoryLogger';
 import { Capacitor } from '@capacitor/core';
 import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -24,6 +25,9 @@ const setupEventListeners = () => {
     // 3. Сповіщаємо інші сервіси (напр. DiscoveryService) про оновлення
     eventBus.emit("config:updated", newConfig);
   });
+  
+  // Ensure the history logger wakes up and attaches its event listeners
+  historyLogger.initialize();
 };
 
 export default {
