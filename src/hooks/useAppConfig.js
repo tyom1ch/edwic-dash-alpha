@@ -29,6 +29,7 @@ const migrateDashboard = (dashboard) => {
 
 const initialConfig = {
   brokers: [],
+  alerts: [],
   dashboards: {
     "dashboard-1": {
       title: "Головний",
@@ -69,7 +70,11 @@ const useAppConfig = () => {
         for (const dashId in restConfig.dashboards) {
           migratedDashboards[dashId] = migrateDashboard(restConfig.dashboards[dashId]);
         }
-        setAppConfigState({ ...restConfig, dashboards: migratedDashboards });
+        setAppConfigState({ 
+            alerts: [], 
+            ...restConfig, 
+            dashboards: migratedDashboards 
+        });
       }
       setIsLoading(false);
     };
@@ -145,10 +150,15 @@ const useAppConfig = () => {
     };
   }, [appConfig.brokers, isLoading]);
 
-  // ─── broker handler ────────────────────────────────────────────────────────
+  // ─── broker & alert handlers ────────────────────────────────────────────────────────
 
   const handleSetBrokers = useCallback(
     (newBrokers) => setAppConfig((prev) => ({ ...prev, brokers: newBrokers })),
+    [setAppConfig]
+  );
+
+  const handleSetAlerts = useCallback(
+    (newAlerts) => setAppConfig((prev) => ({ ...prev, alerts: newAlerts })),
     [setAppConfig]
   );
 
@@ -293,6 +303,7 @@ const useAppConfig = () => {
     brokerErrors,
     handlers: {
       handleSetBrokers,
+      handleSetAlerts,
       handleAddComponent,
       handleDeleteComponent,
       handleSaveComponent,

@@ -41,6 +41,7 @@ import useAppConfig from "../hooks/useAppConfig";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
+import AlertDialog from "../components/AlertDialog";
 
 const defaultBrokerState = {
   id: "",
@@ -56,7 +57,7 @@ const defaultBrokerState = {
 
 function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const navigate = useNavigate();
-  const { appConfig, setAppConfig, brokerStatuses, brokerErrors } = useAppConfig();
+  const { appConfig, setAppConfig, brokerStatuses, brokerErrors, handlers } = useAppConfig();
   const { setMode } = useColorScheme();
   const fileInputRef = useRef(null);
 
@@ -66,6 +67,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const [isBrokerDialogOpen, setIsBrokerDialogOpen] = useState(false);
   const [editingBroker, setEditingBroker] = useState(defaultBrokerState);
+
+  // --- Alerts State ---
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState(null);
+  const alerts = appConfig.alerts || [];
+  const { handleSetAlerts } = handlers || {};
 
   // --- Broker CRUD Handlers ---
 
@@ -123,6 +130,31 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const handleDeleteBroker = (id) => {
     if (window.confirm("Дійсно видалити цього брокера?")) {
       setBrokers((brokers || []).filter((b) => b.id !== id));
+    }
+  };
+
+  // --- Alerts CRUD Handlers ---
+
+  const handleOpenAlertDialog = (alert = null) => {
+    setEditingAlert(alert);
+    setIsAlertDialogOpen(true);
+  };
+
+  const handleSaveAlert = (alertToSave) => {
+    let updatedAlerts;
+    if (alertToSave.id) {
+      updatedAlerts = alerts.map((a) => (a.id === alertToSave.id ? alertToSave : a));
+    } else {
+      alertToSave.id = `alert-${Date.now()}`;
+      updatedAlerts = [...alerts, alertToSave];
+    }
+    if (handleSetAlerts) handleSetAlerts(updatedAlerts);
+    setIsAlertDialogOpen(false);
+  };
+
+  const handleDeleteAlert = (id) => {
+    if (window.confirm("Дійсно видалити цей алерт?")) {
+      if (handleSetAlerts) handleSetAlerts(alerts.filter((a) => a.id !== id));
     }
   };
 
@@ -234,6 +266,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         variant="fullWidth"
       >
         <Tab label="Брокери" />
+        <Tab label="Алерти" />
         <Tab label="Система" />
         <Tab label="Додатково" />
       </Tabs>
@@ -418,8 +451,89 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         </Box>
       )}
 
-      {/* ВКЛАДКА 2: Системні налаштування (Візуальні) */}
+      {/* ВКЛАДКА 2: Алерти (Фонові сповіщення) */}
       {tabIndex === 1 && (
+        <Box sx={{ mt: 2 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
+          >
+            <Typography variant="h6">Фонові Алерти</Typography>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenAlertDialog()}
+              size="small"
+            >
+              Додати
+            </Button>
+          </Stack>
+
+          {alerts.length === 0 ? (
+            <Card variant="outlined" sx={{ mb: 2, textAlign: "center", py: 3 }}>
+              <Typography color="text.secondary">
+                Немає налаштованих фонових повідомлень.
+              </Typography>
+            </Card>
+          ) : (
+            <List sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {alerts.map((al) => (
+                <Card variant="outlined" key={al.id}>
+                  <ListItem
+                    disablePadding
+                    secondaryAction={
+                      <Stack direction="row" spacing={1}>
+                        <Tooltip title="Редагувати">
+                          <IconButton onClick={() => handleOpenAlertDialog(al)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Видалити">
+                          <IconButton
+                            color="error"
+                            onClick={() => handleDeleteAlert(al.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    }
+                  >
+                    <Box sx={{ px: 2, py: 1.5, width: '100%' }}>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: al.enabled ? "#4caf50" : "#9e9e9e" }} />
+                            <Typography fontWeight="bold">{al.name}</Typography>
+                          </Stack>
+                        }
+                        secondary={
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {al.topic} {al.condition} {al.threshold}
+                          </Typography>
+                        }
+                      />
+                    </Box>
+                  </ListItem>
+                </Card>
+              ))}
+            </List>
+          )}
+
+          <AlertDialog
+            open={isAlertDialogOpen}
+            onClose={() => setIsAlertDialogOpen(false)}
+            onSave={handleSaveAlert}
+            editingAlert={editingAlert}
+            brokers={brokers || []}
+          />
+        </Box>
+      )}
+
+      {/* ВКЛАДКА 3: Системні налаштування (Візуальні) */}
+      {tabIndex === 2 && (
         <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
           <Box>
             <Typography variant="h6" gutterBottom>
@@ -449,8 +563,8 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         </Box>
       )}
 
-      {/* ВКЛАДКА 3: Додатково (Резервні копії) */}
-      {tabIndex === 2 && (
+      {/* ВКЛАДКА 4: Додатково (Резервні копії) */}
+      {tabIndex === 3 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom>
             Резервне копіювання
