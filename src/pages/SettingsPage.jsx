@@ -39,6 +39,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
 import AlertDialog from "../components/AlertDialog";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 
 const defaultBrokerState = {
   id: "",
@@ -212,15 +214,29 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       }.json`;
       const json = JSON.stringify(appConfig, null, 2);
 
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await Filesystem.writeFile({
+            path: fileName,
+            data: json,
+            directory: Directory.Documents,
+            encoding: Encoding.UTF8,
+          });
+          requestAlert("Успіх", `Налаштування успішно збережено в Документах пристрою як:\n${fileName}`);
+        } catch (fileErr) {
+          throw new Error(`Помилка під час запису файлу: ${fileErr.message}`);
+        }
+      } else {
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       setError(`Помилка експорту: ${err.message}`);
     } finally {
