@@ -3,6 +3,7 @@ import connectionManager from './ConnectionManager';
 import deviceRegistry from './DeviceRegistry';
 import eventBus from './EventBus';
 import './DiscoveryService'; // Імпортуємо, щоб він почав слухати події
+import './AlertService'; // Background rules & push notifications listener
 import { Capacitor } from '@capacitor/core';
 import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
 import { LocalNotifications } from '@capacitor/local-notifications';
