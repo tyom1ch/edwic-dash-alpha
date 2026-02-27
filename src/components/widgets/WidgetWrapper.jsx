@@ -1,6 +1,6 @@
 // src/components/widgets/WidgetWrapper.jsx
 import React, { useState } from "react";
-import { Box, IconButton, Tooltip } from "@mui/material";
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Typography, Button } from "@mui/material";
 import { Edit, Delete, WarningAmber, OpenWith } from "@mui/icons-material";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -36,6 +36,9 @@ const WidgetWrapper = ({
     transition,
   };
 
+  // Delete confirmation
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const handleEdit = (e) => {
     e.stopPropagation();
     onEdit?.(component.id);
@@ -43,9 +46,18 @@ const WidgetWrapper = ({
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    if (window.confirm(`Видалити "${component.label || component.id}"?`)) {
-      onDelete?.(component.id);
-    }
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = (e) => {
+    e?.stopPropagation();
+    setIsDeleteDialogOpen(false);
+    onDelete?.(component.id);
+  };
+
+  const cancelDelete = (e) => {
+    e?.stopPropagation();
+    setIsDeleteDialogOpen(false);
   };
 
   const handleClick = () => {
@@ -281,6 +293,18 @@ const WidgetWrapper = ({
           <OpenWith sx={{ fontSize: 12 }} />
         </Box>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onClose={cancelDelete} maxWidth="xs" fullWidth onClick={(e) => e.stopPropagation()}>
+        <DialogTitle>Видалити віджет?</DialogTitle>
+        <DialogContent dividers>
+          <Typography>Дійсно видалити "{component.label || component.id}"?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelDelete} color="inherit">Скасувати</Button>
+          <Button onClick={confirmDelete} variant="contained" color="error">Видалити</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -70,11 +70,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const alerts = appConfig.alerts || [];
   const { handleSetAlerts } = handlers || {};
 
-  // --- Confirm Dialog State ---
+  // --- Confirm/Alert Dialog State ---
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     title: "",
     message: "",
+    isAlert: false,
     onConfirm: null,
   });
 
@@ -83,9 +84,23 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       open: true,
       title,
       message,
+      isAlert: false,
       onConfirm: () => {
         setConfirmDialog((prev) => ({ ...prev, open: false }));
         onAction();
+      }
+    });
+  };
+
+  const requestAlert = (title, message, onAction) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      isAlert: true,
+      onConfirm: () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        if (onAction) onAction();
       }
     });
   };
@@ -228,8 +243,9 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             "Ви впевнені, що хочете імпортувати нові налаштування? Усі поточні дашборди та підключення будуть перезаписані.",
             () => {
                setAppConfig(importedConfig);
-               alert("Налаштування успішно імпортовано!");
-               window.location.reload();
+               requestAlert("Успіх", "Налаштування успішно імпортовано!", () => {
+                 window.location.reload();
+               });
             }
           );
         } else {
@@ -249,8 +265,9 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       "ВИ ВПЕВНЕНІ? Ця дія повністю видалить всі ваші дашборди, алерт правила та брокери. Відмінити це неможливо!",
       () => {
         localStorage.removeItem("appConfig");
-        alert("Налаштування скинуто.");
-        window.location.reload();
+        requestAlert("Успіх", "Налаштування скинуто.", () => {
+          window.location.reload();
+        });
       }
     );
   };
@@ -650,8 +667,16 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           <Typography>{confirmDialog.message}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeConfirm} color="inherit">Скасувати</Button>
-          <Button onClick={confirmDialog.onConfirm} variant="contained" color="error">Підтвердити</Button>
+          {!confirmDialog.isAlert && (
+            <Button onClick={closeConfirm} color="inherit">Скасувати</Button>
+          )}
+          <Button 
+            onClick={confirmDialog.onConfirm} 
+            variant="contained" 
+            color={confirmDialog.isAlert ? "primary" : "error"}
+          >
+            {confirmDialog.isAlert ? "OK" : "Підтвердити"}
+          </Button>
         </DialogActions>
       </Dialog>
       
