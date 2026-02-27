@@ -106,18 +106,9 @@ class AlertService {
     eventBus.emit("app:alert_triggered", { alert, message });
 
     if (Capacitor.isNativePlatform()) {
-      LocalNotifications.schedule({
-        notifications: [
-          {
-            title: alert.name,
-            body: message,
-            id: Math.floor(Math.random() * 1000000), // Random notification ID
-            schedule: { at: new Date(Date.now() + 100) }, // Schedule immediately
-          }
-        ]
-      }).catch(err => {
-        console.error("[AlertService] Native Notification Error:", err);
-      });
+      // На Android нотифікації створює нативний MqttBackgroundService напряму через
+      // NotificationManager. JS НЕ дублює — тут лише IndexedDB + UI snackbar вище.
+      console.log(`[AlertService] Native alert skipped (handled by background service).`);
     } else {
       console.log(`[AlertService] NOTIFICATION TRIGGERED (Web Fallback): ${alert.name} - ${message}`);
       if ("Notification" in window) {

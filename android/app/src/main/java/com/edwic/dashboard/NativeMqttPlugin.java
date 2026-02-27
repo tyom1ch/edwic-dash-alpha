@@ -262,6 +262,32 @@ public class NativeMqttPlugin extends Plugin {
         call.resolve(result);
     }
 
+    @PluginMethod
+    public void requestIgnoreBatteryOptimizations(PluginCall call) {
+        try {
+            Context context = getContext();
+            android.os.PowerManager pm = (android.os.PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            String packageName = context.getPackageName();
+
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(android.net.Uri.parse("package:" + packageName));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+                Log.i(TAG, "Opened battery optimization settings for " + packageName);
+                call.resolve();
+            } else {
+                Log.i(TAG, "Already ignoring battery optimizations.");
+                JSObject result = new JSObject();
+                result.put("alreadyIgnoring", true);
+                call.resolve(result);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error requesting battery optimization exemption", e);
+            call.reject("Error: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();

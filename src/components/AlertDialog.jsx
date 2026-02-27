@@ -156,6 +156,8 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
           onChange={handleChange}
           sx={{ mb: 2 }}
         >
+          <MenuItem value={15 * 1000}>15 секунд</MenuItem>
+          <MenuItem value={30 * 1000}>30 секунд</MenuItem>
           <MenuItem value={60 * 1000}>1 хвилина</MenuItem>
           <MenuItem value={5 * 60 * 1000}>5 хвилин</MenuItem>
           <MenuItem value={10 * 60 * 1000}>10 хвилин</MenuItem>

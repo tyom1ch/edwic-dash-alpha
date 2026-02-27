@@ -56,6 +56,8 @@ const defaultBrokerState = {
   basepath: "",
 };
 
+const isNativePlatform = Capacitor.isNativePlatform();
+
 function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const navigate = useNavigate();
   const { appConfig, setAppConfig, brokerStatuses, brokerErrors, handlers } = useAppConfig();
@@ -403,7 +405,10 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                         secondary={
                           <Box sx={{ display: 'flex', flexDirection: 'column', mt: 0.5 }}>
                             <Typography variant="body2" color="text.secondary">
-                              {`${broker.secure ? "wss://" : "ws://"}${broker.host}:${broker.port}${broker.basepath || ""}`}
+                              {isNativePlatform 
+                                ? `${broker.secure ? "ssl" : "tcp"}://${broker.host}:${broker.port}` 
+                                : `${broker.secure ? "wss://" : "ws://"}${broker.host}:${broker.port}${broker.basepath || ""}`
+                              }
                             </Typography>
                             {(status === "error" || status === "offline") && errorMsg && (
                               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
@@ -446,13 +451,14 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label="Порт брокера (WebSockets) *"
+                label={isNativePlatform ? "Порт MQTT (TCP: 1883/1884) *" : "Порт брокера (WebSockets: 8080) *"}
                 name="port"
                 value={editingBroker.port}
                 onChange={handleBrokerFieldChange}
                 sx={{ mb: 2 }}
                 type="number"
                 required
+                helperText={isNativePlatform ? "Мобільний додаток використовує MQTT TCP протокол, не WebSocket" : ""}
               />
               <TextField
                 fullWidth
@@ -496,7 +502,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     name="secure"
                   />
                 }
-                label="Використовувати Secure WebSockets (WSS)"
+                label={isNativePlatform ? "Використовувати SSL/TLS шифрування" : "Використовувати Secure WebSockets (WSS)"}
               />
               {error && (
                 <Typography color="error" variant="body2" sx={{ mt: 1 }}>

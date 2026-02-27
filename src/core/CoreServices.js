@@ -7,6 +7,7 @@ import './AlertService'; // Background rules & push notifications listener
 import historyLogger from './HistoryLogger';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 // Register native MQTT plugin (only resolves on Android, noop on web)
 const NativeMqtt = registerPlugin('NativeMqtt');
@@ -168,7 +169,15 @@ export default {
       // Start native MQTT service — it runs independently of WebView
       (async () => {
         try {
-          // Setup native event listeners first
+          // 1. Request notification permission (Android 13+)
+          const permResult = await LocalNotifications.requestPermissions();
+          console.log("[CoreServices] Notification permission:", permResult.display);
+          
+          if (permResult.display !== 'granted') {
+            console.warn("[CoreServices] Notifications not granted. Service will start but alerts won't show.");
+          }
+
+          // 2. Setup native event listeners
           setupNativeMqttListeners();
 
           const state = await App.getState();
@@ -181,6 +190,14 @@ export default {
               });
               isNativeMqttStarted = true;
               console.log("[NativeMqtt] Native MQTT service started successfully.");
+
+              // 3. Request battery optimization exemption (background mode)
+              try {
+                await NativeMqtt.requestIgnoreBatteryOptimizations();
+                console.log("[NativeMqtt] Battery optimization request sent.");
+              } catch (batErr) {
+                console.warn("[NativeMqtt] Battery optimization request failed:", batErr);
+              }
             } catch (e) {
               console.error("[NativeMqtt] Failed to start native service:", e);
             }
