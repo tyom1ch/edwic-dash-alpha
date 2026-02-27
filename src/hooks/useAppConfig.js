@@ -144,7 +144,7 @@ const useAppConfig = () => {
     if (appConfig.brokers) {
       const init = {};
       appConfig.brokers.forEach((b) => {
-        init[b.id] = connectionManager.isConnected(b.id) ? "connected" : "connecting";
+        init[b.id] = connectionManager.isConnected(b.id) ? "connected" : "offline";
       });
       setBrokerStatuses(init);
     }
