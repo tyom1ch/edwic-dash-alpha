@@ -41,6 +41,7 @@ import useAppConfig from "../hooks/useAppConfig";
 import AlertDialog from "../components/AlertDialog";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 const defaultBrokerState = {
   id: "",
@@ -215,17 +216,20 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       const json = JSON.stringify(appConfig, null, 2);
 
       if (Capacitor.isNativePlatform()) {
-        try {
-          await Filesystem.writeFile({
-            path: fileName,
-            data: json,
-            directory: Directory.Documents,
-            encoding: Encoding.UTF8,
-          });
-          requestAlert("Успіх", `Налаштування успішно збережено в Документах пристрою як:\n${fileName}`);
-        } catch (fileErr) {
-          throw new Error(`Помилка під час запису файлу: ${fileErr.message}`);
-        }
+        // Write to app's private cache dir first (no special permissions needed on any Android version)
+        // Then push via native Share sheet so user can pick Download/Drive/etc.
+        const writeResult = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+        await Share.share({
+          title: 'Edwic — резервна копія',
+          text: `Резервна копія налаштувань EdWic (${fileName})`,
+          url: writeResult.uri,
+          dialogTitle: 'Зберегти або поділитися файлом',
+        });
       } else {
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
