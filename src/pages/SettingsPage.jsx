@@ -38,9 +38,6 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
 import AlertDialog from "../components/AlertDialog";
 
 const defaultBrokerState = {
@@ -200,35 +197,17 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       }.json`;
       const json = JSON.stringify(appConfig, null, 2);
 
-      if (Capacitor.isNativePlatform()) {
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: json,
-          directory: Directory.Cache,
-          encoding: Encoding.UTF8,
-        });
-
-        await Share.share({
-          title: "Резервна копія EdwIC",
-          text: "💾 Збережіть цей файл у надійному місці.",
-          url: result.uri,
-          dialogTitle: "Зберегти або Поділитися",
-        });
-      } else {
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      if (err.message !== "Share canceled") {
-        setError(`Помилка експорту: ${err.message}`);
-      }
+      setError(`Помилка експорту: ${err.message}`);
     } finally {
       setLoading(false);
     }
