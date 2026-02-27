@@ -147,7 +147,13 @@ public class MqttBackgroundService extends Service {
 
                 JSONObject existingConfig = clientConfigs.get(id);
                 if (existingConfig != null && configsEqual(existingConfig, broker)) {
-                    Log.d(TAG, "Broker " + id + " config unchanged, skipping.");
+                    Log.d(TAG, "Broker " + id + " config unchanged, skipping reconnect.");
+                    // ALWAYS push current status back to JS — even if we skip reconnect.
+                    // Without this, after app restart the UI stays stuck on "offline".
+                    String currentStatus = clientStatuses.getOrDefault(id, "disconnected");
+                    if (eventListener != null) {
+                        eventListener.onBrokerStatusChanged(id, currentStatus);
+                    }
                     continue;
                 }
 

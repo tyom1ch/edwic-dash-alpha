@@ -202,7 +202,28 @@ export default {
               isNativeMqttStarted = true;
               console.log("[NativeMqtt] Native MQTT service started successfully.");
 
-              // 3. Request battery optimization exemption (background mode)
+              // 3. Sync status after service binds (service may already be connected from background)
+              setTimeout(async () => {
+                try {
+                  const statusResult = await NativeMqtt.getStatus();
+                  if (statusResult.brokers) {
+                    const brokers = typeof statusResult.brokers === 'string' 
+                      ? JSON.parse(statusResult.brokers) 
+                      : statusResult.brokers;
+                    Object.entries(brokers).forEach(([brokerId, status]) => {
+                      connectionManager.updateNativeStatus(brokerId, status);
+                      if (status === 'connected') {
+                        eventBus.emit('broker:connected', brokerId);
+                      }
+                    });
+                    console.log("[NativeMqtt] Post-start status sync:", brokers);
+                  }
+                } catch (syncErr) {
+                  console.warn("[NativeMqtt] Status sync failed:", syncErr);
+                }
+              }, 1500); // Wait for service binding + broker connection
+
+              // 4. Request battery optimization exemption (background mode)
               try {
                 await NativeMqtt.requestIgnoreBatteryOptimizations();
                 console.log("[NativeMqtt] Battery optimization request sent.");
