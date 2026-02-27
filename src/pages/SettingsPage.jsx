@@ -621,6 +621,11 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : "Експорт (JSON)"}
           </Button>
+          {error && (
+            <Typography color="error" variant="body2" sx={{ mb: 2, textAlign: 'center' }}>
+              {error}
+            </Typography>
+          )}
           <input
             type="file"
             ref={fileInputRef}

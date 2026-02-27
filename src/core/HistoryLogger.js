@@ -8,9 +8,12 @@ class HistoryLogger {
     this.lastLogTimestamps = new Map();
     // Default rate limit: log a maximum of once every 10 seconds per topic to avoid DB bloat
     this.rateLimitMs = 10000;
+    this.isInitialized = false;
   }
 
   initialize() {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
     eventBus.on('config:saved', this.handleConfigSaved.bind(this));
     eventBus.on('mqtt:raw_message', this.handleRawMessage.bind(this));
     

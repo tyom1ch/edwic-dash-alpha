@@ -141,7 +141,7 @@ export default {
           id: 1993, // Unique notification ID
           title: 'Синхронізація...',
           body: initialBodyText,
-          smallIcon: 'ic_launcher', // Fallback to basic launcher to prevent icon missing crashes
+          smallIcon: 'ic_notification', // Changed to standard name we'll ensure exists
           silent: true, // Do not play a sound when the background runner starts
           notificationChannelId: 'edwic_bg_sync_v2'
         }).catch(err => {
