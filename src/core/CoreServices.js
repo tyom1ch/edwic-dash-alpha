@@ -46,13 +46,24 @@ export default {
       });
 
       // Keep WebSocket alive in background with an active Foreground Service
-      ForegroundService.startForegroundService({
-        id: 1993, // Unique notification ID
-        title: 'Edwic Dashboard',
-        body: 'Синхронізація даних та активні алерти',
-        silent: true // Do not play a sound when the background runner starts
+      ForegroundService.createNotificationChannel({
+        id: 'edwic_bg_service',
+        name: 'Фонова синхронізація',
+        description: 'Підтримує зв\'язок з MQTT брокером у фоновому режимі',
+        importance: 2 // Low importance
+      }).then(() => {
+        ForegroundService.startForegroundService({
+          id: 1993, // Unique notification ID
+          title: 'Edwic Dashboard',
+          body: 'Синхронізація даних',
+          smallIcon: 'ic_launcher_background', // Fallback to app's icon
+          silent: true, // Do not play a sound when the background runner starts
+          notificationChannelId: 'edwic_bg_service'
+        }).catch(err => {
+          console.error("[ForegroundService] Failed to start:", err);
+        });
       }).catch(err => {
-        console.error("[ForegroundService] Failed to start:", err);
+        console.error("[ForegroundService] Failed to create channel:", err);
       });
     }
 
