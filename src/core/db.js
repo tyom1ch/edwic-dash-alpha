@@ -8,6 +8,11 @@ db.version(1).stores({
   config: 'id' // Primary key is 'id'
 });
 
+db.version(2).stores({
+  config: 'id',
+  history: '++id, [brokerId+topic], topic, timestamp' 
+});
+
 export const saveAppConfig = async (configData) => {
   try {
     await db.config.put({ id: 'main-config', ...configData });

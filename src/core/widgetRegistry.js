@@ -10,6 +10,7 @@ import BinarySensorComponent from "../components/widgets/BinarySensorComponent";
 import NumberComponent from "../components/widgets/NumberComponent";
 import ButtonComponent from "../components/widgets/ButtonComponent";
 import GenericInfoComponent from "../components/widgets/GenericInfoComponent";
+import HistoryGraphWidget, { HistoryGraphWidgetConfig } from "../components/widgets/HistoryGraphWidget";
 
 // функція resolveTopic
 const resolveTopic = (topic, baseTopic) => {
@@ -599,6 +600,25 @@ export const WIDGET_REGISTRY = [
     getCommandMappings: (config) => ({
       default: resolveTopic(config.command_topic || config.cmd_t, config["~"]),
     }),
+  },
+  {
+    type: "history-graph",
+    label: "Історичний графік",
+    component: HistoryGraphWidget,
+    defaultGridOptions: HistoryGraphWidgetConfig.defaultGridOptions,
+    getConfigFields: () => [
+      {
+        id: "graph_topic",
+        label: "Топік (для історії та онлайну)",
+        keys: ["graph_topic", "topic"],
+      },
+      {
+        id: "color",
+        label: "Колір графіка (напр. #2196f3)",
+        keys: ["color"],
+      }
+    ],
+    getTopicMappings: HistoryGraphWidgetConfig.getTopicMappings,
   },
   {
     type: "generic_info",
