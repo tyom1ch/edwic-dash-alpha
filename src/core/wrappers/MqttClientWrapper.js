@@ -56,6 +56,10 @@ class MqttClientWrapper extends EventEmitter {
       );
       this.client = mqtt.connect(this.mqttUrl, this.options);
 
+      // ВИПРАВЛЕННЯ: Дозволяємо Promise завершитись одразу, щоб не блокувати цикл ConnectionManager.
+      // Реальний статус接続u ми відстежуємо через події EventBus.
+      resolve();
+
       this.client.on("connect", () => {
         console.log(
           `[MQTT] Successfully connected to ${this.config.host} (ID: ${this.config.id})`
@@ -65,7 +69,6 @@ class MqttClientWrapper extends EventEmitter {
           this.client.options.reconnectPeriod = 2000;
         }
         this.emit("connect", this.config.id);
-        resolve();
       });
 
       this.client.on("error", (error) => {

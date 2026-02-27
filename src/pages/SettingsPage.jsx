@@ -41,6 +41,8 @@ import useAppConfig from "../hooks/useAppConfig";
 import AlertDialog from "../components/AlertDialog";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { db } from "../core/db";
 
 const defaultBrokerState = {
   id: "",
@@ -63,6 +65,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [debugMode, setDebugMode] = useState(() => localStorage.getItem("edwic_debug") === "true");
 
   const [isBrokerDialogOpen, setIsBrokerDialogOpen] = useState(false);
   const [editingBroker, setEditingBroker] = useState(defaultBrokerState);
@@ -216,15 +219,24 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
       if (Capacitor.isNativePlatform()) {
         try {
-          await Filesystem.writeFile({
+          // 1. Write to Cache first (allowed without permissions)
+          const writeResult = await Filesystem.writeFile({
             path: fileName,
             data: json,
-            directory: Directory.Documents,
+            directory: Directory.Cache,
             encoding: Encoding.UTF8,
           });
-          requestAlert("Успіх", `Налаштування успішно збережено в Документах пристрою як:\n${fileName}`);
+          
+          // 2. Open Native Share Dialog so user can save it to Drive/Downloads
+          await Share.share({
+            title: 'Експорт конфігурації Edwic',
+            text: 'Резервна копія налаштувань Edwic Dashboard',
+            url: writeResult.uri,
+            dialogTitle: 'Зберегти конфігурацію'
+          });
+          
         } catch (fileErr) {
-          throw new Error(`Помилка під час запису файлу: ${fileErr.message}`);
+          throw new Error(`Помилка під час експорту: ${fileErr.message}`);
         }
       } else {
         const blob = new Blob([json], { type: "application/json" });
@@ -279,11 +291,19 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
     requestConfirm(
       "Увага! Скидання налаштувань",
       "ВИ ВПЕВНЕНІ? Ця дія повністю видалить всі ваші дашборди, алерт правила та брокери. Відмінити це неможливо!",
-      () => {
-        localStorage.removeItem("appConfig");
-        requestAlert("Успіх", "Налаштування скинуто.", () => {
-          window.location.reload();
-        });
+      async () => {
+        try {
+          // Clear legacy localStorage
+          localStorage.removeItem("appConfig");
+          // Clear IndexedDB completely
+          await db.delete();
+          
+          requestAlert("Успіх", "Налаштування скинуто.", () => {
+            window.location.reload();
+          });
+        } catch (e) {
+          setError(`Помилка скидання: ${e.message}`);
+        }
       }
     );
   };
@@ -655,6 +675,30 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           >
             Скинути Дашборди та Брокери
           </Button>
+
+          <Box mt={4}>
+            <Divider sx={{ mb: 3 }} />
+            <Typography variant="h6" gutterBottom>
+              Налаштування розробника
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={debugMode}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setDebugMode(val);
+                    localStorage.setItem("edwic_debug", val.toString());
+                    if (val) {
+                      window.location.reload(); // Reload to inject interceptors EARLY
+                    }
+                  }}
+                  name="debugMode"
+                />
+              }
+              label="Увімкнути режим налагодження (Спливаючі помилки)"
+            />
+          </Box>
 
           <Box mt={4}>
             <Button

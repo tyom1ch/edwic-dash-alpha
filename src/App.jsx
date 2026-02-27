@@ -18,6 +18,45 @@ import CoreServices from "./core/CoreServices";
 import { EdgeToEdge } from '@capawesome/capacitor-android-edge-to-edge-support';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { useNotifications } from '@toolpad/core/useNotifications';
+
+const GlobalErrorMonitor = () => {
+  const notifications = useNotifications();
+  
+  useEffect(() => {
+    if (localStorage.getItem("edwic_debug") !== "true") return;
+
+    const handleError = (event) => {
+      notifications.show(`Error: ${event.message}`, { severity: 'error', autoHideDuration: 10000 });
+    };
+
+    const handleRejection = (event) => {
+      notifications.show(`Promise Rejection: ${event.reason?.message || event.reason}`, { severity: 'error', autoHideDuration: 10000 });
+    };
+    
+    const originalError = console.error;
+    console.error = (...args) => {
+      // Avoid infinite loops if Toolpad itself logs an error when rendering
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('Toolpad')) {
+         originalError.apply(console, args);
+         return;
+      }
+      notifications.show(`Dev Error: ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`, { severity: 'error', autoHideDuration: 6000 });
+      originalError.apply(console, args);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+      console.error = originalError;
+    };
+  }, [notifications]);
+
+  return null;
+};
 
 const App = () => {
   const [themeMode, setThemeMode] = useState(
@@ -92,6 +131,7 @@ const App = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
+      <GlobalErrorMonitor />
       <EdgeToEdgeThemeSync appThemeMode={themeMode} />
       {isLoading ? (
         <Box sx={{ 
