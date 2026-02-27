@@ -179,14 +179,26 @@ export default {
 
           const state = await App.getState();
           if (state.isActive) {
-            await startServices();
+            // Невеличка затримка для завершення UI transitions
+            setTimeout(async () => {
+              await startServices();
+            }, 500);
           } else {
             console.log("[ForegroundService] App is not active yet, waiting for appStateChange...");
             const listener = await App.addListener('appStateChange', async (newState) => {
               if (newState.isActive) {
-                console.log("[ForegroundService] App became active, starting services.");
+                console.log("[ForegroundService] App became active, starting services after delay.");
                 listener.remove();
-                await startServices();
+                
+                // Додаткова затримка дає Activity час повністю відновитися
+                // Це виправляє ForegroundServiceDidNotStartInTimeException
+                setTimeout(async () => {
+                  try {
+                    await startServices();
+                  } catch (e) {
+                    console.error("[ForegroundService] Delayed start failed:", e);
+                  }
+                }, 500);
               }
             });
           }
