@@ -7,9 +7,11 @@ import {
   UploadFile,
   AddCircleOutline
 } from "@mui/icons-material";
+import MuiAlert from '@mui/material/Alert';
 
 const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
   const fileInputRef = useRef(null);
+  const [errorSnackbar, setErrorSnackbar] = React.useState({ open: false, message: "" });
 
   const onStartFresh = () => {
     handleFinishWelcome();
@@ -37,7 +39,10 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
           setAppConfig(parsed);
         }
       } catch (error) {
-        alert("Не вдалося розпарсити файл конфігурації. Переконайтесь, що це правильний JSON.");
+        setErrorSnackbar({
+          open: true,
+          message: "Не вдалося розпарсити файл конфігурації. Переконайтесь, що це правильний JSON."
+        });
         console.error("Import error:", error);
       }
     };
@@ -129,6 +134,23 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
           </Button>
         </Box>
       </Paper>
+      
+      {/* Error Snackbar */}
+      <Snackbar
+        open={errorSnackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setErrorSnackbar({ ...errorSnackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <MuiAlert 
+          onClose={() => setErrorSnackbar({ ...errorSnackbar, open: false })} 
+          severity="error" 
+          sx={{ width: '100%' }}
+          variant="filled"
+        >
+          {errorSnackbar.message}
+        </MuiAlert>
+      </Snackbar>
     </Container>
   );
 };

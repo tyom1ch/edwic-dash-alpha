@@ -207,7 +207,7 @@ function AppLayout({
   return (
     <AppProvider
       router={router}
-      branding={{ logo: false, title: "" }}
+      branding={{ logo: null, title: "EdwIC" }}
       navigation={[
         { kind: "header", title: "Мої дашборди" },
         ...Object.entries(appConfig.dashboards).map(([id, { title }]) => ({

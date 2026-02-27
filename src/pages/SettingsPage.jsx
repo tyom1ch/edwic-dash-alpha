@@ -68,11 +68,34 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const [isBrokerDialogOpen, setIsBrokerDialogOpen] = useState(false);
   const [editingBroker, setEditingBroker] = useState(defaultBrokerState);
 
-  // --- Alerts State ---
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState(null);
   const alerts = appConfig.alerts || [];
   const { handleSetAlerts } = handlers || {};
+
+  // --- Confirm Dialog State ---
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
+  const requestConfirm = (title, message, onAction) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      onConfirm: () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        onAction();
+      }
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmDialog((prev) => ({ ...prev, open: false }));
+  };
 
   // --- Broker CRUD Handlers ---
 
@@ -128,9 +151,13 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   };
 
   const handleDeleteBroker = (id) => {
-    if (window.confirm("Дійсно видалити цього брокера?")) {
-      setBrokers((brokers || []).filter((b) => b.id !== id));
-    }
+    requestConfirm(
+      "Видалити брокера?",
+      "Дійсно видалити цього брокера зі списку?",
+      () => {
+        setBrokers((brokers || []).filter((b) => b.id !== id));
+      }
+    );
   };
 
   // --- Alerts CRUD Handlers ---
@@ -153,9 +180,13 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   };
 
   const handleDeleteAlert = (id) => {
-    if (window.confirm("Дійсно видалити цей алерт?")) {
-      if (handleSetAlerts) handleSetAlerts(alerts.filter((a) => a.id !== id));
-    }
+    requestConfirm(
+      "Видалити алерт?",
+      "Дійсно видалити цей алерт?",
+      () => {
+        if (handleSetAlerts) handleSetAlerts(alerts.filter((a) => a.id !== id));
+      }
+    );
   };
 
   // --- Export / Import Handlers ---
@@ -213,15 +244,15 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       try {
         const importedConfig = JSON.parse(e.target.result);
         if (importedConfig?.dashboards) {
-          if (
-            window.confirm(
-              "Ви впевнені, що хочете імпортувати нові налаштування? Поточні будуть перезаписані."
-            )
-          ) {
-            setAppConfig(importedConfig);
-            alert("Налаштування успішно імпортовано!");
-            window.location.reload();
-          }
+          requestConfirm(
+            "Імпорт налаштувань",
+            "Ви впевнені, що хочете імпортувати нові налаштування? Усі поточні дашборди та підключення будуть перезаписані.",
+            () => {
+               setAppConfig(importedConfig);
+               alert("Налаштування успішно імпортовано!");
+               window.location.reload();
+            }
+          );
         } else {
           throw new Error("Некоректний формат файлу.");
         }
@@ -234,17 +265,15 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   };
 
   const handleReset = () => {
-    if (
-      window.confirm(
-        "ВИ ВПЕВНЕНІ? Ця дія видалить всі ваші дашборди та налаштування. Відмінити це неможливо."
-      )
-    ) {
-      localStorage.removeItem("appConfig");
-      // Dexie database should ideally be cleared as well. We'll reload for now as db migration 
-      // depends on empty states.
-      alert("Налаштування скинуто.");
-      window.location.reload();
-    }
+    requestConfirm(
+      "Увага! Скидання налаштувань",
+      "ВИ ВПЕВНЕНІ? Ця дія повністю видалить всі ваші дашборди, алерт правила та брокери. Відмінити це неможливо!",
+      () => {
+        localStorage.removeItem("appConfig");
+        alert("Налаштування скинуто.");
+        window.location.reload();
+      }
+    );
   };
 
   const handleThemeChange = (e, newMode) => {
@@ -254,7 +283,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   };
 
   return (
-    <Box sx={{ maxWidth: 600, margin: "auto", padding: 2 }}>
+    <Box sx={{ maxWidth: "100%", mx: "auto", p: 2 }}>
       <Typography variant="h4" gutterBottom>
         Налаштування EdWic
       </Typography>
@@ -632,6 +661,19 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           Повернутися на Дашборд
         </Button>
       )}
+
+      {/* Глобальний діалог підтвердження */}
+      <Dialog open={confirmDialog.open} onClose={closeConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogContent dividers>
+          <Typography>{confirmDialog.message}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeConfirm} color="inherit">Скасувати</Button>
+          <Button onClick={confirmDialog.onConfirm} variant="contained" color="error">Підтвердити</Button>
+        </DialogActions>
+      </Dialog>
+      
     </Box>
   );
 }
