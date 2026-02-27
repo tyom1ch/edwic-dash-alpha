@@ -3,13 +3,18 @@ import MqttClientWrapper from './wrappers/MqttClientWrapper';
 import eventBus from './EventBus';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-const NativeMqtt = Capacitor.isNativePlatform() ? registerPlugin('NativeMqtt') : null;
+const isNative = Capacitor.isNativePlatform();
+const NativeMqtt = isNative ? registerPlugin('NativeMqtt') : null;
 
 class ConnectionManager {
     constructor() {
-        this.mqttClients = new Map();
-        console.log("[ConnectionManager] Initialized.");
-        this.startWatchdog();
+        this.mqttClients = new Map(); // Used only on web
+        this._brokerConfigs = new Map(); // Track configs on all platforms
+        this._nativeStatuses = new Map(); // Track native broker statuses
+        console.log(`[ConnectionManager] Initialized. Native: ${isNative}`);
+        if (!isNative) {
+            this.startWatchdog();
+        }
     }
 
     _isConfigEqual(oldConf, newConf) {
@@ -24,13 +29,11 @@ class ConnectionManager {
     }
 
     startWatchdog() {
-        // Коножні 15 секунд перевіряємо, чи всі клієнти підключені
-        // Це допомагає підтримувати зв'язок, коли WebView засинає і прокидається
+        // Тільки для веб — на Android нативний сервіс сам робить reconnect
         setInterval(() => {
             this.mqttClients.forEach((client, id) => {
                 if (!client.isConnected()) {
                     console.log(`[ConnectionManager] Watchdog: Broker ${id} is disconnected. Enforcing reconnect...`);
-                    // Викликаємо reconnect з існуючою конфігурацією
                     client.reconnect(client.config).catch(e => {
                         console.error(`[ConnectionManager] Watchdog error reconnecting broker ${id}:`, e);
                     });
@@ -41,6 +44,30 @@ class ConnectionManager {
 
     async updateBrokers(newBrokersConfig) {
         console.log("[ConnectionManager] Updating brokers configuration...");
+
+        if (isNative) {
+            // На Android — делегуємо ВСЕ нативному сервісу, JS MQTT не створюємо
+            // Зберігаємо конфіги для довідки
+            const newIds = new Set(newBrokersConfig.map(b => b.id));
+            
+            // Видаляємо старі з трекера
+            for (const oldId of this._brokerConfigs.keys()) {
+                if (!newIds.has(oldId)) {
+                    this._brokerConfigs.delete(oldId);
+                    this._nativeStatuses.delete(oldId);
+                }
+            }
+            
+            // Додаємо/оновлюємо нові
+            for (const brokerConfig of newBrokersConfig) {
+                this._brokerConfigs.set(brokerConfig.id, brokerConfig);
+            }
+            
+            // Нативний сервіс оновиться через CoreServices.js → NativeMqtt.updateBrokers()
+            return;
+        }
+
+        // Веб-логіка — без змін
         const newBrokerIds = new Set(newBrokersConfig.map(b => b.id));
         const oldBrokerIds = new Set(this.mqttClients.keys());
 
@@ -55,9 +82,7 @@ class ConnectionManager {
             if (existingClient) {
                 if (!this._isConfigEqual(existingClient.config, brokerConfig)) {
                     console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
-                    // Сповіщаємо систему, що брокер зараз буде переконфігурований
                     eventBus.emit('broker:reconnecting', brokerConfig.id);
-                    // AWAIT THE DISCONNECT FIRST to prevent race conditions
                     await existingClient.disconnect();
                     await existingClient.reconnect(brokerConfig);
                 }
@@ -68,6 +93,8 @@ class ConnectionManager {
     }
 
     async addBroker(brokerConfig) {
+        if (isNative) return; // На Android — нативний сервіс керує
+
         if (this.mqttClients.has(brokerConfig.id)) {
             console.warn(`[ConnectionManager] Broker with ID ${brokerConfig.id} already exists. Skipping add.`);
             return;
@@ -86,10 +113,11 @@ class ConnectionManager {
     }
 
     async removeBroker(brokerId) {
+        if (isNative) return; // На Android — нативний сервіс керує
+
         const client = this.mqttClients.get(brokerId);
         if (client) {
             console.log(`[ConnectionManager] Removing broker: ${brokerId}`);
-            // Сповіщаємо систему про видалення перед відключенням
             eventBus.emit('broker:removed', brokerId);
             await client.disconnect();
             this.mqttClients.delete(brokerId);
@@ -97,50 +125,60 @@ class ConnectionManager {
     }
     
     subscribeToTopic(brokerId, topic) {
+        if (isNative) {
+            // На Android — тільки нативний сервіс
+            NativeMqtt.subscribe({ brokerId, topic }).catch(e => 
+                console.warn('[ConnectionManager] Native subscribe error:', e));
+            return;
+        }
         const client = this.mqttClients.get(brokerId);
         if (client) {
             client.subscribe(topic);
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for subscription to ${topic}.`);
         }
-        // Also forward to native service on Android
-        if (NativeMqtt) {
-            NativeMqtt.subscribe({ brokerId, topic }).catch(e => 
-                console.warn('[ConnectionManager] Native subscribe warning:', e));
-        }
     }
 
     unsubscribeFromTopic(brokerId, topic) {
+        if (isNative) {
+            NativeMqtt.unsubscribe({ brokerId, topic }).catch(e => 
+                console.warn('[ConnectionManager] Native unsubscribe error:', e));
+            return;
+        }
         const client = this.mqttClients.get(brokerId);
         if (client) {
             client.unsubscribe(topic);
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for unsubscription from ${topic}.`);
         }
-        // Also forward to native service on Android
-        if (NativeMqtt) {
-            NativeMqtt.unsubscribe({ brokerId, topic }).catch(e => 
-                console.warn('[ConnectionManager] Native unsubscribe warning:', e));
-        }
     }
 
     publishToTopic(brokerId, topic, message) {
+        if (isNative) {
+            NativeMqtt.publish({ brokerId, topic, message: String(message) }).catch(e => 
+                console.warn('[ConnectionManager] Native publish error:', e));
+            return;
+        }
         const client = this.mqttClients.get(brokerId);
         if (client) {
             client.publish(topic, message);
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for publishing to ${topic}.`);
         }
-        // Also forward to native service on Android
-        if (NativeMqtt) {
-            NativeMqtt.publish({ brokerId, topic, message: String(message) }).catch(e => 
-                console.warn('[ConnectionManager] Native publish warning:', e));
-        }
     }
 
     isConnected(brokerId) {
+        if (isNative) {
+            // На Android статус визначається нативним сервісом через eventBus
+            return this._nativeStatuses.get(brokerId) === 'connected';
+        }
         const client = this.mqttClients.get(brokerId);
         return client ? client.isConnected() : false;
+    }
+
+    // Метод для оновлення статусу з нативного сервісу
+    updateNativeStatus(brokerId, status) {
+        this._nativeStatuses.set(brokerId, status);
     }
 }
 

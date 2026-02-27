@@ -93,6 +93,10 @@ const setupNativeMqttListeners = () => {
   // Receive broker status changes from native service
   NativeMqtt.addListener('brokerStatus', (data) => {
     const { brokerId, status } = data;
+    
+    // Оновлюємо статус в ConnectionManager для isConnected()
+    connectionManager.updateNativeStatus(brokerId, status);
+    
     if (status === 'connected') {
       eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
     } else if (status === 'disconnected' || status === 'error') {
@@ -102,10 +106,27 @@ const setupNativeMqttListeners = () => {
     }
   });
 
-  // When app comes back to foreground, drain any buffered messages
+  // When app comes back to foreground, drain buffered messages and refresh statuses
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
       try {
+        // Refresh broker statuses from native service
+        const statusResult = await NativeMqtt.getStatus();
+        if (statusResult.brokers) {
+          const brokers = typeof statusResult.brokers === 'string' 
+            ? JSON.parse(statusResult.brokers) 
+            : statusResult.brokers;
+          Object.entries(brokers).forEach(([brokerId, status]) => {
+            connectionManager.updateNativeStatus(brokerId, status);
+            if (status === 'connected') {
+              eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
+            } else {
+              eventBus.emit('broker:disconnected', brokerId);
+            }
+          });
+        }
+
+        // Drain buffered messages
         const result = await NativeMqtt.drainBuffer();
         const messages = result.messages || [];
         if (messages.length > 0) {
@@ -115,7 +136,7 @@ const setupNativeMqttListeners = () => {
           });
         }
       } catch (e) {
-        console.error("[NativeMqtt] Error draining buffer:", e);
+        console.error("[NativeMqtt] Error on resume:", e);
       }
     }
   });
