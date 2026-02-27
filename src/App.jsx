@@ -25,8 +25,15 @@ const App = () => {
   );
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const { appConfig, isLoading, setAppConfig, globalConnectionStatus, ...handlers } =
-    useAppConfig();
+  const { 
+    appConfig, 
+    isLoading, 
+    setAppConfig, 
+    globalConnectionStatus, 
+    brokerStatuses, 
+    brokerErrors, 
+    handlers 
+  } = useAppConfig();
 
   // 1. Run immediately on app boot to prevent Android from drawing solid bars
   useEffect(() => {
@@ -115,7 +122,9 @@ const App = () => {
               appConfig={appConfig}
               setAppConfig={setAppConfig}
               globalConnectionStatus={globalConnectionStatus}
-              {...handlers}
+              brokerStatuses={brokerStatuses}
+              brokerErrors={brokerErrors}
+              handlers={handlers}
               themeMode={themeMode}
               setThemeMode={setThemeMode}
             />
