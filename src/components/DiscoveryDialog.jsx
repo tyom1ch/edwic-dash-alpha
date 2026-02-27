@@ -76,6 +76,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
   const [openDevices, setOpenDevices] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(""); // Стан для пошукового запиту
+  const [expandedBrokers, setExpandedBrokers] = useState({});
 
   useEffect(() => {
     if (isOpen) {
