@@ -1,26 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import deviceRegistry from '../core/DeviceRegistry';
 import eventBus from '../core/EventBus';
 
 const useEntity = (entityId) => {
-const [entity, setEntity] = useState(() => deviceRegistry.getEntity(entityId) || null);
+  const subscribe = useCallback((callback) => {
+    eventBus.on(`entity:update:${entityId}`, callback);
+    return () => {
+      eventBus.off(`entity:update:${entityId}`, callback);
+    };
+  }, [entityId]);
 
-useEffect(() => {
-const currentState = deviceRegistry.getEntity(entityId) || null;
-setEntity(currentState);
+  const getSnapshot = useCallback(() => {
+    return deviceRegistry.getEntity(entityId) || null;
+  }, [entityId]);
 
-const handleUpdate = (updatedEntity) => {
-  setEntity(updatedEntity);
-};
-
-eventBus.on(`entity:update:${entityId}`, handleUpdate);
-
-return () => {
-  eventBus.off(`entity:update:${entityId}`, handleUpdate);
-};
-}, [entityId]);
-
-return entity;
+  return useSyncExternalStore(subscribe, getSnapshot);
 };
 
 export default useEntity;

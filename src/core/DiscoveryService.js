@@ -91,6 +91,12 @@ class DiscoveryService {
         this.discoveredDevices.clear();
         this.configTopicToEntityId.clear();
         this.availabilityTopics.clear();
+        
+        if (this._debounceTimeout) {
+            clearTimeout(this._debounceTimeout);
+            this._debounceTimeout = null;
+        }
+
         this.emitDebouncedUpdate();
     }
 

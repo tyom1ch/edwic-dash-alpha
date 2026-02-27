@@ -43,6 +43,8 @@ class ConnectionManager {
                     console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
                     // Сповіщаємо систему, що брокер зараз буде переконфігурований
                     eventBus.emit('broker:reconnecting', brokerConfig.id);
+                    // AWAIT THE DISCONNECT FIRST to prevent race conditions
+                    await existingClient.disconnect();
                     await existingClient.reconnect(brokerConfig);
                 }
             } else {

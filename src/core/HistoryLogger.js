@@ -55,16 +55,19 @@ class HistoryLogger {
     if (now - lastTimestamp > this.rateLimitMs) {
       this.lastLogTimestamps.set(compositeKey, now);
       
-      try {
-        await db.history.put({
-          brokerId,
-          topic,
-          value: numericValue,
-          timestamp: now
-        });
-      } catch (e) {
-        console.error("[HistoryLogger] Failed to write history metric:", e);
-      }
+      // Async IIFE wrapper for background execution without delaying raw_message pipeline
+      (async () => {
+        try {
+          await db.history.put({
+            brokerId,
+            topic,
+            value: numericValue,
+            timestamp: now
+          });
+        } catch (e) {
+          console.error("[HistoryLogger] Failed to write history metric:", e);
+        }
+      })();
     }
   }
 
