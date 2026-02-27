@@ -63,8 +63,10 @@ const App = () => {
       if (Capacitor.isNativePlatform()) {
         try {
           // Identify if MUI is currently rendering dark or light
-          // mode can be 'light', 'dark', or 'system'
-          const currentMode = mode === 'system' ? systemMode : mode;
+          // mode can be 'light', 'dark', 'system', or undefined (during first SSR/hydration tick)
+          const resolvedMode = mode || 'system';
+          const resolvedSystemMode = systemMode || 'light';
+          const currentMode = resolvedMode === 'system' ? resolvedSystemMode : resolvedMode;
           const isDark = currentMode === 'dark';
           const bgColor = isDark ? '#121212' : '#ffffff'; // Explicit hex to prevent CSS variable parsing failure on Android Java Layer
           
