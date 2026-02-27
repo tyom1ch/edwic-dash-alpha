@@ -10,13 +10,31 @@
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
 
+    <!-- Main app theme after splash screen finishes.
+         IMPORTANT: android:background MUST be set to a color (not a drawable)
+         to prevent the splash screen image from bleeding into system dialogs,
+         text selection handles, date pickers, and other native UI elements. -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <!-- Explicitly reset background to prevent splash drawable leak -->
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
+        <!-- Fix text selection handle/cursor colors (prevents black overlay) -->
+        <item name="android:textColorHighlight">#4D1976D2</item>
+        <!-- Ensure proper dialog theming -->
+        <item name="android:alertDialogTheme">@style/AppTheme.Dialog</item>
+        <item name="alertDialogTheme">@style/AppTheme.Dialog</item>
     </style>
 
+    <!-- Clean dialog theme that doesn't inherit splash artifacts -->
+    <style name="AppTheme.Dialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">?android:attr/colorBackground</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
 
+    <!-- Splash screen launch theme -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
