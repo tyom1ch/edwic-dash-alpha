@@ -11,6 +11,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { App } from '@capacitor/app';
 
 let isCoreInitialized = false;
+let isForegroundServiceStarted = false;
 
 // Додаємо змінну для зберігання поточного стану брокерів для нотифікацій
 let currentBrokersStatus = {};
@@ -26,6 +27,7 @@ const formatUptime = (totalSeconds) => {
 // Функція для оновлення фонової нотифікації
 const updateBackgroundNotification = async () => {
   if (!Capacitor.isNativePlatform()) return;
+  if (!isForegroundServiceStarted) return;
 
   const brokersInfo = Object.values(currentBrokersStatus);
   let brokersText = 'Немає налаштованих брокерів';
@@ -169,6 +171,7 @@ export default {
               notificationChannelId: 'edwic_bg_sync_v2'
             });
             
+            isForegroundServiceStarted = true;
             console.log("[ForegroundService] Started successfully.");
 
             setInterval(() => {
