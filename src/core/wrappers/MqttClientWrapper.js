@@ -145,7 +145,7 @@ class MqttClientWrapper extends EventEmitter {
   }
 
   subscribe(topic) {
-    if (this.client && this.client.connected) {
+    if (this.client) {
       this.client.subscribe(topic, (err) => {
         if (err)
           console.error(
@@ -157,7 +157,7 @@ class MqttClientWrapper extends EventEmitter {
   }
 
   unsubscribe(topic) {
-    if (this.client && this.client.connected) {
+    if (this.client) {
       this.client.unsubscribe(topic, (err) => {
         if (err)
           console.error(
@@ -169,7 +169,7 @@ class MqttClientWrapper extends EventEmitter {
   }
 
   publish(topic, message) {
-    if (this.client && this.client.connected) {
+    if (this.client) {
       this.client.publish(topic, message, (err) => {
         if (err)
           console.error(

@@ -30,7 +30,7 @@ const updateBackgroundNotification = async () => {
       id: 1993,
       title: 'Синхронізація...',
       body: statusText,
-      smallIcon: 'ic_launcher', // changed to standard icon to prevent crashes
+      smallIcon: 'ic_notification', // Changed to standard icon to prevent resource crashes
       silent: true,
       notificationChannelId: 'edwic_bg_sync_v2'
     });
