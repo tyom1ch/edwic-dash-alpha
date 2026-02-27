@@ -179,7 +179,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
           </Typography>
         )}
         {!loading &&
-          filteredDiscovered.length === 0 &&
+          Object.keys(groupedDiscovered).length === 0 &&
           discovered.length > 0 && (
             <Typography sx={{ p: 4, textAlign: "center" }}>
               Нічого не знайдено за вашим запитом.
