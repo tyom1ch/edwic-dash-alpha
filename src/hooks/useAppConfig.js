@@ -29,6 +29,7 @@ const migrateDashboard = (dashboard) => {
 
 const initialConfig = {
   hasSeenWelcome: false,
+  autoConnect: true,
   brokers: [],
   alerts: [],
   dashboards: {

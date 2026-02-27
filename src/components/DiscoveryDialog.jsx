@@ -16,6 +16,9 @@ import {
   Box,
   CircularProgress,
   TextField,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import { ExpandLess, ExpandMore, AddCircleOutline } from "@mui/icons-material";
 import MemoryIcon from "@mui/icons-material/Memory";
@@ -68,7 +71,7 @@ const getEntityIcon = (componentType) => {
 };
 
 // useless coment
-function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
+function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
   const [discovered, setDiscovered] = useState([]);
   const [openDevices, setOpenDevices] = useState({});
   const [loading, setLoading] = useState(true);
@@ -105,42 +108,50 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
 
   // Фільтруємо пристрої на основі пошукового запиту.
   // useMemo кешує результат, щоб уникнути перерахунку при кожному рендері.
-  const filteredDiscovered = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return discovered;
+  const groupedDiscovered = useMemo(() => {
+    let baseList = discovered;
+
+    if (searchQuery.trim()) {
+      const lowerCaseQuery = searchQuery.toLowerCase().trim();
+      baseList = discovered.reduce((acc, device) => {
+        const isDeviceMatch =
+          device.name.toLowerCase().includes(lowerCaseQuery) ||
+          device.manufacturer.toLowerCase().includes(lowerCaseQuery) ||
+          device.model.toLowerCase().includes(lowerCaseQuery);
+
+        const matchingEntities = device.entities.filter((entity) => {
+          const name = entity?.name;
+          return (
+            typeof name === "string" &&
+            name.toLowerCase().includes(lowerCaseQuery)
+          );
+        });
+
+        if (isDeviceMatch || matchingEntities.length > 0) {
+          acc.push({
+            ...device,
+            entities: isDeviceMatch ? device.entities : matchingEntities,
+          });
+        }
+        return acc;
+      }, []);
     }
 
-    const lowerCaseQuery = searchQuery.toLowerCase().trim();
+    // Group by brokerId
+    const groups = {};
+    baseList.forEach(device => {
+      // Pick first entity's brokerId as device's primary broker
+      const bId = device.entities[0]?.brokerId || 'unknown';
+      if (!groups[bId]) groups[bId] = [];
+      groups[bId].push(device);
+    });
 
-    // Використовуємо reduce для побудови нового масиву відфільтрованих пристроїв
-    return discovered.reduce((acc, device) => {
-      // Перевіряємо, чи збігається інформація про сам пристрій
-      const isDeviceMatch =
-        device.name.toLowerCase().includes(lowerCaseQuery) ||
-        device.manufacturer.toLowerCase().includes(lowerCaseQuery) ||
-        device.model.toLowerCase().includes(lowerCaseQuery);
-
-      // Фільтруємо сутності цього пристрою, які відповідають запиту
-      const matchingEntities = device.entities.filter((entity) => {
-        const name = entity?.name;
-        return (
-          typeof name === "string" &&
-          name.toLowerCase().includes(lowerCaseQuery)
-        );
-      });
-
-      // Якщо пристрій сам збігається, ми показуємо його з усіма сутностями.
-      // Якщо збігаються тільки сутності, показуємо пристрій тільки з цими сутностями.
-      if (isDeviceMatch || matchingEntities.length > 0) {
-        acc.push({
-          ...device,
-          entities: isDeviceMatch ? device.entities : matchingEntities,
-        });
-      }
-
-      return acc;
-    }, []);
+    return groups;
   }, [discovered, searchQuery]);
+
+  const handleToggleBroker = (brokerId) => {
+    setExpandedBrokers(prev => ({ ...prev, [brokerId]: !prev[brokerId] }));
+  };
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="md">
@@ -175,73 +186,75 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity }) {
             </Typography>
           )}
 
-        <List>
-          {/* Рендеримо відфільтрований список */}
-          {filteredDiscovered.map((device) => {
-            // При активному пошуку всі знайдені пристрої розгорнуті
-            const isExpanded = !!searchQuery || !!openDevices[device.id];
+        <Box>
+          {Object.entries(groupedDiscovered).map(([brokerId, devices]) => {
+            const brokerInfo = brokers.find(b => b.id === brokerId);
+            const brokerName = brokerInfo?.name || brokerId;
+            const isBrokerExpanded = searchQuery || expandedBrokers[brokerId] !== false;
 
             return (
-              <React.Fragment key={device.id}>
-                <ListItem button onClick={() => handleToggleDevice(device.id)}>
-                  <ListItemIcon>
-                    <MemoryIcon />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <HighlightText
-                        text={device.name}
-                        highlight={searchQuery}
-                      />
-                    }
-                    secondary={
-                      <>
-                        <HighlightText
-                          text={device.manufacturer}
-                          highlight={searchQuery}
-                        />{" "}
-                        -{" "}
-                        <HighlightText
-                          text={device.model}
-                          highlight={searchQuery}
-                        />{" "}
-                        ({device.entities.length} сутностей)
-                      </>
-                    }
-                  />
-                  {isExpanded ? <ExpandLess /> : <ExpandMore />}
-                </ListItem>
-                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {device.entities.map((entity) => (
-                      <ListItem key={entity.id} sx={{ pl: 4 }}>
-                        <ListItemIcon>
-                          {getEntityIcon(entity.componentType)}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <HighlightText
-                              text={entity.name}
-                              highlight={searchQuery}
+              <Accordion 
+                key={brokerId} 
+                expanded={isBrokerExpanded} 
+                onChange={() => handleToggleBroker(brokerId)}
+                sx={{ mb: 1, '&:before': { display: 'none' } }}
+                variant="outlined"
+              >
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography fontWeight="bold" color="primary">
+                    Брокер: {brokerName} ({devices.length} пристроїв)
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ p: 0 }}>
+                  <List>
+                    {devices.map((device) => {
+                      const isExpanded = !!searchQuery || !!openDevices[device.id];
+                      return (
+                        <React.Fragment key={device.id}>
+                          <ListItem button onClick={() => handleToggleDevice(device.id)}>
+                            <ListItemIcon>
+                              <MemoryIcon />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={<HighlightText text={device.name} highlight={searchQuery} />}
+                              secondary={
+                                <>
+                                  <HighlightText text={device.manufacturer} highlight={searchQuery} />{" "}
+                                  -{" "}
+                                  <HighlightText text={device.model} highlight={searchQuery} />{" "}
+                                  ({device.entities.length} сутностей)
+                                </>
+                              }
                             />
-                          }
-                          secondary={`Тип: ${entity.componentType}`}
-                        />
-                        <IconButton
-                          edge="end"
-                          aria-label="add"
-                          onClick={() => handleAddClick(entity)}
-                        >
-                          <AddCircleOutline color="primary" />
-                        </IconButton>
-                      </ListItem>
-                    ))}
+                            {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                          </ListItem>
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <List component="div" disablePadding>
+                              {device.entities.map((entity) => (
+                                <ListItem key={entity.id} sx={{ pl: 4 }}>
+                                  <ListItemIcon>
+                                    {getEntityIcon(entity.componentType)}
+                                  </ListItemIcon>
+                                  <ListItemText
+                                    primary={<HighlightText text={entity.name} highlight={searchQuery} />}
+                                    secondary={`Тип: ${entity.componentType}`}
+                                  />
+                                  <IconButton edge="end" aria-label="add" onClick={() => handleAddClick(entity)}>
+                                    <AddCircleOutline color="primary" />
+                                  </IconButton>
+                                </ListItem>
+                              ))}
+                            </List>
+                          </Collapse>
+                        </React.Fragment>
+                      );
+                    })}
                   </List>
-                </Collapse>
-              </React.Fragment>
+                </AccordionDetails>
+              </Accordion>
             );
           })}
-        </List>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Закрити</Button>

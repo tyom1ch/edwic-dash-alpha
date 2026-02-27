@@ -17,6 +17,7 @@ import {
   useColorScheme,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
   IconButton,
   Dialog,
@@ -25,6 +26,8 @@ import {
   DialogActions,
   Stack,
   Tooltip,
+  Alert,
+  AlertTitle,
 } from "@mui/material";
 import {
   LightMode,
@@ -35,7 +38,13 @@ import {
   Edit,
   Add,
   CloudDone,
+  Notifications,
+  BatteryChargingFull,
+  SettingsInputComponent,
+  PowerSettingsNew,
 } from "@mui/icons-material";
+import { registerPlugin } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { useNavigate } from "react-router-dom";
 import useAppConfig from "../hooks/useAppConfig";
 import AlertDialog from "../components/AlertDialog";
@@ -76,6 +85,78 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const [editingAlert, setEditingAlert] = useState(null);
   const alerts = appConfig.alerts || [];
   const { handleSetAlerts } = handlers || {};
+
+  // --- System Status State ---
+  const [sysStatus, setSysStatus] = useState({
+    serviceRunning: false,
+    notifications: 'prompt',
+    batteryIgnoring: false,
+    loading: true
+  });
+
+  const checkSystemStatus = async () => {
+    if (!isNativePlatform) return;
+    try {
+      const NativeMqtt = registerPlugin('NativeMqtt');
+      const statusRes = await NativeMqtt.getStatus();
+      const permRes = await LocalNotifications.checkPermissions();
+      const batteryRes = await NativeMqtt.checkBatteryOptimization();
+
+      setSysStatus({
+        serviceRunning: !!statusRes.running,
+        notifications: permRes.display,
+        batteryIgnoring: !!batteryRes.isIgnoring,
+        loading: false
+      });
+    } catch (e) {
+      console.warn("Failed to check system status:", e);
+      setSysStatus(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  React.useEffect(() => {
+    if (tabIndex === 2 && isNativePlatform) {
+      checkSystemStatus();
+    }
+  }, [tabIndex]);
+
+  const handleRequestNotifications = async () => {
+    try {
+      const res = await LocalNotifications.requestPermissions();
+      setSysStatus(prev => ({ ...prev, notifications: res.display }));
+    } catch (e) {
+      setError("Не вдалося запросити дозвіл на сповіщення");
+    }
+  };
+
+  const handleRequestBattery = async () => {
+    try {
+      const NativeMqtt = registerPlugin('NativeMqtt');
+      await NativeMqtt.requestIgnoreBatteryOptimizations();
+      // We can't immediately know if they granted it since it opens an activity,
+      // but we'll re-check after a short delay or when they come back.
+      setTimeout(checkSystemStatus, 2000);
+    } catch (e) {
+      setError("Не вдалося відкрити налаштування батареї");
+    }
+  };
+
+  const handleToggleService = async () => {
+    try {
+      const NativeMqtt = registerPlugin('NativeMqtt');
+      if (sysStatus.serviceRunning) {
+        await NativeMqtt.stopService();
+      } else {
+        await NativeMqtt.startService({ 
+          brokers: brokers || [],
+          alerts: appConfig.alerts || []
+        });
+      }
+      setTimeout(checkSystemStatus, 500);
+    } catch (e) {
+      setError("Помилка керування сервісом: " + e.message);
+    }
+  };
 
   // --- Confirm/Alert Dialog State ---
   const [confirmDialog, setConfirmDialog] = useState({
@@ -604,6 +685,106 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       {/* ВКЛАДКА 3: Системні налаштування (Візуальні) */}
       {tabIndex === 2 && (
         <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+          {isNativePlatform && (
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+                  <SettingsInputComponent sx={{ mr: 1 }} /> Стан системи (Android)
+                </Typography>
+                
+                <List>
+                  <ListItem
+                    secondaryAction={
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        color={sysStatus.serviceRunning ? "error" : "primary"}
+                        onClick={handleToggleService}
+                        startIcon={<PowerSettingsNew />}
+                      >
+                        {sysStatus.serviceRunning ? "Зупинити" : "Запустити"}
+                      </Button>
+                    }
+                  >
+                    <ListItemText 
+                      primary="Фоновий MQTT Сервіс" 
+                      secondary={sysStatus.serviceRunning ? "Працює у фоні" : "Зупинено"} 
+                    />
+                  </ListItem>
+                  
+                  <Divider component="li" />
+
+                  <ListItem
+                    secondaryAction={
+                      sysStatus.notifications !== 'granted' && (
+                        <Button size="small" onClick={handleRequestNotifications}>
+                          Надати
+                        </Button>
+                      )
+                    }
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Notifications color={sysStatus.notifications === 'granted' ? "success" : "warning"} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Сповіщення" 
+                      secondary={sysStatus.notifications === 'granted' ? "Дозволено" : "Вимкнено"} 
+                    />
+                  </ListItem>
+
+                  <Divider component="li" />
+
+                  <ListItem
+                    secondaryAction={
+                      !sysStatus.batteryIgnoring && (
+                        <Button size="small" onClick={handleRequestBattery}>
+                          Налаштувати
+                        </Button>
+                      )
+                    }
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <BatteryChargingFull color={sysStatus.batteryIgnoring ? "success" : "warning"} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Оптимізація батареї" 
+                      secondary={sysStatus.batteryIgnoring ? "Вимкнено (надійно)" : "Увімкнено (можливі затримки)"} 
+                    />
+                  </ListItem>
+                </List>
+
+                {!sysStatus.batteryIgnoring && (
+                  <Alert severity="warning" sx={{ mt: 1 }}>
+                    <AlertTitle>Порада</AlertTitle>
+                    Для стабільної роботи у фоні рекомендується вимкнути оптимізацію батареї для цього додатка.
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Box>
+            <Typography variant="h6" gutterBottom display="flex" alignItems="center">
+              <PowerSettingsNew sx={{ mr: 1 }} /> Налаштування запуску
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!appConfig.autoConnect}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setAppConfig(prev => ({ ...prev, autoConnect: val }));
+                  }}
+                  name="autoConnect"
+                />
+              }
+              label="Автоматично підключатися при старті"
+            />
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5 }}>
+              Якщо вимкнено, додаток не буде ініціалізувати MQTT з'єднання доки ви не перейдете на дашборд або не натиснете "Запустити".
+            </Typography>
+          </Box>
+
           <Box>
             <Typography variant="h6" gutterBottom>
               Тема додатку

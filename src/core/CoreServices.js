@@ -20,7 +20,7 @@ let currentBrokersStatus = {};
 
 // Ця функція налаштовує реакцію сервісів на майбутні зміни конфігурації
 const setupEventListeners = () => {
-  eventBus.on("config:saved", (newConfig) => {
+  eventBus.on("config:saved", async (newConfig) => {
     console.log("[CoreServices] Detected config change, synchronizing services...");
     
     // 1. Оновлюємо ConnectionManager новим списком брокерів
@@ -58,7 +58,7 @@ const setupEventListeners = () => {
     });
     
     // 2. Синхронізуємо DeviceRegistry зі списком компонентів та їх підписками
-    deviceRegistry.syncFromAppConfig(newConfig);
+    await deviceRegistry.syncFromAppConfig(newConfig);
     
     // 3. Сповіщаємо інші сервіси (напр. DiscoveryService) про оновлення
     eventBus.emit("config:updated", newConfig);
@@ -175,10 +175,15 @@ export default {
     });
 
     if (Capacitor.isNativePlatform()) {
-      console.log("[CoreServices] Native platform detected. Starting Native MQTT Service.");
+      console.log("[CoreServices] Native platform detected.");
       
-      // Start native MQTT service — it runs independently of WebView
-      (async () => {
+      // Setup native event listeners regardless of autoConnect (so manual starts work)
+      setupNativeMqttListeners();
+
+      if (config.autoConnect !== false) {
+        console.log("[CoreServices] Starting Native MQTT Service auto-connect...");
+        // Start native MQTT service — it runs independently of WebView
+        (async () => {
         try {
           // 1. Request notification permission (Android 13+)
           const permResult = await LocalNotifications.requestPermissions();
@@ -252,6 +257,9 @@ export default {
           console.error("[NativeMqtt] Failed to initialize:", err);
         }
       })();
+      } else {
+        console.log("[CoreServices] autoConnect is disabled for native. Service not started.");
+      }
     }
 
     // Спочатку налаштовуємо слухачів подій
@@ -260,7 +268,11 @@ export default {
     // Потім "вистрілюємо" подією 'config:saved' з початковим конфігом.
     // Це змушує всі сервіси синхронізуватися, використовуючи ту ж логіку,
     // що й для динамічних оновлень.
-    eventBus.emit("config:saved", config);
+    if (config.autoConnect !== false) {
+      eventBus.emit("config:saved", config);
+    } else {
+      console.log("[CoreServices] autoConnect is disabled. Initial connection skipped.");
+    }
     
     isCoreInitialized = true;
     console.log("[CoreServices] Initialization complete.");

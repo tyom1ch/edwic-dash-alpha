@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { IconButton, Snackbar, Alert, Box } from "@mui/material";
+import { IconButton, Snackbar, Alert, Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 import { AppProvider, DashboardLayout } from "@toolpad/core";
 import {
   Settings,
@@ -22,6 +22,7 @@ import { DashboardMenu } from "./layout/DashboardMenu";
 import { AddDashboardDialog } from "./dialogs/AddDashboardDialog";
 import { RenameDashboardDialog } from "./dialogs/RenameDashboardDialog";
 import eventBus from "../core/EventBus";
+import { Capacitor } from "@capacitor/core";
 
 // Компонент для відстеження глобальних подій і показу сповіщень (нативний MUI)
 function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
@@ -70,8 +71,9 @@ function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
     });
   }, [brokers, brokerStatuses, brokerErrors]);
 
-  // 3. Відстеження користувацьких Алертів з фону
+  // 3. Відстеження користувацьких Алертів з фону (ТІЛЬКИ на Web — на Android пуш-нотифікації від нативного сервісу)
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) return; // Нативний сервіс сам робить пуші
     const handleAlerts = ({ alert, message }) => {
       pushToast(message, "warning");
     };
@@ -177,7 +179,17 @@ function AppLayout({
 
   // Section-level handlers
   const handleAddSection = () => handlers.handleAddSection(currentDashboardId);
-  const handleDeleteSection = (sectionId) => handlers.handleDeleteSection(currentDashboardId, sectionId);
+  
+  // Section delete with confirmation
+  const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
+  const handleDeleteSection = (sectionId) => setConfirmDeleteSection(sectionId);
+  const confirmDeleteSectionAction = () => {
+    if (confirmDeleteSection) {
+      handlers.handleDeleteSection(currentDashboardId, confirmDeleteSection);
+      setConfirmDeleteSection(null);
+    }
+  };
+  
   const handleRenameSection = (sectionId, newTitle) => handlers.handleRenameSection(currentDashboardId, sectionId, newTitle);
 
   useEffect(() => {
@@ -345,6 +357,22 @@ function AppLayout({
         renameInfo={renameDashInfo}
         setRenameInfo={setRenameDashInfo}
       />
+      
+      {/* Підтвердження видалення секції */}
+      <Dialog open={!!confirmDeleteSection} onClose={() => setConfirmDeleteSection(null)}>
+        <DialogTitle>Видалити секцію?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Ви впевнені, що хочете видалити цю секцію? Всі віджети всередині неї будуть також видалені. Цю дію неможливо скасувати.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteSection(null)}>Скасувати</Button>
+          <Button color="error" variant="contained" onClick={confirmDeleteSectionAction}>
+            Видалити
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AppProvider>
   );
 }

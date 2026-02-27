@@ -19,6 +19,13 @@ db.version(3).stores({
   notifications: '++id, timestamp, read' 
 });
 
+db.version(4).stores({
+  config: 'id',
+  history: '++id, [brokerId+topic], topic, timestamp',
+  notifications: '++id, timestamp, read',
+  topicCache: '[brokerId+topic]' 
+});
+
 export const saveAppConfig = async (configData) => {
   try {
     await db.config.put({ id: 'main-config', ...configData });

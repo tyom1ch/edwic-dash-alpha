@@ -2,6 +2,22 @@
 import eventBus from "./EventBus";
 import connectionManager from "./ConnectionManager";
 import { getWidgetById } from "./widgetRegistry";
+import { db } from "./db";
+
+// Buffer for debouncing DB saves
+let topicCacheBuffer = new Map();
+let cacheSaveTimeout = null;
+
+const flushTopicCache = async () => {
+  if (topicCacheBuffer.size === 0) return;
+  const itemsToSave = Array.from(topicCacheBuffer.values());
+  topicCacheBuffer.clear();
+  try {
+    await db.topicCache.bulkPut(itemsToSave);
+  } catch (err) {
+    console.warn("[DeviceRegistry] Error saving topic cache:", err);
+  }
+};
 
 class DeviceRegistry {
   constructor() {
@@ -29,7 +45,7 @@ class DeviceRegistry {
     return topicsByBroker;
   }
 
-syncFromAppConfig(appConfig) {
+  async syncFromAppConfig(appConfig) {
     console.log("[DeviceRegistry] Syncing with new application config...");
     const allComponents = (appConfig?.dashboards)
       ? Object.values(appConfig.dashboards).flatMap(d =>
@@ -41,6 +57,18 @@ syncFromAppConfig(appConfig) {
 
     const newEntities = new Map();
     const newTopicActionMap = new Map();
+
+    // 1. Fetch cache
+    let cachedTopics = [];
+    try {
+      cachedTopics = await db.topicCache.toArray();
+    } catch (err) {
+      console.warn("[DeviceRegistry] Failed loading topic cache:", err);
+    }
+    const cacheMap = new Map();
+    cachedTopics.forEach(item => {
+      cacheMap.set(`${item.brokerId}:${item.topic}`, item);
+    });
 
     allComponents.forEach((component) => {
       const widgetDef = getWidgetById(component.type);
@@ -79,6 +107,20 @@ syncFromAppConfig(appConfig) {
             property,
             brokerId: component.brokerId,
           });
+
+          // PREFILL FROM CACHE IF NO LIVE DATA YET
+          if (!newEntity._live_keys || !newEntity._live_keys[property]) {
+            const cacheKey = `${component.brokerId}:${topic}`;
+            const cachedItem = cacheMap.get(cacheKey);
+            if (cachedItem) {
+              newEntity[property] = cachedItem.value;
+              // we don't mark it as _live_key here because it's stale cash, 
+              // but we do show it in UI
+              if (!newEntity.last_updated || new Date(cachedItem.timestamp) > new Date(newEntity.last_updated)) {
+                newEntity.last_updated = cachedItem.timestamp;
+              }
+            }
+          }
         }
       }
     });
@@ -109,10 +151,23 @@ syncFromAppConfig(appConfig) {
     });
   }
   
-handleMqttRawMessage(brokerId, topic, messageBuffer) {
+  handleMqttRawMessage(brokerId, topic, messageBuffer) {
     const actions = this.topicToActionMap.get(topic);
     if (actions) {
       const messageString = messageBuffer.toString();
+      
+      // SAVE TO CACHE BUFFER
+      const cacheKey = `${brokerId}:${topic}`;
+      topicCacheBuffer.set(cacheKey, {
+        brokerId,
+        topic,
+        value: messageString,
+        timestamp: new Date().toISOString()
+      });
+      // DEBOUNCE DB SAVE
+      if (cacheSaveTimeout) clearTimeout(cacheSaveTimeout);
+      cacheSaveTimeout = setTimeout(() => flushTopicCache(), 300);
+
       actions.forEach(action => {
         if (action.brokerId !== brokerId) return;
 

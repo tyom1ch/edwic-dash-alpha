@@ -288,6 +288,23 @@ public class NativeMqttPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void checkBatteryOptimization(PluginCall call) {
+        try {
+            Context context = getContext();
+            android.os.PowerManager pm = (android.os.PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            String packageName = context.getPackageName();
+            boolean isIgnoring = (pm != null && pm.isIgnoringBatteryOptimizations(packageName));
+
+            JSObject result = new JSObject();
+            result.put("isIgnoring", isIgnoring);
+            call.resolve(result);
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking battery optimization", e);
+            call.reject("Error: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();
