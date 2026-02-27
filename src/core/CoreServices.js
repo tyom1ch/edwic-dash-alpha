@@ -111,32 +111,43 @@ const setupNativeMqttListeners = () => {
     }
   });
 
-  // When app comes back to foreground, drain buffered messages and refresh statuses
+  // When app comes back to foreground, refresh statuses and deliver only latest values
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
       try {
-        // Refresh broker statuses from native service
+        // Refresh broker statuses from native service (only emit if changed)
         const statusResult = await NativeMqtt.getStatus();
         if (statusResult.brokers) {
           const brokers = typeof statusResult.brokers === 'string' 
             ? JSON.parse(statusResult.brokers) 
             : statusResult.brokers;
           Object.entries(brokers).forEach(([brokerId, status]) => {
+            const previousStatus = connectionManager.isConnected(brokerId) ? 'connected' : 'disconnected';
             connectionManager.updateNativeStatus(brokerId, status);
-            if (status === 'connected') {
-              eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
-            } else {
-              eventBus.emit('broker:disconnected', brokerId);
+            // Only emit if status actually changed to avoid cascading re-renders
+            if (status !== previousStatus) {
+              if (status === 'connected') {
+                eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
+              } else {
+                eventBus.emit('broker:disconnected', brokerId);
+              }
             }
           });
         }
 
-        // Drain buffered messages
+        // Drain buffered messages — deduplicate by topic, keep only latest per topic
         const result = await NativeMqtt.drainBuffer();
         const messages = result.messages || [];
         if (messages.length > 0) {
-          console.log(`[NativeMqtt] Draining ${messages.length} buffered messages from background.`);
+          // Keep only the LAST message per brokerId+topic combo
+          const latestByTopic = new Map();
           messages.forEach(msg => {
+            const key = `${msg.brokerId}:${msg.topic}`;
+            latestByTopic.set(key, msg);
+          });
+          const uniqueMessages = [...latestByTopic.values()];
+          console.log(`[NativeMqtt] Drained ${messages.length} msgs, emitting ${uniqueMessages.length} (deduped by topic).`);
+          uniqueMessages.forEach(msg => {
             eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload);
           });
         }
