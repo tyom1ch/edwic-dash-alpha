@@ -5,6 +5,7 @@ import {
   useTheme,
   useColorScheme
 } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
@@ -56,19 +57,15 @@ const App = () => {
     },
   });
 
-  // A component inside the provider to access the dynamically resolved theme properties
-  const EdgeToEdgeThemeSync = () => {
-    const { mode, systemMode } = useColorScheme();
+  // Native reactivity sync component decoupled from MUI's delayed theme resolution
+  const EdgeToEdgeThemeSync = ({ appThemeMode }) => {
+    const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+
     useEffect(() => {
       if (Capacitor.isNativePlatform()) {
         try {
-          // Identify if MUI is currently rendering dark or light
-          // mode can be 'light', 'dark', 'system', or undefined (during first SSR/hydration tick)
-          const resolvedMode = mode || 'system';
-          const resolvedSystemMode = systemMode || 'light';
-          const currentMode = resolvedMode === 'system' ? resolvedSystemMode : resolvedMode;
-          const isDark = currentMode === 'dark';
-          const bgColor = isDark ? '#121212' : '#ffffff'; // Explicit hex to prevent CSS variable parsing failure on Android Java Layer
+          const isDark = appThemeMode === 'system' ? prefersDarkMode : appThemeMode === 'dark';
+          const bgColor = isDark ? '#121212' : '#ffffff'; 
           
           EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
           
@@ -79,7 +76,7 @@ const App = () => {
           console.error("Failed to sync EdgeToEdge colors", e);
         }
       }
-    }, [mode, systemMode]);
+    }, [appThemeMode, prefersDarkMode]);
     
     return null;
   };
@@ -87,7 +84,7 @@ const App = () => {
   return (
     <CssVarsProvider theme={theme} defaultMode={themeMode} modeStorageKey="toolpad-mode">
       <CssBaseline enableColorScheme />
-      <EdgeToEdgeThemeSync />
+      <EdgeToEdgeThemeSync appThemeMode={themeMode} />
       {isLoading ? (
         <Box sx={{ 
           display: 'flex', 
