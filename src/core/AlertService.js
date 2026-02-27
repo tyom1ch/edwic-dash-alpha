@@ -3,6 +3,7 @@ import eventBus from './EventBus';
 import connectionManager from './ConnectionManager';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { db } from './db';
 
 class AlertService {
   constructor() {
@@ -93,7 +94,15 @@ class AlertService {
       ? alert.messageTemplate.replace('{value}', value).replace('{topic}', alert.topic)
       : `Алерт: ${alert.name} (${value})`;
 
-    // Emit internal event for the UI Snackbar
+    // Store in internal IndexedDB for the top-bar Notification Menu
+    db.notifications.put({
+      timestamp: now,
+      title: alert.name,
+      message: message,
+      read: 0
+    }).catch(e => console.error("[AlertService] DB Error:", e));
+
+    // Emit internal event for the UI Snackbar & Menu
     eventBus.emit("app:alert_triggered", { alert, message });
 
     if (Capacitor.isNativePlatform()) {
