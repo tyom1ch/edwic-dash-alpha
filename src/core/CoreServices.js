@@ -5,53 +5,17 @@ import eventBus from './EventBus';
 import './DiscoveryService'; // Імпортуємо, щоб він почав слухати події
 import './AlertService'; // Background rules & push notifications listener
 import historyLogger from './HistoryLogger';
-import { Capacitor } from '@capacitor/core';
-import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
-import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
-import { KeepAwake } from '@capacitor-community/keep-awake';
+
+// Register native MQTT plugin (only resolves on Android, noop on web)
+const NativeMqtt = registerPlugin('NativeMqtt');
 
 let isCoreInitialized = false;
-let isForegroundServiceStarted = false;
+let isNativeMqttStarted = false;
 
 // Додаємо змінну для зберігання поточного стану брокерів для нотифікацій
 let currentBrokersStatus = {};
-let appUptimeSeconds = 0;
-
-const formatUptime = (totalSeconds) => {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
-
-// Функція для оновлення фонової нотифікації
-const updateBackgroundNotification = async () => {
-  if (!Capacitor.isNativePlatform()) return;
-  if (!isForegroundServiceStarted) return;
-
-  const brokersInfo = Object.values(currentBrokersStatus);
-  let brokersText = 'Немає налаштованих брокерів';
-  
-  if (brokersInfo.length > 0) {
-    brokersText = brokersInfo.map(b => `${b.name || b.id}: ${b.connected ? '✅' : '❌'}`).join('\n');
-  }
-
-  const statusText = `Час роботи: ${formatUptime(appUptimeSeconds)}\n${brokersText}`;
-
-  try {
-    await ForegroundService.updateForegroundService({
-      id: 1993,
-      title: 'Синхронізація...',
-      body: statusText,
-      smallIcon: 'ic_notification', // Changed to standard icon to prevent resource crashes
-      silent: true,
-      notificationChannelId: 'edwic_bg_sync_v2'
-    });
-  } catch (err) {
-    console.error("[ForegroundService] Failed to update:", err);
-  }
-};
 
 // Ця функція налаштовує реакцію сервісів на майбутні зміни конфігурації
 const setupEventListeners = () => {
@@ -61,7 +25,14 @@ const setupEventListeners = () => {
     // 1. Оновлюємо ConnectionManager новим списком брокерів
     connectionManager.updateBrokers(newConfig.brokers || []);
     
-    // Оновлюємо внутрішній стан для нотифікації
+    // На Android також оновлюємо нативний сервіс
+    if (Capacitor.isNativePlatform() && isNativeMqttStarted) {
+      NativeMqtt.updateBrokers({ brokers: newConfig.brokers || [] }).catch(e => {
+        console.error("[NativeMqtt] Failed to update brokers:", e);
+      });
+    }
+
+    // Оновлюємо внутрішній стан для UI
     const currentStatusIds = Object.keys(currentBrokersStatus);
     const newConfigIds = (newConfig.brokers || []).map(b => b.id);
     
@@ -80,9 +51,7 @@ const setupEventListeners = () => {
         currentBrokersStatus[b.id].name = b.name;
       }
     });
-
-    updateBackgroundNotification();
-
+    
     // 2. Синхронізуємо DeviceRegistry зі списком компонентів та їх підписками
     deviceRegistry.syncFromAppConfig(newConfig);
     
@@ -90,30 +59,66 @@ const setupEventListeners = () => {
     eventBus.emit("config:updated", newConfig);
   });
 
-  // Слухаємо події підключення/відключення брокерів для оновлення нотифікації
+  // Слухаємо події підключення/відключення брокерів для оновлення UI
   eventBus.on("broker:connected", (id) => {
     if (currentBrokersStatus[id]) {
         currentBrokersStatus[id].connected = true;
-        updateBackgroundNotification();
     }
   });
 
   eventBus.on("broker:disconnected", (id) => {
     if (currentBrokersStatus[id]) {
         currentBrokersStatus[id].connected = false;
-        updateBackgroundNotification();
     }
   });
 
   eventBus.on("broker:error", (id) => {
      if (currentBrokersStatus[id]) {
         currentBrokersStatus[id].connected = false;
-        updateBackgroundNotification();
      }
   });
   
   // Ensure the history logger wakes up and attaches its event listeners
   historyLogger.initialize();
+};
+
+// Setup native MQTT event listeners (forwarded from Java service to JS)
+const setupNativeMqttListeners = () => {
+  // Receive messages from native MQTT service
+  NativeMqtt.addListener('mqttMessage', (data) => {
+    // Forward to the same eventBus that the JS MQTT wrapper uses
+    eventBus.emit('mqtt:raw_message', data.brokerId, data.topic, data.payload);
+  });
+
+  // Receive broker status changes from native service
+  NativeMqtt.addListener('brokerStatus', (data) => {
+    const { brokerId, status } = data;
+    if (status === 'connected') {
+      eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
+    } else if (status === 'disconnected' || status === 'error') {
+      eventBus.emit('broker:disconnected', brokerId);
+    } else if (status === 'removed') {
+      eventBus.emit('broker:removed', brokerId);
+    }
+  });
+
+  // When app comes back to foreground, drain any buffered messages
+  App.addListener('appStateChange', async (state) => {
+    if (state.isActive && isNativeMqttStarted) {
+      try {
+        const result = await NativeMqtt.drainBuffer();
+        const messages = result.messages || [];
+        if (messages.length > 0) {
+          console.log(`[NativeMqtt] Draining ${messages.length} buffered messages from background.`);
+          messages.forEach(msg => {
+            eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload);
+          });
+        }
+      } catch (e) {
+        console.error("[NativeMqtt] Error draining buffer:", e);
+      }
+    }
+  });
 };
 
 export default {
@@ -133,85 +138,41 @@ export default {
     });
 
     if (Capacitor.isNativePlatform()) {
-      console.log("[CoreServices] Native platform detected. Initializing Foreground Service and Notifications.");
+      console.log("[CoreServices] Native platform detected. Starting Native MQTT Service.");
       
-      // We MUST execute this asynchronously to avoid blocking the main thread,
-      // but we MUST wait for the permission dialog to close before starting
-      // the ForegroundService, otherwise Android 12+ will throw 
-      // ForegroundServiceStartNotAllowedException and crash the app immediately.
+      // Start native MQTT service — it runs independently of WebView
       (async () => {
         try {
-          const result = await LocalNotifications.requestPermissions();
-          console.log("[LocalNotifications] Permission result:", result);
-
-          if (result.display !== 'granted') {
-            console.warn("[LocalNotifications] Permissions not granted, skipping Foreground Service.");
-            return;
-          }
-          
-          await ForegroundService.createNotificationChannel({
-            id: 'edwic_bg_sync_v2', // New channel for silent/min importance
-            name: 'Фонова синхронізація',
-            description: 'Синхронізація з MQTT брокерами',
-            importance: 1 // Importance.Min - silent, no vibration, collapsed in status bar
-          });
-          
-          const startServices = async () => {
-            let brokersText = 'Немає налаштованих брокерів';
-            if (config.brokers && config.brokers.length > 0) {
-              brokersText = config.brokers.map(b => `${b.name || b.id}: ❌`).join('\n');
-            }
-            const initialBodyText = `Час роботи: 00:00:00\n${brokersText}`;
-
-            await ForegroundService.startForegroundService({
-              id: 1993, // Unique notification ID
-              title: 'Синхронізація...',
-              body: initialBodyText,
-              smallIcon: 'ic_notification', // Changed to standard name we'll ensure exists
-              silent: true, // Do not play a sound when the background runner starts
-              notificationChannelId: 'edwic_bg_sync_v2'
-            });
-            
-            isForegroundServiceStarted = true;
-            console.log("[ForegroundService] Started successfully.");
-
-            // Утримуємо процесор/екран від переходу в глибокий сон (Doze Mode)
-            await KeepAwake.keepAwake();
-            console.log("[KeepAwake] Wakelock acquired.");
-
-            setInterval(() => {
-              appUptimeSeconds++;
-              updateBackgroundNotification();
-            }, 1000);
-          };
+          // Setup native event listeners first
+          setupNativeMqttListeners();
 
           const state = await App.getState();
+          
+          const startNativeService = async () => {
+            try {
+              await NativeMqtt.startService({ brokers: config.brokers || [] });
+              isNativeMqttStarted = true;
+              console.log("[NativeMqtt] Native MQTT service started successfully.");
+            } catch (e) {
+              console.error("[NativeMqtt] Failed to start native service:", e);
+            }
+          };
+
           if (state.isActive) {
             // Невеличка затримка для завершення UI transitions
-            setTimeout(async () => {
-              await startServices();
-            }, 500);
+            setTimeout(startNativeService, 500);
           } else {
-            console.log("[ForegroundService] App is not active yet, waiting for appStateChange...");
+            console.log("[NativeMqtt] App is not active yet, waiting for appStateChange...");
             const listener = await App.addListener('appStateChange', async (newState) => {
               if (newState.isActive) {
-                console.log("[ForegroundService] App became active, starting services after delay.");
+                console.log("[NativeMqtt] App became active, starting native service...");
                 listener.remove();
-                
-                // Додаткова затримка дає Activity час повністю відновитися
-                // Це виправляє ForegroundServiceDidNotStartInTimeException
-                setTimeout(async () => {
-                  try {
-                    await startServices();
-                  } catch (e) {
-                    console.error("[ForegroundService] Delayed start failed:", e);
-                  }
-                }, 500);
+                setTimeout(startNativeService, 500);
               }
             });
           }
         } catch (err) {
-          console.error("[ForegroundService / Notifications] Failed to initialize:", err);
+          console.error("[NativeMqtt] Failed to initialize:", err);
         }
       })();
     }

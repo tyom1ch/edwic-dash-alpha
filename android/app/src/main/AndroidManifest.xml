@@ -39,6 +39,12 @@
             android:name="io.capawesome.capacitorjs.plugins.foregroundservice.AndroidForegroundService"
             android:foregroundServiceType="dataSync"
         />
+        <!-- Native MQTT Background Service -->
+        <service
+            android:name=".MqttBackgroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"
+        />
     </application>
 
     <!-- Permissions -->

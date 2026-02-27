@@ -1,6 +1,9 @@
 // src/core/ConnectionManager.js
 import MqttClientWrapper from './wrappers/MqttClientWrapper';
 import eventBus from './EventBus';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const NativeMqtt = Capacitor.isNativePlatform() ? registerPlugin('NativeMqtt') : null;
 
 class ConnectionManager {
     constructor() {
@@ -100,6 +103,11 @@ class ConnectionManager {
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for subscription to ${topic}.`);
         }
+        // Also forward to native service on Android
+        if (NativeMqtt) {
+            NativeMqtt.subscribe({ brokerId, topic }).catch(e => 
+                console.warn('[ConnectionManager] Native subscribe warning:', e));
+        }
     }
 
     unsubscribeFromTopic(brokerId, topic) {
@@ -109,6 +117,11 @@ class ConnectionManager {
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for unsubscription from ${topic}.`);
         }
+        // Also forward to native service on Android
+        if (NativeMqtt) {
+            NativeMqtt.unsubscribe({ brokerId, topic }).catch(e => 
+                console.warn('[ConnectionManager] Native unsubscribe warning:', e));
+        }
     }
 
     publishToTopic(brokerId, topic, message) {
@@ -117,6 +130,11 @@ class ConnectionManager {
             client.publish(topic, message);
         } else {
             console.warn(`[ConnectionManager] Broker ${brokerId} not found for publishing to ${topic}.`);
+        }
+        // Also forward to native service on Android
+        if (NativeMqtt) {
+            NativeMqtt.publish({ brokerId, topic, message: String(message) }).catch(e => 
+                console.warn('[ConnectionManager] Native publish warning:', e));
         }
     }
 
