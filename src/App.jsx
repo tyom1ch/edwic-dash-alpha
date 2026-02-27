@@ -63,10 +63,9 @@ const App = () => {
         try {
           // Identify if MUI is currently rendering dark or light
           const isDark = activeTheme.palette.mode === 'dark';
+          const bgColor = isDark ? '#121212' : '#ffffff'; // Explicit hex to prevent CSS variable parsing failure on Android Java Layer
           
-          // Force edge-to-edge background to be completely transparent (#00000000)
-          // This allows the root React Box (`bgcolor: background.default`) to visibly fill the entire screen behind the safe areas.
-          EdgeToEdge.setBackgroundColor({ color: '#00000000' }).catch(console.error);
+          EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
           
           // Style.Dark means 'dark background' so icons should be light, and vice versa.
           const iconStyle = isDark ? Style.Dark : Style.Light;
@@ -86,26 +85,16 @@ const App = () => {
       <EdgeToEdgeThemeSync />
       {isLoading ? (
         <Box sx={{ 
+          display: 'flex', 
           minHeight: '100dvh', 
           width: '100vw',
+          justifyContent: 'center', 
+          alignItems: 'center',
           bgcolor: 'background.default',
           color: 'text.primary',
-          transition: 'background-color 0.3s',
-          display: 'flex',
-          flexDirection: 'column'
+          transition: 'background-color 0.3s'
         }}>
-          <Box sx={{
-            display: 'flex', 
-            flexGrow: 1,
-            justifyContent: 'center', 
-            alignItems: 'center',
-            pt: 'env(safe-area-inset-top, 0px)',
-            pb: 'env(safe-area-inset-bottom, 0px)',
-            pl: 'env(safe-area-inset-left, 0px)',
-            pr: 'env(safe-area-inset-right, 0px)'
-          }}>
-            <CircularProgress />
-          </Box>
+          <CircularProgress />
         </Box>
       ) : (
         <Router>

@@ -12,9 +12,11 @@
     }
   },
   "plugins": {
-    "StatusBar": {
-      "overlaysWebView": true,
-      "backgroundColor": "#00000000"
+    "SystemBars": {
+      "insetsHandling": "disable"
+    },
+    "Keyboard": {
+      "resizeOnFullScreen": false
     },
     "EdgeToEdge": {
       "backgroundColor": "#00000000"

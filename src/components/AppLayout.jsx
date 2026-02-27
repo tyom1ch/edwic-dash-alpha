@@ -207,16 +207,7 @@ function AppLayout({
         color: 'text.primary',
         transition: 'background-color 0.3s',
       }}>
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flexGrow: 1,
-          pt: 'env(safe-area-inset-top, 0px)',
-          pb: 'env(safe-area-inset-bottom, 0px)',
-          pl: 'env(safe-area-inset-left, 0px)',
-          pr: 'env(safe-area-inset-right, 0px)'
-        }}>
-          <DashboardLayout
+        <DashboardLayout
         slots={{
           appTitle: () => (
             <AppTitle 
@@ -277,7 +268,6 @@ function AppLayout({
           brokerErrors={brokerErrors} 
         />
       </DashboardLayout>
-      </Box>
       </Box>
 
       <DashboardMenu
