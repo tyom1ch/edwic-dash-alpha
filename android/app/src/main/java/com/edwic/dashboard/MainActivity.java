@@ -8,4 +8,14 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
     }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Примусово не зупиняємо (resume) таймери JavaScript, щоб фонові сервіси та інтервали працювали!
+        // За замовчуванням Capacitor робить bridge.getWebView().pauseTimers() в onPause
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().resumeTimers();
+        }
+    }
 }
