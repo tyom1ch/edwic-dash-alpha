@@ -8,7 +8,6 @@ class AlertService {
   constructor() {
     this.alerts = [];
     this.lastFired = new Map(); // id -> timestamp
-    this.RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes cool-down per rule to prevent spam loops
 
     console.log("[AlertService] Initialized.");
     this.setupListeners();
@@ -82,9 +81,10 @@ class AlertService {
   fireNotification(alert, value) {
     const now = Date.now();
     const last = this.lastFired.get(alert.id) || 0;
+    const intervalMs = alert.intervalMs || (5 * 60 * 1000); // Fallback to 5 mins if unset
     
     // Enforce rate limiting to prevent spamming the user's phone on rapidly updating topics
-    if (now - last < this.RATE_LIMIT_MS) {
+    if (now - last < intervalMs) {
       return; 
     }
     this.lastFired.set(alert.id, now);
@@ -92,6 +92,9 @@ class AlertService {
     const message = alert.messageTemplate
       ? alert.messageTemplate.replace('{value}', value).replace('{topic}', alert.topic)
       : `Алерт: ${alert.name} (${value})`;
+
+    // Emit internal event for the UI Snackbar
+    eventBus.emit("app:alert_triggered", { alert, message });
 
     if (Capacitor.isNativePlatform()) {
       LocalNotifications.schedule({

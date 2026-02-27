@@ -22,6 +22,7 @@ const defaultAlertState = {
   threshold: "0",
   messageTemplate: "Увага! {topic} = {value}",
   enabled: true,
+  intervalMs: 5 * 60 * 1000, // Default 5 minutes
 };
 
 function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
@@ -145,6 +146,23 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
             type="text" // string support for == true/false
           />
         </Box>
+
+        <TextField
+          select
+          fullWidth
+          label="Інтервал повторення"
+          name="intervalMs"
+          value={formData.intervalMs || (5 * 60 * 1000)}
+          onChange={handleChange}
+          sx={{ mb: 2 }}
+        >
+          <MenuItem value={60 * 1000}>1 хвилина</MenuItem>
+          <MenuItem value={5 * 60 * 1000}>5 хвилин</MenuItem>
+          <MenuItem value={10 * 60 * 1000}>10 хвилин</MenuItem>
+          <MenuItem value={30 * 60 * 1000}>30 хвилин</MenuItem>
+          <MenuItem value={60 * 60 * 1000}>1 година</MenuItem>
+          <MenuItem value={24 * 60 * 60 * 1000}>1 день</MenuItem>
+        </TextField>
 
         <TextField
           fullWidth

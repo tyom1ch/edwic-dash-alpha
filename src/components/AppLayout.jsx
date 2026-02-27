@@ -25,9 +25,29 @@ import eventBus from "../core/EventBus";
 
 // Компонент для відстеження глобальних подій і показу сповіщень (нативний MUI)
 function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
-  const [toast, setToast] = useState({ open: false, message: "", severity: "info" });
-  const activeErrorToasts = useRef(new Set()); // Уникнення спаму
+  const [snackPack, setSnackPack] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [messageInfo, setMessageInfo] = useState(undefined);
+  
+  const activeErrorToasts = useRef(new Set()); // Уникнення постійного спаму про один і той самий брокер
 
+  // Базова функція для додавання сповіщення в чергу
+  const pushToast = (message, severity = "info") => {
+    setSnackPack((prev) => [...prev, { message, severity, key: new Date().getTime() + Math.random() }]);
+  };
+
+  // 1. Черга MUI Snackbar (стандартний патерн)
+  useEffect(() => {
+    if (snackPack.length && !messageInfo) {
+      setMessageInfo({ ...snackPack[0] });
+      setSnackPack((prev) => prev.slice(1));
+      setOpen(true);
+    } else if (snackPack.length && messageInfo && open) {
+      setOpen(false); // Закриваємо поточний, щоб показати наступний
+    }
+  }, [snackPack, messageInfo, open]);
+
+  // 2. Відстеження статусів брокерів
   useEffect(() => {
     Object.entries(brokerStatuses).forEach(([brokerId, status]) => {
       const broker = brokers?.find((b) => b.id === brokerId);
@@ -36,46 +56,53 @@ function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
 
       if (status === "error" || (status === "offline" && errorMsg)) {
         if (!activeErrorToasts.current.has(brokerId)) {
-          setToast({
-            open: true,
-            message: `Помилка підключення до "${brokerName}": ${errorMsg || 'Брокер недоступний'}`,
-            severity: "error"
-          });
+          pushToast(`Помилка підключення до "${brokerName}": ${errorMsg || 'Брокер недоступний'}`, "error");
           activeErrorToasts.current.add(brokerId);
         }
       } else if (status === "connected") {
         if (activeErrorToasts.current.has(brokerId)) {
-          setToast({
-            open: true,
-            message: `З'єднання з "${brokerName}" встановлено!`,
-            severity: "success"
-          });
+          pushToast(`З'єднання з "${brokerName}" встановлено!`, "success");
           activeErrorToasts.current.delete(brokerId);
         }
       } else if (status === "connecting" || status === "reconnecting") {
-        // Очищаємо трекер, щоб сповіщення могло з'явитись знову після редагування брокера
         activeErrorToasts.current.delete(brokerId);
       }
     });
   }, [brokers, brokerStatuses, brokerErrors]);
 
+  // 3. Відстеження користувацьких Алертів з фону
+  useEffect(() => {
+    const handleAlerts = ({ alert, message }) => {
+      pushToast(message, "warning");
+    };
+
+    eventBus.on("app:alert_triggered", handleAlerts);
+    return () => {
+      eventBus.off("app:alert_triggered", handleAlerts);
+    };
+  }, []);
+
   const handleClose = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setToast(prev => ({ ...prev, open: false }));
+    if (reason === 'clickaway') return;
+    setOpen(false);
+  };
+
+  const handleExited = () => {
+    setMessageInfo(undefined);
   };
 
   return (
     <Snackbar
-      open={toast.open}
+      key={messageInfo ? messageInfo.key : undefined}
+      open={open}
       autoHideDuration={6000}
       onClose={handleClose}
+      TransitionProps={{ onExited: handleExited }}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       sx={{ zIndex: 9999 }}
     >
-      <Alert onClose={handleClose} severity={toast.severity} sx={{ width: '100%' }} variant="filled">
-        {toast.message}
+      <Alert onClose={handleClose} severity={messageInfo?.severity || "info"} sx={{ width: '100%' }} variant="filled">
+        {messageInfo ? messageInfo.message : ""}
       </Alert>
     </Snackbar>
   );
