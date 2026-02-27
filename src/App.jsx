@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   Experimental_CssVarsProvider as CssVarsProvider,
   createTheme,
-  useTheme
+  useTheme,
+  useColorScheme
 } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -57,12 +58,14 @@ const App = () => {
 
   // A component inside the provider to access the dynamically resolved theme properties
   const EdgeToEdgeThemeSync = () => {
-    const activeTheme = useTheme();
+    const { mode, systemMode } = useColorScheme();
     useEffect(() => {
       if (Capacitor.isNativePlatform()) {
         try {
           // Identify if MUI is currently rendering dark or light
-          const isDark = activeTheme.palette.mode === 'dark';
+          // mode can be 'light', 'dark', or 'system'
+          const currentMode = mode === 'system' ? systemMode : mode;
+          const isDark = currentMode === 'dark';
           const bgColor = isDark ? '#121212' : '#ffffff'; // Explicit hex to prevent CSS variable parsing failure on Android Java Layer
           
           EdgeToEdge.setBackgroundColor({ color: bgColor }).catch(console.error);
@@ -74,7 +77,7 @@ const App = () => {
           console.error("Failed to sync EdgeToEdge colors", e);
         }
       }
-    }, [activeTheme]);
+    }, [mode, systemMode]);
     
     return null;
   };
