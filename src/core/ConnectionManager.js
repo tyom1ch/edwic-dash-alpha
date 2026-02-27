@@ -6,6 +6,23 @@ class ConnectionManager {
     constructor() {
         this.mqttClients = new Map();
         console.log("[ConnectionManager] Initialized.");
+        this.startWatchdog();
+    }
+
+    startWatchdog() {
+        // Коножні 15 секунд перевіряємо, чи всі клієнти підключені
+        // Це допомагає підтримувати зв'язок, коли WebView засинає і прокидається
+        setInterval(() => {
+            this.mqttClients.forEach((client, id) => {
+                if (!client.isConnected()) {
+                    console.log(`[ConnectionManager] Watchdog: Broker ${id} is disconnected. Enforcing reconnect...`);
+                    // Викликаємо reconnect з існуючою конфігурацією
+                    client.reconnect(client.config).catch(e => {
+                        console.error(`[ConnectionManager] Watchdog error reconnecting broker ${id}:`, e);
+                    });
+                }
+            });
+        }, 15000);
     }
 
     async updateBrokers(newBrokersConfig) {
@@ -46,7 +63,6 @@ class ConnectionManager {
         client.on('connect', (id) => eventBus.emit('broker:connected', id, client.config));
         client.on('disconnect', (id) => eventBus.emit('broker:disconnected', id));
         client.on('error', (id, err) => eventBus.emit('broker:error', id, err));
-        client.on('reconnecting', (id) => eventBus.emit('broker:reconnecting', id));
         client.on('message', (id, topic, message) => eventBus.emit('mqtt:raw_message', id, topic, message));
 
         console.log(`[ConnectionManager] Adding new broker and connecting: ${brokerConfig.id}`);

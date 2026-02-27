@@ -2,145 +2,165 @@
 import connectionManager from './ConnectionManager';
 import deviceRegistry from './DeviceRegistry';
 import eventBus from './EventBus';
-import './DiscoveryService';
-import './AlertService';
+import './DiscoveryService'; // Імпортуємо, щоб він почав слухати події
+import './AlertService'; // Background rules & push notifications listener
 import historyLogger from './HistoryLogger';
 import { Capacitor } from '@capacitor/core';
 import { ForegroundService } from '@capawesome-team/capacitor-android-foreground-service';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 let isCoreInitialized = false;
-let isForegroundServiceStarted = false; // Track if service is running
 
-// ── Internal broker status tracking ──────────────────────────────────────────
-const brokerStatusMap = new Map(); // brokerId → { name, status }
-let brokerConfigList = [];
+// Додаємо змінну для зберігання поточного стану брокерів для нотифікацій
+let currentBrokersStatus = {};
 
-const STATUS_LABELS = {
-  connected: '[OK]',
-  connecting: '[..]',
-  reconnecting: '[..]',
-  offline: '[--]',
-  error: '[!!]',
-};
-
-const buildNotificationBody = () => {
-  if (brokerStatusMap.size === 0) return 'Немає брокерів';
-  const lines = [];
-  for (const [, info] of brokerStatusMap) {
-    const label = STATUS_LABELS[info.status] || '[?]';
-    lines.push(`${label} ${info.name}`);
-  }
-  return lines.join('  ');
-};
-
-// ── Notification update logic ──────────────────────────────────────────────────
-// Android status bar decorates emoji inconsistently — use ASCII labels instead.
-// We use updateForegroundService() for updates (correct API), only
-// startForegroundService() on first start.
-const NOTIF_OPTIONS = (body) => ({
-  id: 1993,
-  title: 'EdWic',
-  body,
-  smallIcon: 'ic_notification', // Must exist in res/drawable/
-  silent: true,
-  notificationChannelId: 'edwic_bg_service',
-});
-
-const updateForegroundNotification = async () => {
+// Функція для оновлення фонової нотифікації
+const updateBackgroundNotification = async () => {
   if (!Capacitor.isNativePlatform()) return;
-  const body = buildNotificationBody();
+
+  const brokersInfo = Object.values(currentBrokersStatus);
+  let statusText = 'Немає налаштованих брокерів';
+  
+  if (brokersInfo.length > 0) {
+    statusText = brokersInfo.map(b => `${b.id}: ${b.connected ? '✅' : '❌'}`).join(', ');
+  }
+
   try {
-    if (isForegroundServiceStarted) {
-      // Use the dedicated update method — does NOT restart the service
-      await ForegroundService.updateForegroundService(NOTIF_OPTIONS(body));
-    }
-  } catch (e) {
-    console.warn('[CoreServices] Notification update failed:', e?.message);
-  }
-};
-
-const setBrokerStatus = (brokerId, status) => {
-  const existing = brokerStatusMap.get(brokerId);
-  if (existing) {
-    existing.status = status;
-  } else {
-    const cfg = brokerConfigList.find(b => b.id === brokerId);
-    brokerStatusMap.set(brokerId, {
-      name: cfg ? (cfg.name || cfg.host) : brokerId,
-      status,
+    await ForegroundService.updateForegroundService({
+      id: 1993,
+      title: 'Синхронізація...',
+      body: statusText,
+      smallIcon: 'ic_launcher', // changed to standard icon to prevent crashes
+      silent: true,
+      notificationChannelId: 'edwic_bg_sync_v2'
     });
+  } catch (err) {
+    console.error("[ForegroundService] Failed to update:", err);
   }
-  updateForegroundNotification();
 };
 
-// ── Event listener setup ──────────────────────────────────────────────────────
+// Ця функція налаштовує реакцію сервісів на майбутні зміни конфігурації
 const setupEventListeners = () => {
-  eventBus.on('config:saved', (newConfig) => {
-    console.log('[CoreServices] Detected config change, synchronizing services...');
-
-    brokerConfigList = newConfig.brokers || [];
-
-    // Sync broker status map
-    const newIds = new Set(brokerConfigList.map(b => b.id));
-    for (const oldId of brokerStatusMap.keys()) {
-      if (!newIds.has(oldId)) brokerStatusMap.delete(oldId);
-    }
-    for (const b of brokerConfigList) {
-      if (!brokerStatusMap.has(b.id)) {
-        brokerStatusMap.set(b.id, { name: b.name || b.host, status: 'connecting' });
-      } else {
-        brokerStatusMap.get(b.id).name = b.name || b.host;
-      }
-    }
-
+  eventBus.on("config:saved", (newConfig) => {
+    console.log("[CoreServices] Detected config change, synchronizing services...");
+    
+    // 1. Оновлюємо ConnectionManager новим списком брокерів
     connectionManager.updateBrokers(newConfig.brokers || []);
-    deviceRegistry.syncFromAppConfig(newConfig);
-    eventBus.emit('config:updated', newConfig);
+    
+    // Оновлюємо внутрішній стан для нотифікації
+    const currentStatusIds = Object.keys(currentBrokersStatus);
+    const newConfigIds = (newConfig.brokers || []).map(b => b.id);
+    
+    // Видаляємо старі
+    currentStatusIds.forEach(id => {
+      if (!newConfigIds.includes(id)) {
+        delete currentBrokersStatus[id];
+      }
+    });
 
-    updateForegroundNotification();
+    // Додаємо нові (за замовчуванням disconnected)
+    (newConfig.brokers || []).forEach(b => {
+      if (!currentBrokersStatus[b.id]) {
+        currentBrokersStatus[b.id] = { id: b.id, connected: false };
+      }
+    });
+
+    updateBackgroundNotification();
+
+    // 2. Синхронізуємо DeviceRegistry зі списком компонентів та їх підписками
+    deviceRegistry.syncFromAppConfig(newConfig);
+    
+    // 3. Сповіщаємо інші сервіси (напр. DiscoveryService) про оновлення
+    eventBus.emit("config:updated", newConfig);
   });
 
-  eventBus.on('broker:connected',    (id) => setBrokerStatus(id, 'connected'));
-  eventBus.on('broker:disconnected', (id) => setBrokerStatus(id, 'offline'));
-  eventBus.on('broker:error',        (id) => setBrokerStatus(id, 'error'));
-  eventBus.on('broker:reconnecting', (id) => setBrokerStatus(id, 'reconnecting'));
+  // Слухаємо події підключення/відключення брокерів для оновлення нотифікації
+  eventBus.on("broker:connected", (id) => {
+    if (currentBrokersStatus[id]) {
+        currentBrokersStatus[id].connected = true;
+        updateBackgroundNotification();
+    }
+  });
 
+  eventBus.on("broker:disconnected", (id) => {
+    if (currentBrokersStatus[id]) {
+        currentBrokersStatus[id].connected = false;
+        updateBackgroundNotification();
+    }
+  });
+
+  eventBus.on("broker:error", (id, err) => {
+     if (currentBrokersStatus[id]) {
+        currentBrokersStatus[id].connected = false;
+        updateBackgroundNotification();
+     }
+  });
+  
+  // Ensure the history logger wakes up and attaches its event listeners
   historyLogger.initialize();
 };
 
 export default {
+  /**
+   * Головна функція ініціалізації. Викликається один раз при старті додатку.
+   * @param {object} config - Початкова конфігурація додатку.
+   */
   initialize(config) {
-    if (isCoreInitialized) return;
-    console.log('[CoreServices] Initializing with initial configuration:', config);
+    if (isCoreInitialized) {
+      return;
+    }
+    console.log("[CoreServices] Initializing with initial configuration:", config);
+
+    // Ініціалізуємо поточний стан брокерів
+    (config.brokers || []).forEach(b => {
+      currentBrokersStatus[b.id] = { id: b.id, connected: false };
+    });
 
     if (Capacitor.isNativePlatform()) {
-      console.log('[CoreServices] Native platform — starting Foreground Service.');
+      console.log("[CoreServices] Native platform detected. Initializing Foreground Service and Notifications.");
+      
+      // Request exact notification layout permissions on modern Android
+      LocalNotifications.requestPermissions().then((result) => {
+        console.log("[LocalNotifications] Permission result:", result);
+      });
 
-      // Importance.Min = 1  →  fully silent, collapsed, no sound/vibration
+      // Keep WebSocket alive in background with an active Foreground Service
       ForegroundService.createNotificationChannel({
-        id: 'edwic_bg_service',
+        id: 'edwic_bg_sync_v2', // New channel for silent/min importance
         name: 'Фонова синхронізація',
-        description: 'Підтримує зв\'язок з MQTT брокером у фоновому режимі',
-        importance: 1,
+        description: 'Синхронізація з MQTT брокерами',
+        importance: 1 // Importance.Min - silent, no vibration, collapsed in status bar
       }).then(() => {
-        return ForegroundService.startForegroundService(
-          NOTIF_OPTIONS('Запуск...')
-        );
-      }).then(() => {
-        isForegroundServiceStarted = true;
-        // Now that service is started, push the real broker status
-        updateForegroundNotification();
+        
+        let initialBodyText = 'Немає налаштованих брокерів';
+        if (config.brokers && config.brokers.length > 0) {
+           initialBodyText = config.brokers.map(b => `${b.id}: ❌`).join(', ');
+        }
+
+        ForegroundService.startForegroundService({
+          id: 1993, // Unique notification ID
+          title: 'Синхронізація...',
+          body: initialBodyText,
+          smallIcon: 'ic_launcher', // Fallback to basic launcher to prevent icon missing crashes
+          silent: true, // Do not play a sound when the background runner starts
+          notificationChannelId: 'edwic_bg_sync_v2'
+        }).catch(err => {
+          console.error("[ForegroundService] Failed to start:", err);
+        });
       }).catch(err => {
-        console.error('[ForegroundService] Failed to start:', err);
+        console.error("[ForegroundService] Failed to create channel:", err);
       });
     }
 
+    // Спочатку налаштовуємо слухачів подій
     setupEventListeners();
-
-    // Fire initial config which triggers broker connections and status tracking
-    eventBus.emit('config:saved', config);
-
+    
+    // Потім "вистрілюємо" подією 'config:saved' з початковим конфігом.
+    // Це змушує всі сервіси синхронізуватися, використовуючи ту ж логіку,
+    // що й для динамічних оновлень.
+    eventBus.emit("config:saved", config);
+    
     isCoreInitialized = true;
-    console.log('[CoreServices] Initialization complete.');
-  },
+    console.log("[CoreServices] Initialization complete.");
+  }
 };
