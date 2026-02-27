@@ -119,37 +119,41 @@ export default {
     if (Capacitor.isNativePlatform()) {
       console.log("[CoreServices] Native platform detected. Initializing Foreground Service and Notifications.");
       
-      // Request exact notification layout permissions on modern Android
-      LocalNotifications.requestPermissions().then((result) => {
-        console.log("[LocalNotifications] Permission result:", result);
-      });
+      // We MUST execute this asynchronously to avoid blocking the main thread,
+      // but we MUST wait for the permission dialog to close before starting
+      // the ForegroundService, otherwise Android 12+ will throw 
+      // ForegroundServiceStartNotAllowedException and crash the app immediately.
+      (async () => {
+        try {
+          const result = await LocalNotifications.requestPermissions();
+          console.log("[LocalNotifications] Permission result:", result);
+          
+          await ForegroundService.createNotificationChannel({
+            id: 'edwic_bg_sync_v2', // New channel for silent/min importance
+            name: 'Фонова синхронізація',
+            description: 'Синхронізація з MQTT брокерами',
+            importance: 1 // Importance.Min - silent, no vibration, collapsed in status bar
+          });
+          
+          let initialBodyText = 'Немає налаштованих брокерів';
+          if (config.brokers && config.brokers.length > 0) {
+             initialBodyText = config.brokers.map(b => `${b.id}: ❌`).join(', ');
+          }
 
-      // Keep WebSocket alive in background with an active Foreground Service
-      ForegroundService.createNotificationChannel({
-        id: 'edwic_bg_sync_v2', // New channel for silent/min importance
-        name: 'Фонова синхронізація',
-        description: 'Синхронізація з MQTT брокерами',
-        importance: 1 // Importance.Min - silent, no vibration, collapsed in status bar
-      }).then(() => {
-        
-        let initialBodyText = 'Немає налаштованих брокерів';
-        if (config.brokers && config.brokers.length > 0) {
-           initialBodyText = config.brokers.map(b => `${b.id}: ❌`).join(', ');
+          await ForegroundService.startForegroundService({
+            id: 1993, // Unique notification ID
+            title: 'Синхронізація...',
+            body: initialBodyText,
+            smallIcon: 'ic_notification', // Changed to standard name we'll ensure exists
+            silent: true, // Do not play a sound when the background runner starts
+            notificationChannelId: 'edwic_bg_sync_v2'
+          });
+          
+          console.log("[ForegroundService] Started successfully.");
+        } catch (err) {
+          console.error("[ForegroundService / Notifications] Failed to initialize:", err);
         }
-
-        ForegroundService.startForegroundService({
-          id: 1993, // Unique notification ID
-          title: 'Синхронізація...',
-          body: initialBodyText,
-          smallIcon: 'ic_notification', // Changed to standard name we'll ensure exists
-          silent: true, // Do not play a sound when the background runner starts
-          notificationChannelId: 'edwic_bg_sync_v2'
-        }).catch(err => {
-          console.error("[ForegroundService] Failed to start:", err);
-        });
-      }).catch(err => {
-        console.error("[ForegroundService] Failed to create channel:", err);
-      });
+      })();
     }
 
     // Спочатку налаштовуємо слухачів подій
