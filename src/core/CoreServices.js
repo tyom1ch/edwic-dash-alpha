@@ -99,6 +99,9 @@ const setupNativeMqttListeners = () => {
   NativeMqtt.addListener('brokerStatus', (data) => {
     const { brokerId, status } = data;
     
+    const prevStatus = connectionManager.getConnectionStatus(brokerId);
+    if (status === prevStatus) return; // Prevent infinite re-subscription spam
+    
     // Оновлюємо статус в ConnectionManager для isConnected()
     connectionManager.updateNativeStatus(brokerId, status);
     
@@ -191,8 +194,8 @@ export default {
             console.warn("[CoreServices] Notifications not granted. Service will start but alerts won't show.");
           }
 
-          // 2. Setup native event listeners
-          setupNativeMqttListeners();
+          // 2. Setup native event listeners (REMOVED DUPLICATE CALL)
+          // Permissions granted, continuing setup...
 
           const state = await App.getState();
           
@@ -204,6 +207,9 @@ export default {
               });
               isNativeMqttStarted = true;
               console.log("[NativeMqtt] Native MQTT service started successfully.");
+              
+              // Emit config:saved AFTER native service starts to avoid "Service not running" spam
+              eventBus.emit("config:saved", config);
 
               // 3. Sync status after service binds (service may already be connected from background)
               setTimeout(async () => {
@@ -266,13 +272,14 @@ export default {
     // Спочатку налаштовуємо слухачів подій
     setupEventListeners();
     
-    // Потім "вистрілюємо" подією 'config:saved' з початковим конфігом.
-    // Це змушує всі сервіси синхронізуватися, використовуючи ту ж логіку,
-    // що й для динамічних оновлень.
-    if (config.autoConnect !== false) {
+    if (!Capacitor.isNativePlatform()) {
+      // Для WEB просто пускаємо процес
+      if (config.autoConnect !== false) {
+        eventBus.emit("config:saved", config);
+      }
+    } else if (config.autoConnect === false) {
+      // Якщо автопідключення вимкнено, UI має знати поточний конфіг
       eventBus.emit("config:saved", config);
-    } else {
-      console.log("[CoreServices] autoConnect is disabled. Initial connection skipped.");
     }
     
     isCoreInitialized = true;

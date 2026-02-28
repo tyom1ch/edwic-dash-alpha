@@ -47,6 +47,18 @@ export const NotificationMenu = () => {
     setAnchorEl(null);
   };
 
+  const clearNativeNotifications = async () => {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        await LocalNotifications.removeAllDeliveredNotifications();
+      }
+    } catch (e) {
+      console.error("Failed to clear native notifications:", e);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
       const unreadItems = notifications.filter(n => n.read === 0);
@@ -56,6 +68,7 @@ export const NotificationMenu = () => {
         ));
         loadNotifications();
       }
+      clearNativeNotifications();
     } catch (e) {
       console.error("Failed to mark all as read:", e);
     }
@@ -75,6 +88,7 @@ export const NotificationMenu = () => {
       await db.notifications.clear();
       loadNotifications();
       handleClose();
+      clearNativeNotifications();
     } catch (e) {
       console.error("Failed to clear notifications:", e);
     }
