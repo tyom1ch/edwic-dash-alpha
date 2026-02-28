@@ -167,6 +167,14 @@ class ConnectionManager {
         }
     }
 
+    getConnectionStatus(brokerId) {
+        if (isNative) {
+            return this._nativeStatuses.get(brokerId) || 'offline';
+        }
+        const client = this.mqttClients.get(brokerId);
+        return client && client.isConnected() ? 'connected' : 'offline';
+    }
+
     isConnected(brokerId) {
         if (isNative) {
             // На Android статус визначається нативним сервісом через eventBus

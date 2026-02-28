@@ -66,6 +66,7 @@ const defaultBrokerState = {
 };
 
 const isNativePlatform = Capacitor.isNativePlatform();
+const NativeMqtt = isNativePlatform ? registerPlugin('NativeMqtt') : null;
 
 function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const navigate = useNavigate();
@@ -97,7 +98,6 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const checkSystemStatus = async () => {
     if (!isNativePlatform) return;
     try {
-      const NativeMqtt = registerPlugin('NativeMqtt');
       const statusRes = await NativeMqtt.getStatus();
       const permRes = await LocalNotifications.checkPermissions();
       const batteryRes = await NativeMqtt.checkBatteryOptimization();
@@ -131,7 +131,6 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const handleRequestBattery = async () => {
     try {
-      const NativeMqtt = registerPlugin('NativeMqtt');
       await NativeMqtt.requestIgnoreBatteryOptimizations();
       // We can't immediately know if they granted it since it opens an activity,
       // but we'll re-check after a short delay or when they come back.
@@ -143,7 +142,6 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const handleToggleService = async () => {
     try {
-      const NativeMqtt = registerPlugin('NativeMqtt');
       if (sysStatus.serviceRunning) {
         await NativeMqtt.stopService();
       } else {

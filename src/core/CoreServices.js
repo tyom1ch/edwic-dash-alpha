@@ -168,7 +168,7 @@ export default {
     if (isCoreInitialized) {
       return;
     }
-    console.log("[CoreServices] Initializing with initial configuration:", config);
+    console.log("[CoreServices] Initializing with initial configuration...");
 
     // Ініціалізуємо поточний стан брокерів
     (config.brokers || []).forEach(b => {
@@ -206,14 +206,14 @@ export default {
                 alerts: config.alerts || []
               });
               isNativeMqttStarted = true;
-              console.log("[NativeMqtt] Native MQTT service started successfully.");
+              console.log("[NativeMqtt] Native MQTT service started successfully. Waiting 1.5s for bind...");
               
-              // Emit config:saved AFTER native service starts to avoid "Service not running" spam
-              eventBus.emit("config:saved", config);
-
               // 3. Sync status after service binds (service may already be connected from background)
               setTimeout(async () => {
                 try {
+                  // Emit config:saved AFTER native service fully binds to completely avoid "Service not running" race condition.
+                  eventBus.emit("config:saved", config);
+
                   eventBus.emit("app:refreshing_start");
                   const statusResult = await NativeMqtt.getStatus();
                   if (statusResult.brokers) {
@@ -226,7 +226,7 @@ export default {
                         eventBus.emit('broker:connected', brokerId);
                       }
                     });
-                    console.log("[NativeMqtt] Post-start status sync:", brokers);
+                    console.log("[NativeMqtt] Post-start status sync:", JSON.stringify(brokers));
                   }
                 } catch (syncErr) {
                   console.warn("[NativeMqtt] Status sync failed:", syncErr);
