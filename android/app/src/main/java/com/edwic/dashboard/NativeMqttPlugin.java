@@ -47,10 +47,13 @@ public class NativeMqttPlugin extends Plugin {
                 }
 
                 @Override
-                public void onBrokerStatusChanged(String brokerId, String status) {
+                public void onBrokerStatusChanged(String brokerId, String status, String errorMessage) {
                     JSObject data = new JSObject();
                     data.put("brokerId", brokerId);
                     data.put("status", status);
+                    if (errorMessage != null) {
+                        data.put("message", errorMessage);
+                    }
                     notifyListeners("brokerStatus", data);
                 }
             });

@@ -5,11 +5,14 @@ import App from "./App.jsx";
 import "./index.css";
 
 import { NotificationsProvider } from '@toolpad/core/useNotifications';
+import { AppConfigProvider } from './context/AppConfigContext.jsx';
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   // <React.StrictMode>
     <NotificationsProvider>
-      <App />
+      <AppConfigProvider>
+        <App />
+      </AppConfigProvider>
     </NotificationsProvider>
   // </React.StrictMode>
 );

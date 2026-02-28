@@ -66,7 +66,7 @@ public class MqttBackgroundService extends Service {
     // Callback interface for communicating with the Plugin
     public interface MqttEventListener {
         void onMessage(String brokerId, String topic, String payload);
-        void onBrokerStatusChanged(String brokerId, String status);
+        void onBrokerStatusChanged(String brokerId, String status, String errorMessage);
     }
 
     private MqttEventListener eventListener;
@@ -152,7 +152,7 @@ public class MqttBackgroundService extends Service {
                     // Without this, after app restart the UI stays stuck on "offline".
                     String currentStatus = clientStatuses.getOrDefault(id, "disconnected");
                     if (eventListener != null) {
-                        eventListener.onBrokerStatusChanged(id, currentStatus);
+                        eventListener.onBrokerStatusChanged(id, currentStatus, null);
                     }
                     continue;
                 }
@@ -321,7 +321,7 @@ public class MqttBackgroundService extends Service {
                 public void connectionLost(Throwable cause) {
                     Log.w(TAG, "Broker " + id + " connection lost: " +
                             (cause != null ? cause.getMessage() : "unknown"));
-                    updateBrokerStatus(id, "disconnected");
+                    updateBrokerStatus(id, "disconnected", cause != null ? cause.getMessage() : "Зв'язок втрачено");
                 }
 
                 @Override
@@ -361,13 +361,13 @@ public class MqttBackgroundService extends Service {
 
             clients.put(id, client);
             clientConfigs.put(id, brokerConfig);
-            updateBrokerStatus(id, "connecting");
+            updateBrokerStatus(id, "connecting", null);
 
             client.connect(options, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.i(TAG, "Broker " + id + " connected successfully!");
-                    updateBrokerStatus(id, "connected");
+                    updateBrokerStatus(id, "connected", null);
 
                     List<String> subs = clientSubscriptions.get(id);
                     if (subs != null) {
@@ -386,7 +386,17 @@ public class MqttBackgroundService extends Service {
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     Log.e(TAG, "Broker " + id + " connection failed: " +
                             (exception != null ? exception.getMessage() : "unknown"));
-                    updateBrokerStatus(id, "error");
+                    
+                    String errMsg = exception != null ? exception.getMessage() : "Невідома помилка підключення";
+                    if (exception instanceof MqttException) {
+                        MqttException mqttEx = (MqttException) exception;
+                        if (mqttEx.getReasonCode() == MqttException.REASON_CODE_FAILED_AUTHENTICATION) {
+                            errMsg = "Невірний логін або пароль";
+                        } else if (mqttEx.getReasonCode() == MqttException.REASON_CODE_SERVER_CONNECT_ERROR) {
+                            errMsg = "Сервер недоступний";
+                        }
+                    }
+                    updateBrokerStatus(id, "error", errMsg);
                 }
             });
 
@@ -411,7 +421,7 @@ public class MqttBackgroundService extends Service {
         }
         Log.i(TAG, "Broker " + brokerId + " disconnected and removed.");
         if (eventListener != null) {
-            eventListener.onBrokerStatusChanged(brokerId, "removed");
+            eventListener.onBrokerStatusChanged(brokerId, "removed", null);
         }
     }
 
@@ -421,11 +431,11 @@ public class MqttBackgroundService extends Service {
         }
     }
 
-    private void updateBrokerStatus(String brokerId, String status) {
+    private void updateBrokerStatus(String brokerId, String status, String errorMessage) {
         clientStatuses.put(brokerId, status);
         updateNotification();
         if (eventListener != null) {
-            eventListener.onBrokerStatusChanged(brokerId, status);
+            eventListener.onBrokerStatusChanged(brokerId, status, errorMessage);
         }
     }
 

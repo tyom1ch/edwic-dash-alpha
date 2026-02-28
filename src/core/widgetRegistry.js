@@ -618,7 +618,9 @@ export const WIDGET_REGISTRY = [
         keys: ["color"],
       }
     ],
-    getTopicMappings: HistoryGraphWidgetConfig.getTopicMappings,
+    getTopicMappings: (config) => ({
+      graph_topic: config.graph_topic || config.state_topic || config.stat_t || config["~"],
+    }),
   },
   {
     type: "generic_info",
