@@ -104,7 +104,9 @@ const setupNativeMqttListeners = () => {
     
     if (status === 'connected') {
       eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
-    } else if (status === 'disconnected' || status === 'error') {
+    } else if (status === 'error') {
+      eventBus.emit('broker:error', brokerId, { message: data.message || "Помилка" });
+    } else if (status === 'disconnected') {
       eventBus.emit('broker:disconnected', brokerId);
     } else if (status === 'removed') {
       eventBus.emit('broker:removed', brokerId);
@@ -115,6 +117,7 @@ const setupNativeMqttListeners = () => {
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
       try {
+        eventBus.emit("app:refreshing_start");
         // Refresh broker statuses from native service (only emit if changed)
         const statusResult = await NativeMqtt.getStatus();
         if (statusResult.brokers) {
@@ -135,24 +138,19 @@ const setupNativeMqttListeners = () => {
           });
         }
 
-        // Drain buffered messages — deduplicate by topic, keep only latest per topic
+        // Drain buffered messages
         const result = await NativeMqtt.drainBuffer();
         const messages = result.messages || [];
         if (messages.length > 0) {
-          // Keep only the LAST message per brokerId+topic combo
-          const latestByTopic = new Map();
+          console.log(`[NativeMqtt] Drained ${messages.length} msgs, emitting all to eventBus.`);
           messages.forEach(msg => {
-            const key = `${msg.brokerId}:${msg.topic}`;
-            latestByTopic.set(key, msg);
-          });
-          const uniqueMessages = [...latestByTopic.values()];
-          console.log(`[NativeMqtt] Drained ${messages.length} msgs, emitting ${uniqueMessages.length} (deduped by topic).`);
-          uniqueMessages.forEach(msg => {
             eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload);
           });
         }
       } catch (e) {
         console.error("[NativeMqtt] Error on resume:", e);
+      } finally {
+        eventBus.emit("app:refreshing_end");
       }
     }
   });
@@ -210,6 +208,7 @@ export default {
               // 3. Sync status after service binds (service may already be connected from background)
               setTimeout(async () => {
                 try {
+                  eventBus.emit("app:refreshing_start");
                   const statusResult = await NativeMqtt.getStatus();
                   if (statusResult.brokers) {
                     const brokers = typeof statusResult.brokers === 'string' 
@@ -225,6 +224,8 @@ export default {
                   }
                 } catch (syncErr) {
                   console.warn("[NativeMqtt] Status sync failed:", syncErr);
+                } finally {
+                  eventBus.emit("app:refreshing_end");
                 }
               }, 1500); // Wait for service binding + broker connection
 

@@ -16,7 +16,11 @@ export const ConnectionStatusIcon = ({
   let iconColor = "success";
   let mainTooltip = "Всі брокери підключені";
 
-  if (globalStatus === "partial") {
+  if (globalStatus === "refreshing") {
+    IconComponent = CloudSync;
+    iconColor = "info";
+    mainTooltip = "Оновлення статусів...";
+  } else if (globalStatus === "partial") {
     iconColor = "warning";
     mainTooltip = "Часткове підключення";
   } else if (globalStatus === "connecting") {

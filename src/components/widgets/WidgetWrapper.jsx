@@ -32,7 +32,7 @@ const WidgetWrapper = ({
   const [resizePreview, setResizePreview] = useState(null); // { deltaColumns, deltaRows }
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 

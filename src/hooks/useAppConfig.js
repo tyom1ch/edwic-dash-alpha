@@ -47,6 +47,7 @@ const useAppConfig = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [brokerStatuses, setBrokerStatuses] = useState({});
   const [brokerErrors, setBrokerErrors] = useState({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load & migrate on mount
   useEffect(() => {
@@ -89,31 +90,24 @@ const useAppConfig = () => {
     loadConfig();
   }, []);
 
+  // Side-effect to persist and notify
+  useEffect(() => {
+    if (isLoading) return;
+    saveAppConfig(appConfig);
+    eventBus.emit("config:saved", appConfig);
+  }, [appConfig, isLoading]);
+
   const setAppConfig = useCallback(
     (value) => {
-      if (typeof value === "function") {
-        // Always use functional form so React guarantees latest state
-        setAppConfigState((prev) => {
-          const next = value(prev);
-          // Side-effects: persist & notify (async, after render)
-          Promise.resolve().then(() => {
-            saveAppConfig(next);
-            eventBus.emit("config:saved", next);
-          });
-          return next;
-        });
-      } else {
-        setAppConfigState(value);
-        saveAppConfig(value);
-        eventBus.emit("config:saved", value);
-      }
+      setAppConfigState(value);
     },
-    [] // no deps needed since we only use the setter (stable) and async effects
+    []
   );
 
   // ─── broker status tracking ────────────────────────────────────────────────
 
   const globalConnectionStatus = useMemo(() => {
+    if (isRefreshing) return "refreshing";
     if (!appConfig.brokers || appConfig.brokers.length === 0) return "offline";
     let connected = 0, connecting = 0;
     appConfig.brokers.forEach((b) => {
@@ -136,11 +130,15 @@ const useAppConfig = () => {
       setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || "Помилка" }));
     };
     const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
+    const rsOn = () => setIsRefreshing(true);
+    const rsOff = () => setIsRefreshing(false);
 
     eventBus.on("broker:connected", on);
     eventBus.on("broker:disconnected", off);
     eventBus.on("broker:error", err);
     eventBus.on("broker:reconnecting", rc);
+    eventBus.on("app:refreshing_start", rsOn);
+    eventBus.on("app:refreshing_end", rsOff);
 
     if (appConfig.brokers) {
       const init = {};
@@ -155,6 +153,8 @@ const useAppConfig = () => {
       eventBus.off("broker:disconnected", off);
       eventBus.off("broker:error", err);
       eventBus.off("broker:reconnecting", rc);
+      eventBus.off("app:refreshing_start", rsOn);
+      eventBus.off("app:refreshing_end", rsOff);
     };
   }, [appConfig.brokers, isLoading]);
 
@@ -230,8 +230,12 @@ const useAppConfig = () => {
   const handleAddComponent = useCallback(
     (newComponent, dashboardId, sectionId) => {
       const widgetDef = getWidgetById(newComponent.type);
+      
+      // If it has discovery data (topics), don't overwrite with defaults
+      const hasTopics = Object.keys(newComponent).some(k => k.endsWith('_topic') || k.endsWith('_t'));
+      
       let generatedConfig = {};
-      if (widgetDef?.getTopicMappings) {
+      if (widgetDef?.getTopicMappings && !hasTopics) {
         generatedConfig = widgetDef.getTopicMappings(newComponent);
       }
       // Stamp HA grid_options so the card knows its own size
