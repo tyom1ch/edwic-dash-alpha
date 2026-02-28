@@ -57,6 +57,9 @@ public class MqttBackgroundService extends Service {
     // Message buffer for when WebView is sleeping
     private final List<JSONObject> messageBuffer = new ArrayList<>();
     private static final int MAX_BUFFER_SIZE = 500;
+    
+    // Alert Buffer for when WebView is sleeping
+    private final List<JSONObject> alertBuffer = new ArrayList<>();
 
     private PowerManager.WakeLock wakeLock;
     private Handler uptimeHandler;
@@ -67,6 +70,7 @@ public class MqttBackgroundService extends Service {
     public interface MqttEventListener {
         void onMessage(String brokerId, String topic, String payload);
         void onBrokerStatusChanged(String brokerId, String status, String errorMessage);
+        void onAlertFired(String alertDataJson);
     }
 
     private MqttEventListener eventListener;
@@ -263,6 +267,14 @@ public class MqttBackgroundService extends Service {
         synchronized (messageBuffer) {
             List<JSONObject> copy = new ArrayList<>(messageBuffer);
             messageBuffer.clear();
+            return copy;
+        }
+    }
+
+    public List<JSONObject> drainAlertBuffer() {
+        synchronized (alertBuffer) {
+            List<JSONObject> copy = new ArrayList<>(alertBuffer);
+            alertBuffer.clear();
             return copy;
         }
     }
@@ -524,6 +536,26 @@ public class MqttBackgroundService extends Service {
         }
 
         Log.i(TAG, "ALERT FIRED: " + alertName + " — " + body);
+
+        try {
+            JSONObject firedAlert = new JSONObject();
+            firedAlert.put("timestamp", System.currentTimeMillis());
+            firedAlert.put("title", alertName);
+            firedAlert.put("message", body);
+            firedAlert.put("read", 0);
+            
+            synchronized (alertBuffer) {
+                alertBuffer.add(firedAlert);
+                while (alertBuffer.size() > 100) { 
+                    alertBuffer.remove(0);
+                }
+            }
+            if (eventListener != null) {
+                eventListener.onAlertFired(firedAlert.toString());
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error buffering alert", e);
+        }
 
         // Fire native Android notification directly — no JS needed!
         NotificationManager manager = getSystemService(NotificationManager.class);

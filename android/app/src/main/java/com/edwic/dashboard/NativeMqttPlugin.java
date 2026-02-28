@@ -56,6 +56,16 @@ public class NativeMqttPlugin extends Plugin {
                     }
                     notifyListeners("brokerStatus", data);
                 }
+
+                @Override
+                public void onAlertFired(String alertDataJson) {
+                    try {
+                        JSObject ret = new JSObject(alertDataJson);
+                        notifyListeners("alertFired", ret);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error notifying JS about alert", e);
+                    }
+                }
             });
 
             Log.i(TAG, "Bound to MqttBackgroundService.");
@@ -262,6 +272,24 @@ public class NativeMqttPlugin extends Plugin {
         }
         JSObject result = new JSObject();
         result.put("messages", arr);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void drainAlerts(PluginCall call) {
+        if (mqttService == null) {
+            JSObject result = new JSObject();
+            result.put("alerts", new JSArray());
+            call.resolve(result);
+            return;
+        }
+        List<JSONObject> buffered = mqttService.drainAlertBuffer();
+        JSArray arr = new JSArray();
+        for (JSONObject msg : buffered) {
+            arr.put(msg);
+        }
+        JSObject result = new JSObject();
+        result.put("alerts", arr);
         call.resolve(result);
     }
 

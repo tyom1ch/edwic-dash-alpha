@@ -116,6 +116,16 @@ const setupNativeMqttListeners = () => {
     }
   });
 
+  // Receive native alerts fired in background
+  NativeMqtt.addListener('alertFired', (data) => {
+    // Store in internal IndexedDB
+    import('./db').then(({ db }) => {
+      db.notifications.put(data).catch(e => console.error("[CoreServices] DB Error:", e));
+    });
+    // Emit internal event for the UI Menu to reload DB (silent: no snackbar)
+    eventBus.emit("app:alert_triggered", { silent: true });
+  });
+
   // When app comes back to foreground, refresh statuses and deliver only latest values
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
@@ -149,6 +159,22 @@ const setupNativeMqttListeners = () => {
           messages.forEach(msg => {
             eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload, { buffered: true });
           });
+        }
+
+        // Drain buffered alerts
+        const alertsResult = await NativeMqtt.drainAlerts();
+        const bufferedAlerts = alertsResult.alerts || [];
+        if (bufferedAlerts.length > 0) {
+          console.log(`[NativeMqtt] Drained ${bufferedAlerts.length} fired alerts.`);
+          const { db } = await import('./db');
+          let didAdd = false;
+          for (const a of bufferedAlerts) {
+            await db.notifications.put(a).catch(e => console.error("[CoreServices] DB Error:", e));
+            didAdd = true;
+          }
+          if (didAdd) {
+            eventBus.emit("app:alert_triggered", { silent: true });
+          }
         }
       } catch (e) {
         console.error("[NativeMqtt] Error on resume:", e);

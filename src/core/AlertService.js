@@ -44,10 +44,13 @@ class AlertService {
   }
 
   handleRawMessage(brokerId, topic, messageBuffer, options = {}) {
+    if (Capacitor.isNativePlatform()) {
+        return; // Android natively evaluates alerts in MqttBackgroundService!
+    }
+
     if (!this.alerts || this.alerts.length === 0) return;
     
     // Skip evaluating alerts for historical messages buffering into JS on app resume.
-    // The native background service already handled alerts for these messages.
     if (options.buffered) {
         return; 
     }
