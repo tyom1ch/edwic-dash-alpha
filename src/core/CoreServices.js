@@ -144,7 +144,7 @@ const setupNativeMqttListeners = () => {
         if (messages.length > 0) {
           console.log(`[NativeMqtt] Drained ${messages.length} msgs, emitting all to eventBus.`);
           messages.forEach(msg => {
-            eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload);
+            eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload, { buffered: true });
           });
         }
       } catch (e) {

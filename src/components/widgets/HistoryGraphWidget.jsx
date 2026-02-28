@@ -20,8 +20,11 @@ function HistoryGraphWidget({ component, isEditMode }) {
     const [dataPoints, setDataPoints] = useState([]);
     const theme = useTheme();
 
+    // Fallback for older configurations where graph_topic wasn't set by discovery
+    const activeTopic = graph_topic || component.state_topic || component.stat_t;
+
     useEffect(() => {
-        if (!brokerId || !graph_topic) return;
+        if (!brokerId || !activeTopic) return;
 
         let isMounted = true;
         
@@ -31,7 +34,7 @@ function HistoryGraphWidget({ component, isEditMode }) {
                 const cutoff = Date.now() - (24 * 60 * 60 * 1000);
                 const history = await db.history
                     .where('[brokerId+topic]')
-                    .equals([brokerId, graph_topic])
+                    .equals([brokerId, activeTopic])
                     .filter(item => item.timestamp >= cutoff)
                     .sortBy('timestamp');
                 
@@ -49,7 +52,7 @@ function HistoryGraphWidget({ component, isEditMode }) {
         loadHistory();
 
         const handleLiveMessage = (msgBrokerId, msgTopic, messageBuffer) => {
-            if (msgBrokerId === brokerId && msgTopic === graph_topic) {
+            if (msgBrokerId === brokerId && msgTopic === activeTopic) {
                 const val = parseFloat(messageBuffer.toString());
                 if (!isNaN(val)) {
                     setDataPoints(prev => {
@@ -67,7 +70,7 @@ function HistoryGraphWidget({ component, isEditMode }) {
             isMounted = false;
             eventBus.off('mqtt:raw_message', handleLiveMessage);
         };
-    }, [brokerId, graph_topic]);
+    }, [brokerId, activeTopic]);
 
     // Format X Axis timestamp
     const formatTime = (unixTime) => {
@@ -104,7 +107,7 @@ function HistoryGraphWidget({ component, isEditMode }) {
                 <CardContent sx={{ flexGrow: 1, p: 0, pb: "0px !important", display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ px: 2, pt: 2, pb: 1, zIndex: 1 }}>
                         <Typography variant="body1" fontWeight={500} color="text.secondary" noWrap>
-                            {title || graph_topic || 'Графік'}
+                            {title || activeTopic || 'Графік'}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, mt: 0.5 }}>
                             <Typography variant="h4" fontWeight="bold">
@@ -114,7 +117,7 @@ function HistoryGraphWidget({ component, isEditMode }) {
                     </Box>
                     
                     <Box sx={{ flexGrow: 1, minHeight: 100, width: '100%', mt: -1 }}>
-                        {(!brokerId || !graph_topic) ? (
+                        {(!brokerId || !activeTopic) ? (
                             <Typography variant="body2" color="error" textAlign="center" mt={4}>Не налаштовано топік</Typography>
                         ) : dataPoints.length === 0 ? (
                             <Typography variant="body2" color="text.secondary" textAlign="center" mt={4}>Немає даних...</Typography>

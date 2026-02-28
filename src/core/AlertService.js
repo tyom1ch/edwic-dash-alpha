@@ -43,9 +43,15 @@ class AlertService {
     });
   }
 
-  handleRawMessage(brokerId, topic, messageBuffer) {
+  handleRawMessage(brokerId, topic, messageBuffer, options = {}) {
     if (!this.alerts || this.alerts.length === 0) return;
     
+    // Skip evaluating alerts for historical messages buffering into JS on app resume.
+    // The native background service already handled alerts for these messages.
+    if (options.buffered) {
+        return; 
+    }
+
     const messageString = messageBuffer.toString();
     const numericValue = parseFloat(messageString);
 
@@ -81,7 +87,17 @@ class AlertService {
 
   fireNotification(alert, value) {
     const now = Date.now();
-    const last = this.lastFired.get(alert.id) || 0;
+    
+    // Deduplication constraint (independent of the UI rate limit `intervalMs`).
+    // If we just fired THIS exact alert for THIS exact value less than 15 seconds ago, ignore it.
+    // This prevents the UI from saving 5 duplicate alerts if the sensor rapid-fires identical payload ticks.
+    const lastFiredTime = this.lastFired.get(`${alert.id}_${value}`) || 0;
+    if (now - lastFiredTime < 15000) {
+      return;
+    }
+    this.lastFired.set(`${alert.id}_${value}`, now);
+
+    const lastUINotified = this.lastFired.get(alert.id) || 0;
     const intervalMs = alert.intervalMs || (5 * 60 * 1000); // Fallback to 5 mins if unset
 
     const message = alert.messageTemplate
@@ -89,7 +105,7 @@ class AlertService {
       : `Алерт: ${alert.name} (${value})`;
 
     // Store in internal IndexedDB for the top-bar Notification Menu
-    // ALWAYS STORE, EVEN IF RATE LIMITED
+    // ALWAYS STORE (unless it was already deduped above)
     db.notifications.put({
       timestamp: now,
       title: alert.name,
@@ -97,8 +113,8 @@ class AlertService {
       read: 0
     }).catch(e => console.error("[AlertService] DB Error:", e));
     
-    // Enforce rate limiting to prevent spamming the user's phone on rapidly updating topics
-    if (now - last < intervalMs) {
+    // Enforce UI rate limiting to prevent spamming the user's screen
+    if (now - lastUINotified < intervalMs) {
       return; 
     }
     this.lastFired.set(alert.id, now);

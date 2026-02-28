@@ -84,6 +84,12 @@ export const AppConfigProvider = ({ children }) => {
             alerts: restConfig.alerts || [],
             dashboards: migratedDashboards 
         });
+
+        const initialStatuses = {};
+        (restConfig.brokers || []).forEach(b => {
+          initialStatuses[b.id] = (restConfig.autoConnect !== false) ? 'connecting' : 'offline';
+        });
+        setBrokerStatuses(initialStatuses);
       }
       if (mounted) setIsLoading(false);
     };
