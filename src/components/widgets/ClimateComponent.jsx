@@ -21,7 +21,7 @@ import {
   AcUnit as AcUnitIcon,
 } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
-import commandDispatcher from "../../core/CommandDispatcher";
+import deviceRegistry from "../../core/DeviceRegistry";
 
 const ClimateComponent = ({ componentConfig }) => {
   const entity = useEntity(componentConfig.id);
@@ -72,11 +72,11 @@ const ClimateComponent = ({ componentConfig }) => {
     if (targetTemperature === "---") return;
     const newTemp = parseFloat(targetTemperature) + increment;
     if (newTemp >= min_temp && newTemp <= max_temp) {
-      commandDispatcher.dispatch({
-        entityId: componentConfig.id,
-        commandKey: "set_temperature",
-        value: newTemp.toFixed(1),
-      });
+      deviceRegistry.sendCommand(
+        componentConfig.id,
+        newTemp.toFixed(1),
+        "set_temperature"
+      );
     }
   };
 
@@ -89,35 +89,35 @@ const ClimateComponent = ({ componentConfig }) => {
     if (targetTempLow === "---" || targetTempHigh === "---") return;
 
     if (newLow.toFixed(1) !== parseFloat(targetTempLow).toFixed(1)) {
-      commandDispatcher.dispatch({
-        entityId: componentConfig.id,
-        commandKey: "set_temperature_low",
-        value: newLow.toFixed(1),
-      });
+      deviceRegistry.sendCommand(
+        componentConfig.id,
+        newLow.toFixed(1),
+        "set_temperature_low"
+      );
     }
     if (newHigh.toFixed(1) !== parseFloat(targetTempHigh).toFixed(1)) {
-      commandDispatcher.dispatch({
-        entityId: componentConfig.id,
-        commandKey: "set_temperature_high",
-        value: newHigh.toFixed(1),
-      });
+      deviceRegistry.sendCommand(
+        componentConfig.id,
+        newHigh.toFixed(1),
+        "set_temperature_high"
+      );
     }
   };
 
   const handleModeChange = (event) => {
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      commandKey: "set_mode",
-      value: event.target.value,
-    });
+    deviceRegistry.sendCommand(
+      componentConfig.id,
+      event.target.value,
+      "set_mode"
+    );
   };
 
   const handlePresetChange = (preset) => {
-    commandDispatcher.dispatch({
-      entityId: componentConfig.id,
-      commandKey: "set_preset_mode",
-      value: preset,
-    });
+    deviceRegistry.sendCommand(
+      componentConfig.id,
+      preset,
+      "set_preset_mode"
+    );
   };
 
   let controls;
