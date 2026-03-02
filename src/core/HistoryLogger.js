@@ -25,13 +25,24 @@ class HistoryLogger {
   handleConfigSaved(config) {
     this.monitoredTopics.clear();
     
-    // Scan all dashboards for HistoryGraphWidgets to know what topics to log
+    // Scan all dashboards for widgets to know what topics to log
     Object.values(config.dashboards || {}).forEach(dash => {
       (dash.sections || []).forEach(section => {
         (section.cards || []).forEach(card => {
-          if (card.type === 'history-graph' && card.brokerId && card.graph_topic) {
-            const compositeKey = `${card.brokerId}::${card.graph_topic}`;
-            this.monitoredTopics.add(compositeKey);
+          if (!card.brokerId) return;
+
+          // Track specifically known topics across ALL widget types
+          const possibleTopicKeys = Object.keys(card).filter(k => k.endsWith('_topic') || k.endsWith('_t'));
+          possibleTopicKeys.forEach(topicKey => {
+            const topic = card[topicKey];
+            if (topic && typeof topic === 'string') {
+              this.monitoredTopics.add(`${card.brokerId}::${topic}`);
+            }
+          });
+          
+          // Fallback if there is just a generic 'topic' field
+          if (card.topic && typeof card.topic === 'string') {
+             this.monitoredTopics.add(`${card.brokerId}::${card.topic}`);
           }
         });
       });

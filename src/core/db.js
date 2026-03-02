@@ -43,3 +43,18 @@ export const getAppConfig = async () => {
     return null;
   }
 };
+
+export const pruneNotifications = async () => {
+  try {
+    const count = await db.notifications.count();
+    if (count > 100) {
+      const excess = count - 100;
+      const oldestKeys = await db.notifications.orderBy('timestamp').limit(excess).primaryKeys();
+      if (oldestKeys.length > 0) {
+        await db.notifications.bulkDelete(oldestKeys);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to prune notifications:", error);
+  }
+};

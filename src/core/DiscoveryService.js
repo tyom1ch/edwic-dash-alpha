@@ -170,17 +170,26 @@ class DiscoveryService {
             const config = JSON.parse(message);
             const uniqueId = config.unique_id || config.uniq_id;
             
-            // Validate minimal required fields.
-            if (!uniqueId || (!config.state_topic && !config.stat_t && config.componentType !== 'button')) return;
-
-            const deviceId = this._getDeviceId(config);
-            if (!deviceId) return;
-
             // Strict extraction of HA component from topic: baseTopic/component/[node_id]/object_id/config
             const strippedTopic = topic.substring(baseTopicPrefix.length + 1, topic.length - 7);
             const topicParts = strippedTopic.split('/');
             if (topicParts.length < 2) return;
             const haComponentType = topicParts[0];
+
+            // Validate minimal required fields.
+            if (!uniqueId) return;
+            
+            const hasState = config.state_topic || config.stat_t;
+            const isStateless = ['button', 'scene'].includes(haComponentType);
+            const hasSpecialState = ['climate', 'water_heater', 'camera', 'vacuum'].includes(haComponentType) && 
+                Object.keys(config).some(k => k.endsWith('_topic') || k.endsWith('_t'));
+
+            if (!hasState && !isStateless && !hasSpecialState) {
+                return;
+            }
+
+            const deviceId = this._getDeviceId(config);
+            if (!deviceId) return;
 
             const resolveTopic = (topicFragment, basePrefix) => {
                 if (!topicFragment) return null;

@@ -133,9 +133,22 @@ export const AppConfigProvider = ({ children }) => {
       setBrokerStatuses((p) => ({ ...p, [brokerId]: "error" }));
       setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || "Помилка" }));
     };
-    const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
-    const rsOn = () => setIsRefreshing(true);
-    const rsOff = () => setIsRefreshing(false);
+    let refreshingStartTime = 0;
+    let refreshingTimeout = null;
+
+    const rsOn = () => {
+      refreshingStartTime = Date.now();
+      setIsRefreshing(true);
+      if (refreshingTimeout) clearTimeout(refreshingTimeout);
+    };
+
+    const rsOff = () => {
+      const elapsed = Date.now() - refreshingStartTime;
+      const remaining = Math.max(0, 1000 - elapsed);
+      refreshingTimeout = setTimeout(() => {
+        setIsRefreshing(false);
+      }, remaining);
+    };
 
     eventBus.on("broker:connected", on);
     eventBus.on("broker:disconnected", off);

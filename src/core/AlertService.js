@@ -3,7 +3,7 @@ import eventBus from './EventBus';
 import connectionManager from './ConnectionManager';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { db } from './db';
+import { db, pruneNotifications } from './db';
 
 class AlertService {
   constructor() {
@@ -114,7 +114,8 @@ class AlertService {
       title: alert.name,
       message: message,
       read: 0
-    }).catch(e => console.error("[AlertService] DB Error:", e));
+    }).then(() => pruneNotifications())
+      .catch(e => console.error("[AlertService] DB Error:", e));
     
     // Enforce UI rate limiting to prevent spamming the user's screen
     if (now - lastUINotified < intervalMs) {

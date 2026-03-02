@@ -119,8 +119,10 @@ const setupNativeMqttListeners = () => {
   // Receive native alerts fired in background
   NativeMqtt.addListener('alertFired', (data) => {
     // Store in internal IndexedDB
-    import('./db').then(({ db }) => {
-      db.notifications.put(data).catch(e => console.error("[CoreServices] DB Error:", e));
+    import('./db').then(({ db, pruneNotifications }) => {
+      db.notifications.put(data)
+        .then(() => pruneNotifications())
+        .catch(e => console.error("[CoreServices] DB Error:", e));
     });
     // Emit internal event for the UI Menu to reload DB (silent: no snackbar)
     eventBus.emit("app:alert_triggered", { silent: true });
@@ -166,13 +168,14 @@ const setupNativeMqttListeners = () => {
         const bufferedAlerts = alertsResult.alerts || [];
         if (bufferedAlerts.length > 0) {
           console.log(`[NativeMqtt] Drained ${bufferedAlerts.length} fired alerts.`);
-          const { db } = await import('./db');
+          const { db, pruneNotifications } = await import('./db');
           let didAdd = false;
           for (const a of bufferedAlerts) {
             await db.notifications.put(a).catch(e => console.error("[CoreServices] DB Error:", e));
             didAdd = true;
           }
           if (didAdd) {
+            await pruneNotifications();
             eventBus.emit("app:alert_triggered", { silent: true });
           }
         }

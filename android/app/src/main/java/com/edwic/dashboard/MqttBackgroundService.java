@@ -55,11 +55,11 @@ public class MqttBackgroundService extends Service {
     private final AtomicInteger alertNotificationId = new AtomicInteger(10000);
 
     // Message buffer for when WebView is sleeping
-    private final List<JSONObject> messageBuffer = new ArrayList<>();
-    private static final int MAX_BUFFER_SIZE = 500;
+    private final java.util.Deque<JSONObject> messageBuffer = new java.util.ArrayDeque<>();
+    private static final int MAX_BUFFER_SIZE = 100; // Reduced from 500 to 100 to avoid IPC bloat
     
     // Alert Buffer for when WebView is sleeping
-    private final List<JSONObject> alertBuffer = new ArrayList<>();
+    private final java.util.Deque<JSONObject> alertBuffer = new java.util.ArrayDeque<>();
 
     private PowerManager.WakeLock wakeLock;
     private Handler uptimeHandler;
@@ -357,9 +357,9 @@ public class MqttBackgroundService extends Service {
                             msg.put("topic", topic);
                             msg.put("payload", payload);
                             msg.put("timestamp", System.currentTimeMillis());
-                            messageBuffer.add(msg);
+                            messageBuffer.offer(msg);
                             while (messageBuffer.size() > MAX_BUFFER_SIZE) {
-                                messageBuffer.remove(0);
+                                messageBuffer.poll();
                             }
                         } catch (JSONException e) {
                             Log.e(TAG, "Error buffering message", e);
@@ -545,9 +545,9 @@ public class MqttBackgroundService extends Service {
             firedAlert.put("read", 0);
             
             synchronized (alertBuffer) {
-                alertBuffer.add(firedAlert);
+                alertBuffer.offer(firedAlert);
                 while (alertBuffer.size() > 100) { 
-                    alertBuffer.remove(0);
+                    alertBuffer.poll();
                 }
             }
             if (eventListener != null) {
