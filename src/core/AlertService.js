@@ -45,7 +45,9 @@ class AlertService {
 
   handleRawMessage(brokerId, topic, messageBuffer, options = {}) {
     if (Capacitor.isNativePlatform()) {
-        return; // Android natively evaluates alerts in MqttBackgroundService!
+        // Android natively evaluates alerts in MqttBackgroundService.
+        // We DO NOT evaluate them in JS to prevent duplicated events/checks.
+        return; 
     }
 
     if (!this.alerts || this.alerts.length === 0) return;
@@ -109,13 +111,16 @@ class AlertService {
 
     // Store in internal IndexedDB for the top-bar Notification Menu
     // ALWAYS STORE (unless it was already deduped above)
-    db.notifications.put({
-      timestamp: now,
-      title: alert.name,
-      message: message,
-      read: 0
-    }).then(() => pruneNotifications())
-      .catch(e => console.error("[AlertService] DB Error:", e));
+    import('./db').then(({ addNotificationIfNotExists, pruneNotifications }) => {
+      addNotificationIfNotExists({
+        timestamp: now,
+        title: alert.name,
+        message: message,
+        read: 0
+      }).then((added) => {
+        if (added) pruneNotifications();
+      }).catch(e => console.error("[AlertService] DB Error:", e));
+    });
     
     // Enforce UI rate limiting to prevent spamming the user's screen
     if (now - lastUINotified < intervalMs) {

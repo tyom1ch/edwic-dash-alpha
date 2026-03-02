@@ -44,6 +44,27 @@ export const getAppConfig = async () => {
   }
 };
 
+export const addNotificationIfNotExists = async (notification) => {
+  try {
+    // Check if an identical notification was recently inserted (within the last few seconds)
+    // Dexie doesn't have multi-column unique indexes by default here so we just search
+    const exists = await db.notifications
+      .where('timestamp')
+      .between(notification.timestamp - 15000, notification.timestamp + 15000, true, true)
+      .filter(n => n.title === notification.title && n.message === notification.message)
+      .first();
+
+    if (!exists) {
+      await db.notifications.put(notification);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("Failed to deduplicate notification:", e);
+    return false;
+  }
+};
+
 export const pruneNotifications = async () => {
   try {
     const count = await db.notifications.count();

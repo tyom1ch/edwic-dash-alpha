@@ -123,6 +123,29 @@ class ConnectionManager {
             this.mqttClients.delete(brokerId);
         }
     }
+
+    async triggerReconnect(brokerId) {
+        console.log(`[ConnectionManager] Triggered manual reconnect for broker: ${brokerId}`);
+        if (isNative) {
+            // Android: Just re-send the broker config to the native plugin.
+            // It will disconnect and reconnect internally, dumping retained messages natively.
+            const brokerConfig = this._brokerConfigs.get(brokerId);
+            if (brokerConfig) {
+                // We send it wrapped in an array as NativeMqtt expects for updateBrokers
+                NativeMqtt.updateBrokers({ brokers: [brokerConfig] }).catch(e => {
+                    console.error("[NativeMqtt] Failed to trigger reconnect:", e);
+                });
+            }
+        } else {
+            // Web: disconnect and connect wrapper
+            const client = this.mqttClients.get(brokerId);
+            if (client && client.config) {
+                eventBus.emit('broker:reconnecting', brokerId);
+                await client.disconnect();
+                await client.reconnect(client.config);
+            }
+        }
+    }
     
     subscribeToTopic(brokerId, topic) {
         if (isNative) {

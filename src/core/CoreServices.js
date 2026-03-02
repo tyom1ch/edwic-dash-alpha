@@ -119,9 +119,11 @@ const setupNativeMqttListeners = () => {
   // Receive native alerts fired in background
   NativeMqtt.addListener('alertFired', (data) => {
     // Store in internal IndexedDB
-    import('./db').then(({ db, pruneNotifications }) => {
-      db.notifications.put(data)
-        .then(() => pruneNotifications())
+    import('./db').then(({ addNotificationIfNotExists, pruneNotifications }) => {
+      addNotificationIfNotExists(data)
+        .then((added) => {
+            if (added) pruneNotifications();
+        })
         .catch(e => console.error("[CoreServices] DB Error:", e));
     });
     // Emit internal event for the UI Menu to reload DB (silent: no snackbar)
@@ -132,7 +134,6 @@ const setupNativeMqttListeners = () => {
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
       try {
-        eventBus.emit("app:refreshing_start");
         // Refresh broker statuses from native service (only emit if changed)
         const statusResult = await NativeMqtt.getStatus();
         if (statusResult.brokers) {
@@ -142,10 +143,12 @@ const setupNativeMqttListeners = () => {
           Object.entries(brokers).forEach(([brokerId, status]) => {
             const previousStatus = connectionManager.isConnected(brokerId) ? 'connected' : 'disconnected';
             connectionManager.updateNativeStatus(brokerId, status);
-            // Only emit if status actually changed to avoid cascading re-renders
+            // Emit natural transition instead of forced refreshing state
             if (status !== previousStatus) {
               if (status === 'connected') {
                 eventBus.emit('broker:connected', brokerId, currentBrokersStatus[brokerId]);
+              } else if (status === 'error') {
+                eventBus.emit('broker:error', brokerId, { message: "Помилка підключення з фону" });
               } else {
                 eventBus.emit('broker:disconnected', brokerId);
               }
@@ -168,11 +171,11 @@ const setupNativeMqttListeners = () => {
         const bufferedAlerts = alertsResult.alerts || [];
         if (bufferedAlerts.length > 0) {
           console.log(`[NativeMqtt] Drained ${bufferedAlerts.length} fired alerts.`);
-          const { db, pruneNotifications } = await import('./db');
+          const { addNotificationIfNotExists, pruneNotifications } = await import('./db');
           let didAdd = false;
           for (const a of bufferedAlerts) {
-            await db.notifications.put(a).catch(e => console.error("[CoreServices] DB Error:", e));
-            didAdd = true;
+            const added = await addNotificationIfNotExists(a).catch(e => console.error("[CoreServices] DB Error:", e));
+            if (added) didAdd = true;
           }
           if (didAdd) {
             await pruneNotifications();
@@ -181,8 +184,6 @@ const setupNativeMqttListeners = () => {
         }
       } catch (e) {
         console.error("[NativeMqtt] Error on resume:", e);
-      } finally {
-        eventBus.emit("app:refreshing_end");
       }
     }
   });

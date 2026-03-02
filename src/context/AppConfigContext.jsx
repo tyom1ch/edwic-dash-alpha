@@ -48,6 +48,53 @@ export const AppConfigProvider = ({ children }) => {
   const [brokerErrors, setBrokerErrors] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Ref to store the previous config for comparison during save
+  const prevAppConfigRef = useRef();
+
+  // Helper to count widgets in a config
+  const countWidgets = useCallback((cfg) => {
+    let count = 0;
+    Object.values(cfg.dashboards || {}).forEach(d => {
+      (d.sections || []).forEach(s => { count += (s.cards || []).length; }); // Changed components to cards
+    });
+    return count;
+  }, []);
+
+  // Custom save function that includes widget count tracking and reconnect logic
+  const saveAppConfig = useCallback(async (newConfig) => {
+    try {
+      // 1) Find which brokers need a reconnect (if new widgets were added)
+      const oldConfig = prevAppConfigRef.current || {};
+      const brokersToReconnect = new Set();
+      
+      const oldWidgets = countWidgets(oldConfig);
+      const newWidgets = countWidgets(newConfig);
+
+      // If we added new widgets, blindly reconnect all active brokers that have this widget 
+      // (simplification: just reconnect all configured brokers for a fresh state)
+      if (newWidgets > oldWidgets) {
+        (newConfig.brokers || []).forEach(b => brokersToReconnect.add(b.id));
+      }
+
+      await db.saveAppConfig(newConfig); // Use the original db save function
+      setAppConfigState(newConfig); // Update local state
+      eventBus.emit("config:saved", newConfig);
+      
+      // Execute the reconnects slightly after config saving
+      setTimeout(() => {
+        brokersToReconnect.forEach(brokerId => {
+          connectionManager.triggerReconnect(brokerId);
+        });
+      }, 500);
+
+      return true;
+    } catch (error) {
+      console.error("Помилка збереження конфігурації:", error);
+      return false;
+    }
+  }, [countWidgets]);
+
+
   // Load & migrate on mount
   useEffect(() => {
     let mounted = true;
@@ -59,7 +106,7 @@ export const AppConfigProvider = ({ children }) => {
           const lsConfig = localStorage.getItem("appConfig");
           if (lsConfig) {
             savedConfig = JSON.parse(lsConfig);
-            await saveAppConfig(savedConfig);
+            await db.saveAppConfig(savedConfig); // Use db.saveAppConfig here
           }
         } catch (e) {
           console.warn("Failed to migrate from localStorage:", e);

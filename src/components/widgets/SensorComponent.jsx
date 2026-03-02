@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import useEntity from "../../hooks/useEntity";
 import { evaluateValueTemplate } from "../../utils/templateEvaluator";
 import { AutoScalableText } from "./AutoScalableText";
 import { ModernWidgetCard } from "./ModernWidgetCard";
 import { SparklineGraph } from "./SparklineGraph";
+import HistoryGraphDialog from "../HistoryGraphDialog";
 
 const SensorComponent = ({ componentConfig }) => {
+  const [historyOpen, setHistoryOpen] = useState(false);
   const entity = useEntity(componentConfig.id);
   const rawValue = entity?.value;
   const template = entity?.val_tpl || componentConfig?.value_template;
@@ -27,16 +29,28 @@ const SensorComponent = ({ componentConfig }) => {
   const topic = entity?.state_topic || componentConfig?.state_topic || componentConfig?.stat_t;
 
   return (
-    <ModernWidgetCard title={label} highlightColor="#4fc3f7">
-      <AutoScalableText 
-        text={displayValue ?? "---"} 
-        unit={unit} 
-        subText={`Оновлено: ${lastUpdated}`}
-        color="text.primary" 
-        sx={{ zIndex: 1 }}
+    <>
+      <ModernWidgetCard 
+        title={label} 
+        highlightColor="#4fc3f7"
+        onClick={() => setHistoryOpen(true)}
+      >
+        <AutoScalableText 
+          text={displayValue ?? "---"} 
+          unit={unit} 
+          subText={`Оновлено: ${lastUpdated}`}
+          color="text.primary" 
+          sx={{ zIndex: 1 }}
+        />
+        {topic && <SparklineGraph brokerId={componentConfig.brokerId} topic={topic} color="#4fc3f7" />}
+      </ModernWidgetCard>
+      
+      <HistoryGraphDialog 
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        sensorWidget={{ ...componentConfig, state_topic: topic, label }}
       />
-      {topic && <SparklineGraph brokerId={componentConfig.brokerId} topic={topic} color="#4fc3f7" />}
-    </ModernWidgetCard>
+    </>
   );
 };
 
