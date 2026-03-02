@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useMemo } from "react";
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getAppConfig, saveAppConfig } from "../core/db";
 import eventBus from "../core/EventBus";
 import connectionManager from "../core/ConnectionManager";
