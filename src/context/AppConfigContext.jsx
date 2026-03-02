@@ -133,6 +133,8 @@ export const AppConfigProvider = ({ children }) => {
       setBrokerStatuses((p) => ({ ...p, [brokerId]: "error" }));
       setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || "Помилка" }));
     };
+    const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
+
     let refreshingStartTime = 0;
     let refreshingTimeout = null;
 
