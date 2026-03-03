@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { IconButton, Snackbar, Alert, Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 import { AppProvider, DashboardLayout } from "@toolpad/core";
 import {
@@ -192,19 +192,7 @@ function AppLayout({
   
   const handleRenameSection = (sectionId, newTitle) => handlers.handleRenameSection(currentDashboardId, sectionId, newTitle);
 
-  useEffect(() => {
-    if (
-      location.pathname === "/" &&
-      Object.keys(appConfig.dashboards).length > 0
-    ) {
-      navigate(`/${Object.keys(appConfig.dashboards)[0]}`);
-    } else if (
-      Object.keys(appConfig.dashboards).length === 0 &&
-      !location.pathname.startsWith("/settings")
-    ) {
-      navigate("/settings");
-    }
-  }, [appConfig.dashboards, navigate, location.pathname]);
+
 
   const router = useMemo(
     () => ({
@@ -268,6 +256,12 @@ function AppLayout({
         }}
       >
         <Routes>
+          {Object.keys(appConfig.dashboards).length > 0 ? (
+            <Route index element={<Navigate to={`/${Object.keys(appConfig.dashboards)[0]}`} replace />} />
+          ) : (
+            <Route index element={<Navigate to="/settings" replace />} />
+          )}
+
           {Object.keys(appConfig.dashboards).map((id) => (
             <Route
               key={id}

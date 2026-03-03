@@ -209,7 +209,7 @@ export const AppConfigProvider = ({ children }) => {
     if (appConfig.brokers) {
       const initStatuses = {};
       appConfig.brokers.forEach((b) => {
-        initStatuses[b.id] = connectionManager.isConnected(b.id) ? "connected" : "offline";
+        initStatuses[b.id] = connectionManager.isConnected(b.id) ? "connected" : "connecting";
       });
       setBrokerStatuses(initStatuses);
     }

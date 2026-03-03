@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import useEntity from "../../hooks/useEntity";
 import { evaluateValueTemplate } from "../../utils/templateEvaluator";
 import { AutoScalableText } from "./AutoScalableText";
@@ -28,12 +28,21 @@ const SensorComponent = ({ componentConfig }) => {
   const label = componentConfig.label || entity?.name || "Сенсор";
   const topic = entity?.state_topic || componentConfig?.state_topic || componentConfig?.stat_t;
 
+  const memoizedSensorScope = useMemo(() => {
+    return { ...componentConfig, state_topic: topic, label };
+  }, [componentConfig, topic, label]);
+
+  const handleOpenHistory = (e) => {
+    e.stopPropagation();
+    setHistoryOpen(true);
+  };
+
   return (
     <>
       <ModernWidgetCard 
         title={label} 
         highlightColor="#4fc3f7"
-        onClick={() => setHistoryOpen(true)}
+        onClick={handleOpenHistory}
       >
         <AutoScalableText 
           text={displayValue ?? "---"} 
@@ -48,7 +57,7 @@ const SensorComponent = ({ componentConfig }) => {
       <HistoryGraphDialog 
         isOpen={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        sensorWidget={{ ...componentConfig, state_topic: topic, label }}
+        sensorWidget={memoizedSensorScope}
       />
     </>
   );

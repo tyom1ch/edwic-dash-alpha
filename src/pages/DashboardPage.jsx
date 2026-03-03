@@ -3,23 +3,19 @@ import React, { useState } from "react";
 import { Box, Typography } from "@mui/material";
 
 import DashboardSections from "../components/sections/DashboardSections";
-import HistoryGraphDialog from "../components/HistoryGraphDialog";
 
 function DashboardPage({
   dashboard,
   onEditComponent,
   onDeleteComponent,
-  onLayoutChange = () => {},  // (newSections) => void
-  onDragEnd = () => {},       // (event, sections) => void
+  onLayoutChange = () => {},
+  onDragEnd = () => {},
   onAddSection,
   onDeleteSection,
   onRenameSection,
-  onAddComponentToSection,    // (sectionId) => void  — opens dialog scoped to that section
+  onAddComponentToSection,
   lockMode,
 }) {
-  const [isHistoryGraphOpen, setIsHistoryGraphOpen] = useState(false);
-  const [selectedSensorWidget, setSelectedSensorWidget] = useState(null);
-
   if (!dashboard) return <div>Dashboard not found.</div>;
 
   const sections = dashboard.sections || [];
@@ -27,15 +23,7 @@ function DashboardPage({
   const isEmpty = sections.length === 0 || sections.every((s) => s.cards.length === 0);
 
   const handleWidgetClick = (component) => {
-    if (lockMode && component.type === "sensor") {
-      setSelectedSensorWidget(component);
-      setIsHistoryGraphOpen(true);
-    }
-  };
-
-  const handleCloseHistoryGraph = () => {
-    setIsHistoryGraphOpen(false);
-    setSelectedSensorWidget(null);
+    // Widget components handle their own clicks, e.g. opening a graph dialog
   };
 
   if (lockMode && isEmpty) {
@@ -65,12 +53,6 @@ function DashboardPage({
         onRenameSection={onRenameSection}
         onLayoutChange={onLayoutChange}
         onDragEnd={onDragEnd}
-      />
-
-      <HistoryGraphDialog
-        isOpen={isHistoryGraphOpen}
-        onClose={handleCloseHistoryGraph}
-        sensorWidget={selectedSensorWidget}
       />
     </>
   );

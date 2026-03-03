@@ -96,8 +96,8 @@ class DeviceRegistry {
       newEntities.set(component.id, newEntity);
 
       for (const property in topicMappings) {
-        const mappingValue = topicMappings[property];
-        if (typeof mappingValue === 'string') {
+        let mappingValue = topicMappings[property];
+        if (typeof mappingValue === 'string' && mappingValue.includes('/')) {
           const topic = mappingValue;
           if (!newTopicActionMap.has(topic)) {
             newTopicActionMap.set(topic, []);
@@ -119,6 +119,9 @@ class DeviceRegistry {
               if (!newEntity.last_updated || new Date(cachedItem.timestamp) > new Date(newEntity.last_updated)) {
                 newEntity.last_updated = cachedItem.timestamp;
               }
+            } else {
+              // FIX: Guarantee we don't accidentally display the raw topic path if no cache hits
+              newEntity[property] = undefined;
             }
           }
         }
