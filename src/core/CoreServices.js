@@ -14,6 +14,7 @@ const NativeMqtt = registerPlugin('NativeMqtt');
 
 let isCoreInitialized = false;
 let isNativeMqttStarted = false;
+let nativeListenersSetup = false; // Guard: prevent double-registration of native listeners
 
 // Додаємо змінну для зберігання поточного стану брокерів для нотифікацій
 let currentBrokersStatus = {};
@@ -89,6 +90,11 @@ const setupEventListeners = () => {
 
 // Setup native MQTT event listeners (forwarded from Java service to JS)
 const setupNativeMqttListeners = () => {
+  if (nativeListenersSetup) {
+    console.warn("[CoreServices] setupNativeMqttListeners called twice — skipping.");
+    return;
+  }
+  nativeListenersSetup = true;
   // Receive messages from native MQTT service
   NativeMqtt.addListener('mqttMessage', (data) => {
     // Forward to the same eventBus that the JS MQTT wrapper uses
@@ -176,9 +182,6 @@ export default {
 
     if (Capacitor.isNativePlatform()) {
       console.log("[CoreServices] Native platform detected.");
-      
-      // Setup native event listeners regardless of autoConnect (so manual starts work)
-      setupNativeMqttListeners();
 
       if (config.autoConnect !== false) {
         console.log("[CoreServices] Starting Native MQTT Service auto-connect...");
@@ -193,7 +196,7 @@ export default {
             console.warn("[CoreServices] Notifications not granted. Service will start but alerts won't show.");
           }
 
-          // 2. Setup native event listeners
+          // 2. Setup native event listeners (guard inside prevents double-registration)
           setupNativeMqttListeners();
 
           const state = await App.getState();

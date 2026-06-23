@@ -11,6 +11,7 @@ class ConnectionManager {
         this.mqttClients = new Map(); // Used only on web
         this._brokerConfigs = new Map(); // Track configs on all platforms
         this._nativeStatuses = new Map(); // Track native broker statuses
+        this._watchdogTimer = null; // Keep ref to avoid duplicate timers
         console.log(`[ConnectionManager] Initialized. Native: ${isNative}`);
         if (!isNative) {
             this.startWatchdog();
@@ -30,7 +31,11 @@ class ConnectionManager {
 
     startWatchdog() {
         // Тільки для веб — на Android нативний сервіс сам робить reconnect
-        setInterval(() => {
+        // Clear any existing watchdog timer to avoid accumulation on hot reload
+        if (this._watchdogTimer) {
+            clearInterval(this._watchdogTimer);
+        }
+        this._watchdogTimer = setInterval(() => {
             this.mqttClients.forEach((client, id) => {
                 if (!client.isConnected()) {
                     console.log(`[ConnectionManager] Watchdog: Broker ${id} is disconnected. Enforcing reconnect...`);
