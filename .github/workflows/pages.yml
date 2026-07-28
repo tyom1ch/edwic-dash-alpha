@@ -1,0 +1,40 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (production)
+        env:
+          NODE_ENV: production
+          # Ensure Vite uses the repo subpath as base when building
+          BASE_URL: /edwic-dash-alpha/
+        run: npm run build
+
+      - name: Create 404.html for SPA routing
+        run: |
+          if [ -f ./dist/index.html ]; then cp ./dist/index.html ./dist/404.html; fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
