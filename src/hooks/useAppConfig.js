@@ -130,13 +130,20 @@ const useAppConfig = () => {
 
   useEffect(() => {
     if (isLoading) return;
-    const on = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connected" }));
-    const off = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "offline" }));
+    const on = (brokerId) => setBrokerStatuses((p) => (
+      p[brokerId] === "connected" ? p : { ...p, [brokerId]: "connected" }
+    ));
+    const off = (brokerId) => setBrokerStatuses((p) => (
+      p[brokerId] === "offline" ? p : { ...p, [brokerId]: "offline" }
+    ));
     const err = (brokerId, e) => {
-      setBrokerStatuses((p) => ({ ...p, [brokerId]: "error" }));
-      setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || translate(readLang(), "Помилка") }));
+      const message = e?.message || translate(readLang(), "Помилка");
+      setBrokerStatuses((p) => (p[brokerId] === "error" ? p : { ...p, [brokerId]: "error" }));
+      setBrokerErrors((p) => (p[brokerId] === message ? p : { ...p, [brokerId]: message }));
     };
-    const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
+    const rc = (brokerId) => setBrokerStatuses((p) => (
+      p[brokerId] === "connecting" ? p : { ...p, [brokerId]: "connecting" }
+    ));
 
     eventBus.on("broker:connected", on);
     eventBus.on("broker:disconnected", off);

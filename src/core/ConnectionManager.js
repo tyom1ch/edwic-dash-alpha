@@ -12,15 +12,24 @@ function topicsOf(topic) {
     return [];
 }
 
+const WEB_FLUSH_MS = 32;
+const WEB_FLUSH_BATCH = 40;
+const MAX_WEB_PENDING = 2000;
+const MAX_WEB_SEEN = 4000;
+
 class ConnectionManager {
     constructor() {
         this.mqttClients = new Map(); // Used only on web
         this._brokerConfigs = new Map(); // Track configs on all platforms
         this._nativeStatuses = new Map(); // Track native broker statuses
         this._watchdogTimer = null; // Keep ref to avoid duplicate timers
+        this._webPending = new Map();
+        this._webLast = new Map();
+        this._webFlushTimer = null;
         console.log(`[ConnectionManager] Initialized. Native: ${isNative}`);
         if (!isNative) {
             this.startWatchdog();
+            this.listenForReturn();
         }
     }
 
@@ -36,21 +45,69 @@ class ConnectionManager {
     }
 
     startWatchdog() {
-        // Тільки для веб — на Android нативний сервіс сам робить reconnect
-        // Clear any existing watchdog timer to avoid accumulation on hot reload
-        if (this._watchdogTimer) {
-            clearInterval(this._watchdogTimer);
-        }
+        if (this._watchdogTimer) clearInterval(this._watchdogTimer);
+        // mqtt.js already retries. This only restarts a client that stopped trying.
         this._watchdogTimer = setInterval(() => {
-            this.mqttClients.forEach((client, id) => {
-                if (!client.isConnected()) {
-                    console.log(`[ConnectionManager] Watchdog: Broker ${id} is disconnected. Enforcing reconnect...`);
-                    client.reconnect(client.config).catch(e => {
-                        console.error(`[ConnectionManager] Watchdog error reconnecting broker ${id}:`, e);
-                    });
+            this.mqttClients.forEach((client) => client.nudge());
+        }, 30000);
+    }
+
+    listenForReturn() {
+        if (typeof window === 'undefined') return;
+        window.addEventListener('online', () => this.hurryAll());
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') this.hurryAll();
+        });
+        window.addEventListener('pagehide', () => {
+            for (let i = 0; i < 8 && this._webPending.size > 0; i++) this.flushWebMessages();
+        });
+    }
+
+    hurryAll() {
+        this.mqttClients.forEach((client) => client.hurry());
+    }
+
+    queueWebMessage(id, topic, message) {
+        const payload = message == null ? '' : message.toString();
+        const key = `${id}\0${topic}`;
+        if (payload.length <= 512 && this._webLast.get(key) === payload) return;
+        if (payload.length <= 512) {
+            this._webLast.set(key, payload);
+            if (this._webLast.size > MAX_WEB_SEEN) {
+                this._webLast.delete(this._webLast.keys().next().value);
+            }
+        }
+        this._webPending.set(key, { id, topic, message: payload });
+        if (this._webPending.size > MAX_WEB_PENDING) {
+            for (const extra of this._webPending.keys()) {
+                if (extra !== key) {
+                    this._webPending.delete(extra);
+                    this._webLast.delete(extra);
+                    break;
                 }
-            });
-        }, 15000);
+            }
+        }
+        if (this._webFlushTimer) return;
+        this._webFlushTimer = setTimeout(() => this.flushWebMessages(), WEB_FLUSH_MS);
+    }
+
+    flushWebMessages() {
+        if (this._webFlushTimer) {
+            clearTimeout(this._webFlushTimer);
+            this._webFlushTimer = null;
+        }
+        const batch = [];
+        for (const [key, item] of this._webPending) {
+            this._webPending.delete(key);
+            batch.push(item);
+            if (batch.length >= WEB_FLUSH_BATCH) break;
+        }
+        for (const item of batch) {
+            eventBus.emit('mqtt:raw_message', item.id, item.topic, item.message);
+        }
+        if (this._webPending.size > 0 && !this._webFlushTimer) {
+            this._webFlushTimer = setTimeout(() => this.flushWebMessages(), WEB_FLUSH_MS);
+        }
     }
 
     async updateBrokers(newBrokersConfig) {
@@ -94,7 +151,6 @@ class ConnectionManager {
                 if (!this._isConfigEqual(existingClient.config, brokerConfig)) {
                     console.log(`[ConnectionManager] Reconnecting broker ${brokerConfig.id} due to config change.`);
                     eventBus.emit('broker:reconnecting', brokerConfig.id);
-                    await existingClient.disconnect();
                     await existingClient.reconnect(brokerConfig);
                 }
             } else {
@@ -117,7 +173,7 @@ class ConnectionManager {
         client.on('connect', (id) => eventBus.emit('broker:connected', id, client.config));
         client.on('disconnect', (id) => eventBus.emit('broker:disconnected', id));
         client.on('error', (id, err) => eventBus.emit('broker:error', id, err));
-        client.on('message', (id, topic, message) => eventBus.emit('mqtt:raw_message', id, topic, message));
+        client.on('message', (id, topic, message) => this.queueWebMessage(id, topic, message));
 
         console.log(`[ConnectionManager] Adding new broker and connecting: ${brokerConfig.id}`);
         await client.connect();
@@ -132,6 +188,13 @@ class ConnectionManager {
             eventBus.emit('broker:removed', brokerId);
             await client.disconnect();
             this.mqttClients.delete(brokerId);
+            const prefix = `${brokerId}\0`;
+            for (const key of this._webPending.keys()) {
+                if (key.startsWith(prefix)) this._webPending.delete(key);
+            }
+            for (const key of this._webLast.keys()) {
+                if (key.startsWith(prefix)) this._webLast.delete(key);
+            }
         }
     }
     

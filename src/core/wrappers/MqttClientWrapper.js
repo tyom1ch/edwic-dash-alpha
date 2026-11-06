@@ -1,12 +1,24 @@
-// src/core/wrappers/MqttClientWrapper.js
 import mqtt from "mqtt";
 import EventEmitter from "events";
+
+const RECONNECT_MIN_MS = 2000;
+const RECONNECT_MAX_MS = 30000;
+
+function nextReconnectDelay(current) {
+  const base = typeof current === "number" && current >= RECONNECT_MIN_MS
+    ? current
+    : RECONNECT_MIN_MS;
+  return Math.min(RECONNECT_MAX_MS, Math.round(base * 1.5));
+}
 
 class MqttClientWrapper extends EventEmitter {
   constructor(brokerConfig) {
     super();
     this.client = null;
-    this.updateConfig(brokerConfig); // Використовуємо метод для початкового налаштування
+    this._closing = false;
+    this._opening = false;
+    this._grewThisDrop = false;
+    this.updateConfig(brokerConfig);
   }
 
   updateConfig(brokerConfig) {
@@ -19,12 +31,13 @@ class MqttClientWrapper extends EventEmitter {
 
     const username = typeof brokerConfig.username === "string" ? brokerConfig.username.trim() : "";
     this.options = {
-      reconnectPeriod: 2000, // Починаємо з 2 секунд (замість 1000)
+      manualConnect: true,
+      reconnectPeriod: RECONNECT_MIN_MS,
       keepalive: 15,
-      connectTimeout: 5000, // даємо трохи більше часу на підключення
+      connectTimeout: 10000,
       clean: true,
       resubscribe: true,
-      clientId: `edwic-${Math.random().toString(16).substr(2, 8)}`,
+      clientId: `edwic-${Math.random().toString(16).slice(2, 10)}`,
     };
     if (username) {
       this.options.username = username;
@@ -32,123 +45,107 @@ class MqttClientWrapper extends EventEmitter {
     }
   }
 
+  growBackoff() {
+    const client = this.client;
+    if (!client?.options || this._grewThisDrop) return false;
+    this._grewThisDrop = true;
+    client.options.reconnectPeriod = nextReconnectDelay(client.options.reconnectPeriod);
+    return true;
+  }
+
+  logRetry(reason) {
+    const delay = this.client?.options?.reconnectPeriod;
+    if (delay !== nextReconnectDelay(RECONNECT_MIN_MS) && delay !== RECONNECT_MAX_MS) return;
+    console.warn(`[MQTT] ${this.config.id} ${reason}, retry in ${delay}ms`);
+  }
+
   async connect() {
-    return new Promise((resolve, reject) => {
-      if (this.client && this.client.connected) {
-        console.log(
-          `[MQTT] Already connected to ${this.config.host} (ID: ${this.config.id})`
-        );
-        return resolve();
-      }
-      if (this.client) {
-        // Якщо клієнт існує, але не підключений, просто чекаємо на його спробу перепідключення
-        console.log(
-          `[MQTT] Client for ${this.config.id} exists but is not connected. Awaiting reconnect.`
-        );
-        return resolve();
-      }
+    if (this.client?.connected) return;
+    if (this.client) {
+      this.nudge();
+      return;
+    }
 
-      console.log(
-        `[MQTT] Connecting to ${this.mqttUrl} (ID: ${this.config.id})...`
-      );
-      this.client = mqtt.connect(this.mqttUrl, this.options);
+    this._closing = false;
+    this._opening = true;
+    this.client = mqtt.connect(this.mqttUrl, this.options);
+    const client = this.client;
 
-      // ВИПРАВЛЕННЯ: Дозволяємо Promise завершитись одразу, щоб не блокувати цикл ConnectionManager.
-      // Реальний статус接続u ми відстежуємо через події EventBus.
-      resolve();
-
-      this.client.on("connect", () => {
-        console.log(
-          `[MQTT] Successfully connected to ${this.config.host} (ID: ${this.config.id})`
-        );
-        // Скидаємо таймер перепідключення після успішного з'єднання
-        if (this.client && this.client.options) {
-          this.client.options.reconnectPeriod = 2000;
-        }
-        this.emit("connect", this.config.id);
-      });
-
-      this.client.on("error", (error) => {
-        console.error(
-          `[MQTT] Error for ${this.config.id} (${this.config.host}):`,
-          error.message
-        );
-        
-        // Exponential Backoff: Limit max backoff to 5 seconds instead of 60 to ensure we attempt fast reconnections
-        if (this.client && this.client.options && typeof this.client.options.reconnectPeriod === 'number') {
-          const currentPeriod = this.client.options.reconnectPeriod;
-          if (currentPeriod < 5000) {
-            this.client.options.reconnectPeriod = Math.min(5000, currentPeriod * 1.5);
-            console.warn(`[MQTT] Increasing reconnect delay for ${this.config.id} to ${Math.round(this.client.options.reconnectPeriod)}ms`);
-          }
-        }
-
-        this.emit("error", this.config.id, error);
-      });
-
-      this.client.on("close", () => {
-        console.log(
-          `[MQTT] Disconnected from ${this.config.host} (ID: ${this.config.id})`
-        );
-        if (this.client && this.client.options) {
-             this.client.options.reconnectPeriod = 2000; // Force aggressive reconnect when closed unexpectedly
-        }
-        this.emit("disconnect", this.config.id);
-      });
-
-      this.client.on("offline", () => {
-        console.warn(`[MQTT] Client went offline for ${this.config.id}`);
-        if (this.client && this.client.options) {
-             this.client.options.reconnectPeriod = 2000; // Force aggressive reconnect when offline
-        }
-        // Емітимо фіктивну помилку, бо mqtt може не кидати подію 'error' при втраті мережі
-        this.emit("error", this.config.id, { message: "Брокер недоступний (Offline)" });
-      });
-
-      this.client.on("message", (topic, message) => {
-        this.emit("message", this.config.id, topic, message);
-      });
+    client.on("connect", () => {
+      this._opening = false;
+      this._grewThisDrop = false;
+      if (client.options) client.options.reconnectPeriod = RECONNECT_MIN_MS;
+      console.log(`[MQTT] Connected to ${this.config.host} (${this.config.id})`);
+      this.emit("connect", this.config.id);
     });
+
+    client.on("error", (error) => {
+      if (this.growBackoff()) this.logRetry(error?.message || "error");
+      this.emit("error", this.config.id, error);
+    });
+
+    client.on("offline", () => {
+      if (!this.growBackoff()) return;
+      this.logRetry("offline");
+      this.emit("error", this.config.id, { message: "Брокер недоступний (Offline)" });
+    });
+
+    client.on("close", () => {
+      this._opening = false;
+      this._grewThisDrop = false;
+    });
+
+    client.on("message", (topic, message) => {
+      this.emit("message", this.config.id, topic, message);
+    });
+
+    client.connect();
+  }
+
+  nudge() {
+    const client = this.client;
+    if (!client || client.connected || this._closing || this._opening || client.disconnecting) return;
+    if (client.reconnecting || client.reconnectTimer) return;
+    this._opening = true;
+    client.reconnect();
+  }
+
+  hurry() {
+    const client = this.client;
+    if (!client || client.connected || this._closing || client.disconnecting || this._opening) return;
+    if (client.reconnecting && !client.reconnectTimer) return;
+    if (client.options) client.options.reconnectPeriod = RECONNECT_MIN_MS;
+    this._grewThisDrop = false;
+    this._opening = true;
+    client.reconnect();
   }
 
   async disconnect() {
-    return new Promise((resolve) => {
-      if (this.client) {
-        // Видаляємо всі слухачі, щоб уникнути витоків пам'яті
-        this.client.removeAllListeners();
-        this.client.end(true, () => {
-          // true - примусово закрити
-          console.log(
-            `[MQTT] Client for ${this.config.id} (${this.config.host}) forcefully ended.`
-          );
-          this.client = null;
-          this.emit("disconnect", this.config.id);
-          resolve();
-        });
-      } else {
+    const client = this.client;
+    if (!client) return;
+    this._closing = true;
+    this._opening = false;
+    await new Promise((resolve) => {
+      client.removeAllListeners();
+      client.end(true, () => {
+        if (this.client === client) this.client = null;
+        this._closing = false;
+        this.emit("disconnect", this.config.id);
         resolve();
-      }
+      });
     });
   }
 
-  // --- НОВИЙ МЕТОД ДЛЯ ОНОВЛЕННЯ КОНФІГУРАЦІЇ ---
   async reconnect(newConfig) {
-    console.log(
-      `[MQTT] Reconnecting client ${this.config.id} with new config.`
-    );
-    await this.disconnect(); // Спочатку відключаємо старий клієнт
-    this.updateConfig(newConfig); // Оновлюємо конфігурацію
-    await this.connect(); // Підключаємось з новою конфігурацією
+    await this.disconnect();
+    this.updateConfig(newConfig);
+    await this.connect();
   }
 
   subscribe(topic) {
     if (this.client) {
       this.client.subscribe(topic, (err) => {
-        if (err)
-          console.error(
-            `[MQTT] Error subscribing to ${topic} for ${this.config.id}:`,
-            err.message
-          );
+        if (err) console.error(`[MQTT] Subscribe ${topic} failed for ${this.config.id}:`, err.message);
       });
     }
   }
@@ -156,11 +153,7 @@ class MqttClientWrapper extends EventEmitter {
   unsubscribe(topic) {
     if (this.client) {
       this.client.unsubscribe(topic, (err) => {
-        if (err)
-          console.error(
-            `[MQTT] Error unsubscribing from ${topic} for ${this.config.id}:`,
-            err.message
-          );
+        if (err) console.error(`[MQTT] Unsubscribe ${topic} failed for ${this.config.id}:`, err.message);
       });
     }
   }
@@ -168,11 +161,7 @@ class MqttClientWrapper extends EventEmitter {
   publish(topic, message) {
     if (this.client) {
       this.client.publish(topic, message, (err) => {
-        if (err)
-          console.error(
-            `[MQTT] Error publishing to ${topic} for ${this.config.id}:`,
-            err.message
-          );
+        if (err) console.error(`[MQTT] Publish ${topic} failed for ${this.config.id}:`, err.message);
       });
     }
   }

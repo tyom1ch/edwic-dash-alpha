@@ -7,6 +7,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -44,7 +48,13 @@ public class MqttBackgroundService extends Service {
     private static final String ALERT_CHANNEL_ID = "mqtt_alert_channel";
     private static final int NOTIFICATION_ID = 9999;
     private static final int MAX_PAYLOAD_BYTES = 64 * 1024;
-    private static final long FLUSH_DELAY_MS = 250;
+    private static final long RECONNECT_MIN_MS = 2000;
+    private static final long RECONNECT_MAX_MS = 30_000;
+    private static final long FLUSH_DELAY_MS = 50;
+    private static final long FAST_FLUSH_MS = 16;
+    private static final int MAX_PENDING = 2000;
+    private static final int MAX_TRACKED = 4000;
+    private static final int EXACT_MARK = 512;
     private static final long STATUS_TICK_MS = 60_000;
     private static final long MIN_ALERT_INTERVAL_MS = 5_000;
 
@@ -62,6 +72,11 @@ public class MqttBackgroundService extends Service {
     private final IBinder binder = new LocalBinder();
     private final Map<String, MqttAsyncClient> clients = new ConcurrentHashMap<>();
     private final Map<String, JSONObject> clientConfigs = new ConcurrentHashMap<>();
+    private final Map<String, MqttConnectOptions> clientOptions = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> connecting = new ConcurrentHashMap<>();
+    private final Map<String, Long> retryDelay = new ConcurrentHashMap<>();
+    private final Map<String, Runnable> retryTasks = new ConcurrentHashMap<>();
+    private final Object retryLock = new Object();
     private final Map<String, String> clientStatuses = new ConcurrentHashMap<>();
     private final Map<String, CopyOnWriteArrayList<String>> clientSubscriptions = new ConcurrentHashMap<>();
     private final List<JSONObject> alertRules = new ArrayList<>();
@@ -81,10 +96,12 @@ public class MqttBackgroundService extends Service {
     };
 
     private MqttEventListener eventListener;
+    private ConnectivityManager.NetworkCallback networkCallback;
     private boolean uiActive = false;
     private boolean flushQueued = false;
     private boolean isRunning = false;
     private long startedAtElapsed = 0;
+    private long lastNetworkHurry = 0;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -95,6 +112,7 @@ public class MqttBackgroundService extends Service {
     public void onCreate() {
         super.onCreate();
         createNotificationChannels();
+        watchNetwork();
     }
 
     @Override
@@ -119,6 +137,7 @@ public class MqttBackgroundService extends Service {
     @Override
     public void onDestroy() {
         isRunning = false;
+        unwatchNetwork();
         mainHandler.removeCallbacksAndMessages(null);
         disconnectAll();
         super.onDestroy();
@@ -130,10 +149,120 @@ public class MqttBackgroundService extends Service {
 
     public void setUiActive(boolean active) {
         uiActive = active;
-        if (active) {
-            mainHandler.removeCallbacks(flushRunnable);
-            flushQueued = false;
-            mainHandler.post(flushRunnable);
+        if (!active) return;
+        hurryAll();
+        mainHandler.removeCallbacks(flushRunnable);
+        flushQueued = false;
+        mainHandler.post(flushRunnable);
+    }
+
+    private void watchNetwork() {
+        ConnectivityManager manager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (manager == null || networkCallback != null) return;
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastNetworkHurry < RECONNECT_MIN_MS) return;
+                lastNetworkHurry = now;
+                mainHandler.post(() -> hurryAll());
+            }
+        };
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                manager.registerDefaultNetworkCallback(networkCallback);
+            } else {
+                NetworkRequest request = new NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build();
+                manager.registerNetworkCallback(request, networkCallback);
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "network watch: " + e.getMessage());
+            networkCallback = null;
+        }
+    }
+
+    private void unwatchNetwork() {
+        if (networkCallback == null) return;
+        ConnectivityManager manager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        try {
+            if (manager != null) manager.unregisterNetworkCallback(networkCallback);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "network unwatch: " + e.getMessage());
+        }
+        networkCallback = null;
+    }
+
+    private void hurryAll() {
+        List<String> due = new ArrayList<>();
+        synchronized (retryLock) {
+            for (String id : clients.keySet()) {
+                MqttAsyncClient client = clients.get(id);
+                if (client == null || client.isConnected() || connecting.containsKey(id)) continue;
+                retryDelay.put(id, RECONNECT_MIN_MS);
+                Runnable pendingRetry = retryTasks.remove(id);
+                if (pendingRetry != null) mainHandler.removeCallbacks(pendingRetry);
+                due.add(id);
+            }
+        }
+        for (String id : due) connectNow(id);
+    }
+
+    private void scheduleRetry(String id) {
+        synchronized (retryLock) {
+            if (!isRunning || !clients.containsKey(id) || retryTasks.containsKey(id)) return;
+            long delay = retryDelay.getOrDefault(id, RECONNECT_MIN_MS);
+            Runnable task = () -> {
+                synchronized (retryLock) {
+                    retryTasks.remove(id);
+                }
+                connectNow(id);
+            };
+            retryTasks.put(id, task);
+            mainHandler.postDelayed(task, delay);
+            retryDelay.put(id, Math.min(RECONNECT_MAX_MS, Math.round(delay * 1.5)));
+        }
+    }
+
+    private void cancelRetry(String id) {
+        synchronized (retryLock) {
+            Runnable pendingRetry = retryTasks.remove(id);
+            if (pendingRetry != null) mainHandler.removeCallbacks(pendingRetry);
+            retryDelay.remove(id);
+        }
+    }
+
+    private void connectNow(String id) {
+        MqttAsyncClient client = clients.get(id);
+        MqttConnectOptions options = clientOptions.get(id);
+        if (client == null || options == null || client.isConnected() || connecting.containsKey(id)) return;
+        connecting.put(id, Boolean.TRUE);
+        String status = clientStatuses.get(id);
+        if (status == null) updateBrokerStatus(id, "connecting");
+        try {
+            client.connect(options, null, new IMqttActionListener() {
+                @Override
+                public void onSuccess(IMqttToken asyncActionToken) {
+                    connecting.remove(id);
+                    retryDelay.put(id, RECONNECT_MIN_MS);
+                }
+
+                @Override
+                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    connecting.remove(id);
+                    Log.w(TAG, "broker " + id + " failed: " +
+                            (exception != null ? exception.getMessage() : "unknown"));
+                    updateBrokerStatus(id, "error");
+                    scheduleRetry(id);
+                }
+            });
+        } catch (MqttException e) {
+            connecting.remove(id);
+            if (e.getReasonCode() == MqttException.REASON_CODE_CONNECT_IN_PROGRESS || client.isConnected()) return;
+            Log.w(TAG, "broker " + id + " connect: " + e.getMessage());
+            updateBrokerStatus(id, "error");
+            scheduleRetry(id);
         }
     }
 
@@ -268,16 +397,22 @@ public class MqttBackgroundService extends Service {
                     serverUri, clientIdFor(id), new MemoryPersistence());
             MqttConnectOptions options = new MqttConnectOptions();
             options.setCleanSession(true);
-            options.setAutomaticReconnect(true);
+            // Paho keeps one reconnect delay for the whole process and does not
+            // retry a connect that never succeeded. The service schedules that itself.
+            options.setAutomaticReconnect(false);
             options.setConnectionTimeout(10);
             options.setKeepAliveInterval(30);
-            options.setMaxReconnectDelay(30_000);
             if (!username.isEmpty()) options.setUserName(username);
             if (!password.isEmpty()) options.setPassword(password.toCharArray());
 
             client.setCallback(new MqttCallbackExtended() {
                 @Override
                 public void connectComplete(boolean reconnect, String uri) {
+                    retryDelay.put(id, RECONNECT_MIN_MS);
+                    synchronized (retryLock) {
+                        Runnable pendingRetry = retryTasks.remove(id);
+                        if (pendingRetry != null) mainHandler.removeCallbacks(pendingRetry);
+                    }
                     updateBrokerStatus(id, "connected");
                     resubscribe(id, client);
                 }
@@ -285,6 +420,7 @@ public class MqttBackgroundService extends Service {
                 @Override
                 public void connectionLost(Throwable cause) {
                     updateBrokerStatus(id, "disconnected");
+                    scheduleRetry(id);
                 }
 
                 @Override
@@ -303,19 +439,9 @@ public class MqttBackgroundService extends Service {
 
             clients.put(id, client);
             clientConfigs.put(id, brokerConfig);
-            updateBrokerStatus(id, "connecting");
-            client.connect(options, null, new IMqttActionListener() {
-                @Override
-                public void onSuccess(IMqttToken asyncActionToken) {
-                }
-
-                @Override
-                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.w(TAG, "broker " + id + " failed: " +
-                            (exception != null ? exception.getMessage() : "unknown"));
-                    updateBrokerStatus(id, "error");
-                }
-            });
+            clientOptions.put(id, options);
+            retryDelay.put(id, RECONNECT_MIN_MS);
+            connectNow(id);
         } catch (Exception e) {
             Log.w(TAG, "broker " + id + " setup: " + e.getMessage());
             updateBrokerStatus(id, "error");
@@ -334,10 +460,41 @@ public class MqttBackgroundService extends Service {
         }
     }
 
+    private static String seenMark(String payload) {
+        if (payload.length() <= EXACT_MARK) return payload;
+        int hash = payload.length();
+        int step = Math.max(1, payload.length() / 32);
+        for (int i = 0; i < payload.length(); i += step) {
+            hash = (hash * 33) + payload.charAt(i);
+        }
+        return hash + ":" + payload.substring(0, 24) + ":" + payload.substring(payload.length() - 24);
+    }
+
+    private static String evictOne(Map<String, ?> map, String keep, int max) {
+        if (map.size() <= max) return null;
+        for (String extra : map.keySet()) {
+            if (!extra.equals(keep)) {
+                map.remove(extra);
+                return extra;
+            }
+        }
+        return null;
+    }
+
+    private void dropTracked(String brokerId) {
+        String prefix = brokerId + "\0";
+        for (String key : new ArrayList<>(pending.keySet())) {
+            if (key.startsWith(prefix)) pending.remove(key);
+        }
+        for (String key : new ArrayList<>(lastPayload.keySet())) {
+            if (key.startsWith(prefix)) lastPayload.remove(key);
+        }
+    }
+
     private void queueForJs(String brokerId, String topic, String payload) {
         String key = brokerId + "\0" + topic;
-        if (payload.equals(lastPayload.get(key))) return;
-        lastPayload.put(key, payload);
+        String mark = seenMark(payload);
+        if (mark.equals(lastPayload.get(key))) return;
         JSONObject msg = new JSONObject();
         try {
             msg.put("brokerId", brokerId);
@@ -347,10 +504,15 @@ public class MqttBackgroundService extends Service {
         } catch (JSONException e) {
             return;
         }
+        lastPayload.put(key, mark);
+        evictOne(lastPayload, key, MAX_TRACKED);
         pending.put(key, msg);
+        String dropped = evictOne(pending, key, MAX_PENDING);
+        if (dropped != null) lastPayload.remove(dropped);
         if (!uiActive || flushQueued) return;
         flushQueued = true;
-        mainHandler.postDelayed(flushRunnable, FLUSH_DELAY_MS);
+        long delay = pending.size() > 4 ? FLUSH_DELAY_MS : FAST_FLUSH_MS;
+        mainHandler.postDelayed(flushRunnable, delay);
     }
 
     private void flushPending() {
@@ -375,8 +537,11 @@ public class MqttBackgroundService extends Service {
     }
 
     private void closeClient(String brokerId) {
+        cancelRetry(brokerId);
+        connecting.remove(brokerId);
         MqttAsyncClient client = clients.remove(brokerId);
         clientConfigs.remove(brokerId);
+        clientOptions.remove(brokerId);
         clientStatuses.remove(brokerId);
         if (client == null) return;
         try {
@@ -394,6 +559,7 @@ public class MqttBackgroundService extends Service {
     private void removeBroker(String brokerId) {
         closeClient(brokerId);
         clientSubscriptions.remove(brokerId);
+        dropTracked(brokerId);
         if (eventListener != null) {
             eventListener.onBrokerStatusChanged(brokerId, "removed");
         }

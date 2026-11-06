@@ -151,7 +151,7 @@ const setupNativeMqttListeners = () => {
     }
   });
 
-  // When app comes back to foreground, refresh statuses and deliver only latest values
+  // When the app returns, refresh broker statuses. The service pushes the latest values.
   App.addListener('appStateChange', async (state) => {
     if (state.isActive && isNativeMqttStarted) {
       try {
@@ -175,22 +175,6 @@ const setupNativeMqttListeners = () => {
           });
         }
 
-        // Drain buffered messages — deduplicate by topic, keep only latest per topic
-        const result = await NativeMqtt.drainBuffer();
-        const messages = result.messages || [];
-        if (messages.length > 0) {
-          // Keep only the LAST message per brokerId+topic combo
-          const latestByTopic = new Map();
-          messages.forEach(msg => {
-            const key = `${msg.brokerId}:${msg.topic}`;
-            latestByTopic.set(key, msg);
-          });
-          const uniqueMessages = [...latestByTopic.values()];
-          console.log(`[NativeMqtt] Drained ${messages.length} msgs, emitting ${uniqueMessages.length} (deduped by topic).`);
-          uniqueMessages.forEach(msg => {
-            eventBus.emit('mqtt:raw_message', msg.brokerId, msg.topic, msg.payload);
-          });
-        }
       } catch (e) {
         console.error("[NativeMqtt] Error on resume:", e);
       }
