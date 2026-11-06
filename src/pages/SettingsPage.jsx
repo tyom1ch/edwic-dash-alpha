@@ -549,7 +549,11 @@ function SettingsPage({
                 sx={{ mb: 2 }}
                 type="number"
                 required
-                helperText={isNativePlatform ? t("Мобільний додаток використовує MQTT TCP протокол, не WebSocket") : ""}
+                helperText={isNativePlatform
+                  ? t("1883 — MQTT TCP. 8080 — WebSocket без шифрування, 8081 — WSS.")
+                  : (window.location.protocol === "https:"
+                    ? t("З https-сторінки браузер пускає лише WSS, наприклад порт 8081. Звичайний ws://:8080 працює в застосунку.")
+                    : t("8080 без галочки — звичайний WebSocket. 8081 з галочкою — WSS."))}
               />
               <TextField
                 fullWidth

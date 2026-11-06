@@ -26,13 +26,13 @@ class ConnectionManager {
 
     _isConfigEqual(oldConf, newConf) {
         if (!oldConf || !newConf) return false;
-        return oldConf.host === newConf.host &&
-               oldConf.port === newConf.port &&
-               oldConf.protocol === newConf.protocol &&
-               oldConf.username === newConf.username &&
-               oldConf.password === newConf.password &&
-               oldConf.clientId === newConf.clientId &&
-               oldConf.path === newConf.path;
+        const text = (value) => (value == null ? "" : String(value));
+        return text(oldConf.host) === text(newConf.host) &&
+               Number(oldConf.port) === Number(newConf.port) &&
+               !!oldConf.secure === !!newConf.secure &&
+               text(oldConf.username) === text(newConf.username) &&
+               text(oldConf.password) === text(newConf.password) &&
+               text(oldConf.basepath) === text(newConf.basepath);
     }
 
     startWatchdog() {

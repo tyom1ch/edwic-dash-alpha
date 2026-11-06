@@ -11,21 +11,14 @@ class MqttClientWrapper extends EventEmitter {
 
   updateConfig(brokerConfig) {
     this.config = brokerConfig;
-    let fullUrl = `${brokerConfig.secure ? "wss" : "ws"}://${brokerConfig.host}:${brokerConfig.port}`;
-    if (brokerConfig.basepath && brokerConfig.basepath.length > 0) {
-      let cleanedBasepath = brokerConfig.basepath.startsWith("/")
-        ? brokerConfig.basepath
-        : `/${brokerConfig.basepath}`;
-      if (cleanedBasepath.endsWith("/")) {
-        cleanedBasepath = cleanedBasepath.slice(0, -1);
-      }
-      fullUrl += cleanedBasepath;
-    }
-    this.mqttUrl = fullUrl;
+    let path = brokerConfig.basepath || "/";
+    if (!path.startsWith("/")) path = `/${path}`;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    const protocol = brokerConfig.secure ? "wss" : "ws";
+    this.mqttUrl = `${protocol}://${brokerConfig.host}:${brokerConfig.port}${path}`;
 
+    const username = typeof brokerConfig.username === "string" ? brokerConfig.username.trim() : "";
     this.options = {
-      username: brokerConfig.username,
-      password: brokerConfig.password,
       reconnectPeriod: 2000, // Починаємо з 2 секунд (замість 1000)
       keepalive: 15,
       connectTimeout: 5000, // даємо трохи більше часу на підключення
@@ -33,6 +26,10 @@ class MqttClientWrapper extends EventEmitter {
       resubscribe: true,
       clientId: `edwic-${Math.random().toString(16).substr(2, 8)}`,
     };
+    if (username) {
+      this.options.username = username;
+      this.options.password = brokerConfig.password || "";
+    }
   }
 
   async connect() {

@@ -562,11 +562,33 @@ public class MqttBackgroundService extends Service {
         return String.format("⏱ %d с", seconds);
     }
 
+    private static boolean websocketPort(int port) {
+        switch (port) {
+            case 8000:
+            case 8080:
+            case 8081:
+            case 8083:
+            case 8084:
+            case 8090:
+            case 8091:
+            case 9001:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static String websocketPath(String basepath) {
+        if (basepath == null || basepath.isEmpty() || "/".equals(basepath)) return "/";
+        String path = basepath.startsWith("/") ? basepath : "/" + basepath;
+        if (path.length() > 1 && path.endsWith("/")) path = path.substring(0, path.length() - 1);
+        return path;
+    }
+
     private static String serverUri(String host, int port, boolean secure, String basepath) {
-        if (basepath != null && !basepath.isEmpty()) {
-            String path = basepath.startsWith("/") ? basepath : "/" + basepath;
-            if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
-            return (secure ? "wss" : "ws") + "://" + host + ":" + port + path;
+        boolean websocket = websocketPort(port) || (basepath != null && !basepath.isEmpty());
+        if (websocket) {
+            return (secure ? "wss" : "ws") + "://" + host + ":" + port + websocketPath(basepath);
         }
         return (secure ? "ssl" : "tcp") + "://" + host + ":" + port;
     }
