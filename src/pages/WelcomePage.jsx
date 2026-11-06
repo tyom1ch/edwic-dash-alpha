@@ -8,8 +8,11 @@ import {
   AddCircleOutline
 } from "@mui/icons-material";
 import MuiAlert from '@mui/material/Alert';
+import LanguageSwitch from "../components/LanguageSwitch";
+import { useI18n } from "../i18n/LanguageProvider";
 
 const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
+  const { t } = useI18n();
   const fileInputRef = useRef(null);
   const [errorSnackbar, setErrorSnackbar] = React.useState({ open: false, message: "" });
 
@@ -41,7 +44,7 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
       } catch (error) {
         setErrorSnackbar({
           open: true,
-          message: "Не вдалося розпарсити файл конфігурації. Переконайтесь, що це правильний JSON."
+          message: t("Не вдалося розпарсити файл конфігурації. Переконайтесь, що це правильний JSON.")
         });
         console.error("Import error:", error);
       }
@@ -54,29 +57,31 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
   return (
     <Container maxWidth="md" sx={{ minHeight: "100dvh", display: "flex", alignItems: "center", py: 4 }}>
       <Paper elevation={3} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3, width: "100%" }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <LanguageSwitch />
+        </Box>
         <Typography variant="h3" component="h1" gutterBottom align="center" fontWeight="bold">
-          Ласкаво просимо до Edwic Dashboard
+          {t("Ласкаво просимо до Edwic Dashboard")}
         </Typography>
         <Typography variant="h6" align="center" color="text.secondary" paragraph sx={{ mb: 4 }}>
-          Потужний MQTT клієнт для керування розумним будинком
+          {t("Потужний MQTT клієнт для керування розумним будинком")}
         </Typography>
 
         <Box sx={{ mb: 5 }}>
           <Typography variant="h5" gutterBottom color="primary.main">
-            ⚠️ Важливі налаштування (Android)
+            {t("⚠️ Важливі налаштування (Android)")}
           </Typography>
           <Typography variant="body1" paragraph>
-            Для того, щоб застосунок міг працювати у фоновому режимі та ви могли отримувати сповіщення (Алерти)
-            у будь-який час, необхідно виконати такі кроки в налаштуваннях вашого пристрою:
+            {t("Для того, щоб застосунок міг працювати у фоновому режимі та ви могли отримувати сповіщення (Алерти) у будь-який час, необхідно виконати такі кроки в налаштуваннях вашого пристрою:")}
           </Typography>
 
           <Grid container spacing={3} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={4}>
               <Stack alignItems="center" spacing={1} textAlign="center">
                 <NotificationsActive color="primary" sx={{ fontSize: 40 }} />
-                <Typography variant="subtitle1" fontWeight="bold">Дозволити сповіщення</Typography>
+                <Typography variant="subtitle1" fontWeight="bold">{t("Дозволити сповіщення")}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Без цього ви не побачите Push-сповіщень від ваших налаштованих алертів.
+                  {t("Без цього ви не побачите Push-сповіщень від ваших налаштованих алертів.")}
                 </Typography>
               </Stack>
             </Grid>
@@ -84,9 +89,9 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
             <Grid item xs={12} sm={4}>
               <Stack alignItems="center" spacing={1} textAlign="center">
                 <Sync color="primary" sx={{ fontSize: 40 }} />
-                <Typography variant="subtitle1" fontWeight="bold">Фонова синхронізація</Typography>
+                <Typography variant="subtitle1" fontWeight="bold">{t("Фонова синхронізація")}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Застосунок створює "Тихе сповіщення" у фоні, щоб утримувати підключення до брокера через WebSockets.
+                  {t("Застосунок створює \"Тихе сповіщення\" у фоні, щоб утримувати підключення до брокера через WebSockets.")}
                 </Typography>
               </Stack>
             </Grid>
@@ -94,9 +99,9 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
             <Grid item xs={12} sm={4}>
               <Stack alignItems="center" spacing={1} textAlign="center">
                 <BatteryAlert color="error" sx={{ fontSize: 40 }} />
-                <Typography variant="subtitle1" fontWeight="bold">Вимкнути оптимізацію батареї!</Typography>
+                <Typography variant="subtitle1" fontWeight="bold">{t("Вимкнути оптимізацію батареї!")}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Обов'язково зайдіть у налаштування телефону та <b>Вимкніть оптимізацію акумулятора</b> для Edwic Dashboard. Інакше Android "вб'є" фоновий процес через 10 хвилин.
+                  {t("Обов'язково зайдіть у налаштування телефону та вимкніть оптимізацію акумулятора для Edwic Dashboard. Інакше Android \"вб'є\" фоновий процес через 10 хвилин.")}
                 </Typography>
               </Stack>
             </Grid>
@@ -112,7 +117,7 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
             onClick={onStartFresh}
             sx={{ px: 4, py: 1.5 }}
           >
-            Почати з нуля
+            {t("Почати з нуля")}
           </Button>
 
           <input
@@ -130,7 +135,7 @@ const WelcomePage = ({ setAppConfig, handleFinishWelcome }) => {
             onClick={handleImportClick}
             sx={{ px: 4, py: 1.5 }}
           >
-            Імпортувати конфігурацію (.json)
+            {t("Імпортувати конфігурацію (.json)")}
           </Button>
         </Box>
       </Paper>

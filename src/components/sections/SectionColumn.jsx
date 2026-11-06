@@ -8,6 +8,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import WidgetWrapper from "../widgets/WidgetWrapper";
 import { getWidgetById } from "../../core/widgetRegistry";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────
 const GRID_COLS = 4;
@@ -135,6 +136,7 @@ function SectionInner({
   dragAttributes,
   dragListeners,
 }) {
+  const { t } = useI18n();
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0, width: "100%" }}>
 
@@ -197,12 +199,12 @@ function SectionInner({
               if (!lockMode) { e.stopPropagation(); setEditingTitle(true); setTitleDraft(section.title || ""); }
             }}
           >
-            {section.title || "Секція"}
+            {section.title || t("Секція")}
           </Typography>
         )}
 
         {!lockMode && !editingTitle && (
-          <Tooltip title="Видалити секцію">
+          <Tooltip title={t("Видалити секцію")}>
             <IconButton
               size="small"
               onMouseDown={(e) => e.stopPropagation()}

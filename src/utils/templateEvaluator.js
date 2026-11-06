@@ -1,111 +1,234 @@
-// src/utils/templateEvaluator.js
+const MAX_TEMPLATE_LENGTH = 500;
 
-/**
- * Обробляє шаблон значення (val_tpl) з Home Assistant.
- * @param {string | undefined} template - Рядок шаблону, напр. "{{ value_json.temperature }}"
- * @param {string | number | undefined} rawValue - Сире значення, отримане з MQTT.
- * @returns {string} - Оброблений і відформатований рядок для відображення.
- */
+const isEmpty = (value) => value === null || value === undefined || value === '';
+
 export const evaluateValueTemplate = (template, rawValue) => {
-  // Якщо значення немає, повертаємо плейсхолдер
-if (rawValue === null || rawValue === undefined || rawValue === '') {
-    return '---';
+  if (isEmpty(rawValue)) return '---';
+  if (!template) return String(rawValue);
+
+  const wrapped = String(template).trim().match(/^\{\{\s*([\s\S]*?)\s*\}\}$/);
+  if (!wrapped) return String(rawValue);
+
+  let expression = wrapped[1].trim();
+  if (!expression || expression.length > MAX_TEMPLATE_LENGTH) return String(rawValue);
+
+  let precision = null;
+  let formatDigits = null;
+
+  const formatMatch = expression.match(/^(['"])(.*?)\1\s*\|\s*format\((.*)\)\s*$/);
+  if (formatMatch) {
+    const digits = formatMatch[2].match(/\.(\d+)f/);
+    if (digits) formatDigits = Number(digits[1]);
+    expression = formatMatch[3].trim();
+  } else {
+    const pipe = expression.indexOf('|');
+    if (pipe !== -1) {
+      const filter = expression.slice(pipe + 1).split('|')[0].trim();
+      expression = expression.slice(0, pipe).trim();
+      const round = filter.match(/^round\(\s*(\d+)\s*\)$/);
+      if (round) precision = Number(round[1]);
+    }
   }
 
-  // Якщо шаблону немає, повертаємо сире значення як є
-  if (!template) {
-    return String(rawValue);
+  let valueJson = null;
+  if (typeof rawValue === 'string') {
+    try {
+      valueJson = JSON.parse(rawValue);
+    } catch {
+      valueJson = null;
+    }
+  } else if (rawValue && typeof rawValue === 'object') {
+    valueJson = rawValue;
   }
 
   try {
-    let value_json = null;
-    try {
-      // Намагаємося розпарсити rawValue як JSON.
-      // Це робить `value_json` доступним у шаблоні.
-      value_json = JSON.parse(rawValue);
-    } catch (e) {
-      // Це нормально, якщо rawValue не є JSON. value_json залишиться null.
-    }
-
-    // 1. Отримуємо вираз зсередини {{ ... }}
-    const expression = template.slice(2, -2).trim();
-
-    // 2. Визначаємо вираз для обчислення значення та параметри форматування
-    let valueExpression = expression;
-    let precision = null;
-    let formatSpecifier = null;
-
-    // Спочатку шукаємо спеціальний фільтр 'format', оскільки він має унікальну структуру.
-    // Наприклад: '%.1f'|format(value)
-    const formatMatch = expression.match(/('.*?'|".*?")\s*\|\s*format\((.*)\)/);
-
-    if (formatMatch) {
-      // Витягуємо специфікатор формату (напр. '%.1f' -> %.1f)
-      formatSpecifier = formatMatch[1].slice(1, -1);
-      // Виразом для обчислення стає те, що всередині дужок format()
-      valueExpression = formatMatch[2];
-    } else if (expression.includes('|')) {
-      // Якщо це не format, обробляємо інші фільтри, розділені '|'
-      const parts = expression.split('|');
-      valueExpression = parts[0].trim();
-      const filterPart = parts[1].trim();
-
-      // Шукаємо фільтр round(n)
-      const roundMatch = filterPart.match(/round\((.*?)\)/);
-      if (roundMatch) {
-        precision = parseInt(roundMatch[1], 10);
-      }
-      // Тут можна додати обробку інших простих фільтрів
-    }
-
-    // 3. Створюємо функцію для безпечного виконання виразу
-    // Вона приймає 'value' (сире значення) та 'value_json' (розпарсений об'єкт)
-    const func = new Function('value', 'value_json', `
-      const float = (v) => parseFloat(v);
-      const int = (v) => parseInt(v, 10);
-      try {
-        // Обчислюємо вираз, який ми визначили раніше
-        return ${valueExpression};
-      } catch (e) {
-        return null; // Повертаємо null при помилці всередині шаблону
-      }
-    `);
-
-    // 4. Виконуємо функцію з нашими даними
-    const calculatedValue = func(rawValue, value_json);
-
-    // Якщо вираз не вдалося обчислити, повертаємо плейсхолдер
-    if (calculatedValue === null || calculatedValue === undefined) {
-      return '---';
-    }
-
-    // 5. Застосовуємо форматування, якщо воно було вказане
-
-    // Застосовуємо форматування з фільтра format()
-    if (formatSpecifier) {
-      // Спрощена реалізація для специфікаторів типу '%.1f' або '%0.0f'
-      const precisionMatch = formatSpecifier.match(/\.(\d+)f/);
-      if (precisionMatch && typeof calculatedValue === 'number') {
-        const specifierPrecision = parseInt(precisionMatch[1], 10);
-        if (!isNaN(specifierPrecision)) {
-          return calculatedValue.toFixed(specifierPrecision);
-        }
-      }
-      // Якщо специфікатор невідомий, повертаємо обчислене значення
-      return String(calculatedValue);
-    }
-
-    // Застосовуємо заокруглення з фільтра round()
-    if (precision !== null && typeof calculatedValue === 'number' && !isNaN(precision)) {
-      return calculatedValue.toFixed(precision);
-    }
-
-    // Повертаємо результат у вигляді рядка
-    return String(calculatedValue);
-
-  } catch (error) {
-    console.error(`Помилка обробки шаблону: "${template}" зі значенням: "${rawValue}"`, error);
-    // У разі будь-якої іншої помилки повертаємо сире значення
+    const result = evaluateExpression(expression, rawValue, valueJson);
+    if (result === null || result === undefined || Number.isNaN(result)) return '---';
+    if (typeof result === 'number' && formatDigits !== null) return result.toFixed(formatDigits);
+    if (typeof result === 'number' && precision !== null) return result.toFixed(precision);
+    if (typeof result === 'object') return JSON.stringify(result);
+    return String(result);
+  } catch {
     return String(rawValue);
   }
 };
+
+function evaluateExpression(source, rawValue, valueJson) {
+  let i = 0;
+
+  const skip = () => {
+    while (i < source.length && source.charCodeAt(i) <= 32) i += 1;
+  };
+
+  const parseExpression = () => {
+    let left = parseTerm();
+    for (;;) {
+      skip();
+      const op = source[i];
+      if (op !== '+' && op !== '-') break;
+      i += 1;
+      left = applyOp(left, op, parseTerm());
+    }
+    return left;
+  };
+
+  const parseTerm = () => {
+    let left = parseUnary();
+    for (;;) {
+      skip();
+      const op = source[i];
+      if (op !== '*' && op !== '/') break;
+      i += 1;
+      left = applyOp(left, op, parseUnary());
+    }
+    return left;
+  };
+
+  const parseUnary = () => {
+    skip();
+    if (source[i] === '+') {
+      i += 1;
+      return applyOp(0, '+', parseUnary());
+    }
+    if (source[i] === '-') {
+      i += 1;
+      return applyOp(0, '-', parseUnary());
+    }
+    return parsePrimary();
+  };
+
+  const parsePrimary = () => {
+    skip();
+    const ch = source[i];
+    if (ch === '(') {
+      i += 1;
+      const value = parseExpression();
+      skip();
+      if (source[i] !== ')') throw new Error('expected )');
+      i += 1;
+      return value;
+    }
+    if (ch === '"' || ch === "'") return parseString();
+    if (ch >= '0' && ch <= '9') return parseNumber();
+    if (ch === '.' && source[i + 1] >= '0' && source[i + 1] <= '9') return parseNumber();
+    if (isIdentStart(ch)) return parseIdentOrCall();
+    throw new Error('unexpected token');
+  };
+
+  const parseIdentOrCall = () => {
+    const name = parseIdent();
+    skip();
+    if (source[i] === '(') {
+      if (name !== 'float' && name !== 'int') throw new Error('call');
+      i += 1;
+      const arg = parseExpression();
+      skip();
+      if (source[i] !== ')') throw new Error('expected )');
+      i += 1;
+      const parsed = name === 'int' ? parseInt(arg, 10) : parseFloat(arg);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    if (name === 'value') return rawValue;
+    if (name === 'value_json') return readPath(valueJson);
+    throw new Error('name');
+  };
+
+  const readPath = (base) => {
+    let current = base;
+    for (;;) {
+      skip();
+      if (source[i] === '.') {
+        i += 1;
+        current = own(current, parseIdent());
+      } else if (source[i] === '[') {
+        i += 1;
+        skip();
+        const key = source[i] === '"' || source[i] === "'"
+          ? parseString()
+          : String(parseNumber());
+        skip();
+        if (source[i] !== ']') throw new Error('expected ]');
+        i += 1;
+        current = own(current, key);
+      } else {
+        return current;
+      }
+    }
+  };
+
+  const parseIdent = () => {
+    skip();
+    const start = i;
+    if (!isIdentStart(source[i])) throw new Error('ident');
+    i += 1;
+    while (isIdentPart(source[i])) i += 1;
+    return source.slice(start, i);
+  };
+
+  const parseString = () => {
+    const quote = source[i];
+    i += 1;
+    let value = '';
+    while (i < source.length && source[i] !== quote) {
+      if (source[i] === '\\' && i + 1 < source.length) {
+        i += 1;
+        value += source[i];
+        i += 1;
+        continue;
+      }
+      value += source[i];
+      i += 1;
+    }
+    if (source[i] !== quote) throw new Error('string');
+    i += 1;
+    return value;
+  };
+
+  const parseNumber = () => {
+    skip();
+    const start = i;
+    if (source[i] === '.') i += 1;
+    if (source[i] < '0' || source[i] > '9') throw new Error('number');
+    while (source[i] >= '0' && source[i] <= '9') i += 1;
+    if (source[i] === '.') {
+      i += 1;
+      while (source[i] >= '0' && source[i] <= '9') i += 1;
+    }
+    const value = Number(source.slice(start, i));
+    if (!Number.isFinite(value)) throw new Error('number');
+    return value;
+  };
+
+  const result = parseExpression();
+  skip();
+  if (i !== source.length) throw new Error('trailing');
+  if (typeof result === 'function') throw new Error('function');
+  return result;
+}
+
+function own(obj, key) {
+  if (obj === null || typeof obj !== 'object') return null;
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') return null;
+  if (!Object.prototype.hasOwnProperty.call(obj, key)) return null;
+  const value = obj[key];
+  return typeof value === 'function' ? null : value;
+}
+
+function applyOp(left, op, right) {
+  const a = typeof left === 'number' ? left : Number(left);
+  const b = typeof right === 'number' ? right : Number(right);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error('nan');
+  if (op === '+') return a + b;
+  if (op === '-') return a - b;
+  if (op === '*') return a * b;
+  if (op === '/') return b === 0 ? null : a / b;
+  throw new Error('op');
+}
+
+function isIdentStart(ch) {
+  return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch === '_' || ch === '$';
+}
+
+function isIdentPart(ch) {
+  return isIdentStart(ch) || (ch >= '0' && ch <= '9');
+}

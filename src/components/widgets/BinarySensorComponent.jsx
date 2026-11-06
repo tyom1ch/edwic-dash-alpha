@@ -3,8 +3,11 @@ import useEntity from "../../hooks/useEntity";
 import { AutoScalableText } from "./AutoScalableText";
 import { ModernWidgetCard } from "./ModernWidgetCard";
 import { Sensors } from "@mui/icons-material";
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const BinarySensorComponent = ({ componentConfig }) => {
+const BinarySensorComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const {
@@ -16,7 +19,7 @@ const BinarySensorComponent = ({ componentConfig }) => {
   const state = entity?.value;
   const lastUpdated = entity?.last_updated
     ? new Date(entity.last_updated).toLocaleTimeString()
-    : "Невідомо";
+    : t("Невідомо");
 
   const isOn =
     state !== null && state !== undefined
@@ -28,20 +31,20 @@ const BinarySensorComponent = ({ componentConfig }) => {
     switch (deviceClass) {
       case "door":
       case "window":
-        return isOn ? "Відчинено" : "Зачинено";
+        return isOn ? t("Відчинено") : t("Зачинено");
       case "motion":
-        return isOn ? "Рух" : "Спокій";
+        return isOn ? t("Рух") : t("Спокій");
       case "presence":
-        return isOn ? "Присутній" : "Відсутній";
+        return isOn ? t("Присутній") : t("Відсутній");
       case "plug":
-        return isOn ? "В розетці" : "Вимкнено";
+        return isOn ? t("В розетці") : t("Вимкнено");
       default:
         return isOn ? "ON" : "OFF";
     }
   };
 
   const displayValue = getStateText(isOn, device_class);
-  const label = componentConfig.label || entity?.name || "Датчик";
+  const label = componentConfig.label || entity?.name || t("Датчик");
 
   return (
     <ModernWidgetCard 
@@ -51,7 +54,7 @@ const BinarySensorComponent = ({ componentConfig }) => {
     >
       <AutoScalableText
         text={displayValue}
-        subText={`Оновлено: ${lastUpdated}`}
+        subText={t("Оновлено: {time}", { time: lastUpdated })}
         color={isOn ? "error.main" : "text.secondary"}
       />
     </ModernWidgetCard>

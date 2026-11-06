@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - test
 
 jobs:
   build-web:
@@ -53,15 +54,16 @@ jobs:
         run: |
           cd android
           ./gradlew assembleDebug
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/edwic-dash-dev.apk
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/edwic-dash-${{ github.ref_name }}.apk
       - name: Upload android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: edwic-dash-dev-apk
-          path: android/app/build/outputs/apk/debug/edwic-dash-dev.apk
+          name: edwic-dash-${{ github.ref_name }}-apk
+          path: android/app/build/outputs/apk/debug/edwic-dash-${{ github.ref_name }}.apk
 
   build-and-publish-docker:
     name: Build and Publish Dev Docker Image
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     permissions:
       packages: write

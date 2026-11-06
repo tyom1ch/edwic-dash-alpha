@@ -14,54 +14,88 @@ const NativeMqtt = registerPlugin('NativeMqtt');
 
 let isCoreInitialized = false;
 let isNativeMqttStarted = false;
-let nativeListenersSetup = false; // Guard: prevent double-registration of native listeners
+let nativeListenersSetup = false;
+let latestConfig = { brokers: [], alerts: [], dashboards: {} };
+let appliedBrokerKey = null;
+let appliedAlertKey = null;
+let appliedCardsKey = null;
 
-// Додаємо змінну для зберігання поточного стану брокерів для нотифікацій
 let currentBrokersStatus = {};
 
-// Ця функція налаштовує реакцію сервісів на майбутні зміни конфігурації
+const connectionKey = (brokers) => JSON.stringify((brokers || []).map((broker) => ({
+  id: broker.id,
+  name: broker.name,
+  host: broker.host,
+  port: broker.port,
+  username: broker.username,
+  password: broker.password,
+  secure: !!broker.secure,
+  basepath: broker.basepath || '',
+  protocol: broker.protocol || '',
+  clientId: broker.clientId || '',
+  path: broker.path || '',
+})));
+
+const alertKey = (alerts) => JSON.stringify(alerts || []);
+
+const cardsKey = (config) => {
+  const cards = [];
+  Object.values(config.dashboards || {}).forEach((dashboard) => {
+    (dashboard.sections || []).forEach((section) => {
+      (section.cards || []).forEach((card) => cards.push(card));
+    });
+  });
+  return JSON.stringify(cards);
+};
+
+const syncBrokerStatusIndex = (brokers) => {
+  const ids = new Set(brokers.map((broker) => broker.id));
+  Object.keys(currentBrokersStatus).forEach((id) => {
+    if (!ids.has(id)) delete currentBrokersStatus[id];
+  });
+  brokers.forEach((broker) => {
+    const current = currentBrokersStatus[broker.id];
+    if (!current) {
+      currentBrokersStatus[broker.id] = { id: broker.id, name: broker.name, connected: false };
+    } else {
+      current.name = broker.name;
+    }
+  });
+};
+
 const setupEventListeners = () => {
   eventBus.on("config:saved", async (newConfig) => {
-    console.log("[CoreServices] Detected config change, synchronizing services...");
-    
-    // 1. Оновлюємо ConnectionManager новим списком брокерів
-    connectionManager.updateBrokers(newConfig.brokers || []);
-    
-    // На Android також оновлюємо нативний сервіс
-    if (Capacitor.isNativePlatform() && isNativeMqttStarted) {
-      NativeMqtt.updateBrokers({ brokers: newConfig.brokers || [] }).catch(e => {
-        console.error("[NativeMqtt] Failed to update brokers:", e);
-      });
-      // Push alert rules to native for background notification evaluation
-      NativeMqtt.configureAlerts({ alerts: newConfig.alerts || [] }).catch(e => {
-        console.error("[NativeMqtt] Failed to update alerts:", e);
-      });
+    latestConfig = newConfig;
+    const nextBrokerKey = connectionKey(newConfig.brokers);
+    const nextAlertKey = alertKey(newConfig.alerts);
+    const brokersChanged = nextBrokerKey !== appliedBrokerKey;
+    const alertsChanged = nextAlertKey !== appliedAlertKey;
+
+    if (brokersChanged) {
+      connectionManager.updateBrokers(newConfig.brokers || []);
+      syncBrokerStatusIndex(newConfig.brokers || []);
+      appliedBrokerKey = nextBrokerKey;
     }
 
-    // Оновлюємо внутрішній стан для UI
-    const currentStatusIds = Object.keys(currentBrokersStatus);
-    const newConfigIds = (newConfig.brokers || []).map(b => b.id);
-    
-    // Видаляємо старі
-    currentStatusIds.forEach(id => {
-      if (!newConfigIds.includes(id)) {
-        delete currentBrokersStatus[id];
+    if (Capacitor.isNativePlatform() && isNativeMqttStarted) {
+      if (brokersChanged) {
+        NativeMqtt.updateBrokers({ brokers: newConfig.brokers || [] }).catch((e) => {
+          console.error("[NativeMqtt] Failed to update brokers:", e);
+        });
       }
-    });
+      if (alertsChanged) {
+        NativeMqtt.configureAlerts({ alerts: newConfig.alerts || [] }).catch((e) => {
+          console.error("[NativeMqtt] Failed to update alerts:", e);
+        });
+      }
+    }
+    if (alertsChanged) appliedAlertKey = nextAlertKey;
 
-    // Додаємо нові (за замовчуванням disconnected) або оновлюємо існуючі
-    (newConfig.brokers || []).forEach(b => {
-      if (!currentBrokersStatus[b.id]) {
-        currentBrokersStatus[b.id] = { id: b.id, name: b.name, connected: false };
-      } else {
-        currentBrokersStatus[b.id].name = b.name;
-      }
-    });
-    
-    // 2. Синхронізуємо DeviceRegistry зі списком компонентів та їх підписками
-    await deviceRegistry.syncFromAppConfig(newConfig);
-    
-    // 3. Сповіщаємо інші сервіси (напр. DiscoveryService) про оновлення
+    const nextCardsKey = cardsKey(newConfig);
+    if (nextCardsKey !== appliedCardsKey) {
+      await deviceRegistry.syncFromAppConfig(newConfig);
+      appliedCardsKey = nextCardsKey;
+    }
     eventBus.emit("config:updated", newConfig);
   });
 
@@ -173,7 +207,8 @@ export default {
     if (isCoreInitialized) {
       return;
     }
-    console.log("[CoreServices] Initializing with initial configuration:", config);
+    latestConfig = config;
+    console.log(`[CoreServices] Initializing. brokers=${(config.brokers || []).length}`);
 
     // Ініціалізуємо поточний стан брокерів
     (config.brokers || []).forEach(b => {
@@ -203,9 +238,9 @@ export default {
           
           const startNativeService = async () => {
             try {
-              await NativeMqtt.startService({ 
-                brokers: config.brokers || [],
-                alerts: config.alerts || []
+              await NativeMqtt.startService({
+                brokers: latestConfig.brokers || [],
+                alerts: latestConfig.alerts || [],
               });
               isNativeMqttStarted = true;
               console.log("[NativeMqtt] Native MQTT service started successfully.");
@@ -267,7 +302,8 @@ export default {
 
     // Спочатку налаштовуємо слухачів подій
     setupEventListeners();
-    
+    historyLogger.sync(config);
+
     // Потім "вистрілюємо" подією 'config:saved' з початковим конфігом.
     // Це змушує всі сервіси синхронізуватися, використовуючи ту ж логіку,
     // що й для динамічних оновлень.

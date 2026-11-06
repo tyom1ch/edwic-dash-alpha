@@ -3,8 +3,11 @@ import React from 'react';
 import { Box } from '@mui/material';
 import useEntity from '../../hooks/useEntity';
 import { ModernWidgetCard } from './ModernWidgetCard';
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const GenericInfoComponent = ({ componentConfig }) => {
+const GenericInfoComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   // Створюємо об'єкт для відображення, що включає основний стан та атрибути
@@ -15,7 +18,7 @@ const GenericInfoComponent = ({ componentConfig }) => {
   };
 
   return (
-    <ModernWidgetCard title={componentConfig.label || 'Інформація (JSON)'}>
+    <ModernWidgetCard title={componentConfig.label || t("Інформація (JSON)")}>
         <Box
           component="pre"
           sx={{

@@ -4,10 +4,11 @@ import { getAppConfig, saveAppConfig } from "../core/db";
 import eventBus from "../core/EventBus";
 import connectionManager from "../core/ConnectionManager";
 import { getWidgetById } from "../core/widgetRegistry";
+import { readLang, translate } from "../i18n/messages";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-const makeSection = (title = "Нова секція", cards = []) => ({
+const makeSection = (title = translate(readLang(), "Нова секція"), cards = []) => ({
   id: `sec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   title,
   column_span: 1,
@@ -20,7 +21,7 @@ const migrateDashboard = (dashboard) => {
   const cards = dashboard.components || [];
   return {
     ...dashboard,
-    sections: [makeSection("Головний", cards)],
+    sections: [makeSection(translate(readLang(), "Головний"), cards)],
     components: undefined, // clean up old key
   };
 };
@@ -34,8 +35,8 @@ const initialConfig = {
   alerts: [],
   dashboards: {
     "dashboard-1": {
-      title: "Головний",
-      sections: [makeSection("Головний")],
+      title: translate(readLang(), "Головний"),
+      sections: [makeSection(translate(readLang(), "Головний"))],
     },
   },
 };
@@ -133,7 +134,7 @@ const useAppConfig = () => {
     const off = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "offline" }));
     const err = (brokerId, e) => {
       setBrokerStatuses((p) => ({ ...p, [brokerId]: "error" }));
-      setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || "Помилка" }));
+      setBrokerErrors((p) => ({ ...p, [brokerId]: e?.message || translate(readLang(), "Помилка") }));
     };
     const rc = (brokerId) => setBrokerStatuses((p) => ({ ...p, [brokerId]: "connecting" }));
 

@@ -12,8 +12,11 @@ import {
 import useEntity from "../../hooks/useEntity";
 import deviceRegistry from "../../core/DeviceRegistry";
 import { ModernWidgetCard } from "./ModernWidgetCard";
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const NumberComponent = ({ componentConfig }) => {
+const NumberComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const { min = 0, max = 100, step = 1, mode = "slider" } = componentConfig;
@@ -143,7 +146,7 @@ const NumberComponent = ({ componentConfig }) => {
     );
   }
   return (
-    <ModernWidgetCard title={componentConfig.label || entity?.name || "Числове значення"}>
+    <ModernWidgetCard title={componentConfig.label || entity?.name || t("Числове значення")}>
       <Box sx={{ flexGrow: 1, display: "flex", width: "100%" }}>{controls}</Box>
     </ModernWidgetCard>
   );

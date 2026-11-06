@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useI18n } from "../i18n/LanguageProvider";
 import {
   Dialog,
   DialogTitle,
@@ -25,7 +26,9 @@ const defaultAlertState = {
   intervalMs: 5 * 60 * 1000, // Default 5 minutes
 };
 
-function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
+function AlertDialog({
+ open, onClose, onSave, editingAlert, brokers }) {
+  const { t } = useI18n();
   const [formData, setFormData] = useState(defaultAlertState);
   const [error, setError] = useState("");
 
@@ -33,7 +36,12 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
     if (editingAlert) {
       setFormData({ ...editingAlert });
     } else {
-      setFormData({ ...defaultAlertState, brokerId: brokers[0]?.id || "" });
+      setFormData({
+        ...defaultAlertState,
+        name: t("Нове правило"),
+        messageTemplate: t("Увага! {topic} = {value}"),
+        brokerId: brokers[0]?.id || "",
+      });
     }
   }, [editingAlert, brokers, open]);
 
@@ -48,11 +56,11 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
   const handleSave = () => {
     setError("");
     if (!formData.name.trim() || !formData.topic.trim()) {
-      setError("Назва та топік є обов'язковими.");
+      setError(t("Назва та топік є обов'язковими."));
       return;
     }
     if (!formData.brokerId) {
-      setError("Будь ласка, оберіть брокера.");
+      setError(t("Будь ласка, оберіть брокера."));
       return;
     }
     onSave({
@@ -64,7 +72,7 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth>
       <DialogTitle>
-        {formData.id ? "Редагувати алерт" : "Новий алерт"}
+        {formData.id ? t("Редагувати алерт") : t("Новий алерт")}
       </DialogTitle>
       <DialogContent dividers>
         <FormControlLabel
@@ -76,13 +84,13 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
               color="primary"
             />
           }
-          label="Увімкнено (Слухати у фоні)"
+          label={t("Увімкнено (Слухати у фоні)")}
           sx={{ mb: 2 }}
         />
 
         <TextField
           fullWidth
-          label="Назва правила"
+          label={t("Назва правила")}
           name="name"
           value={formData.name}
           onChange={handleChange}
@@ -93,7 +101,7 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
         <TextField
           select
           fullWidth
-          label="Брокер"
+          label={t("Брокер")}
           name="brokerId"
           value={formData.brokerId}
           onChange={handleChange}
@@ -107,14 +115,14 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
           ))}
           {brokers.length === 0 && (
             <MenuItem value="" disabled>
-              Немає брокерів
+              {t("Немає брокерів")}
             </MenuItem>
           )}
         </TextField>
 
         <TextField
           fullWidth
-          label="Топік (напр. sensor/temp)"
+          label={t("Топік (напр. sensor/temp)")}
           name="topic"
           value={formData.topic}
           onChange={handleChange}
@@ -126,20 +134,20 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
           <TextField
             select
             fullWidth
-            label="Умова"
+            label={t("Умова")}
             name="condition"
             value={formData.condition}
             onChange={handleChange}
           >
-            <MenuItem value=">">Більше (&gt;)</MenuItem>
-            <MenuItem value="<">Менше (&lt;)</MenuItem>
-            <MenuItem value="==">Дорівнює (==)</MenuItem>
-            <MenuItem value="!=">Не дорівнює (!=)</MenuItem>
+            <MenuItem value=">">{t("Більше (>)")}</MenuItem>
+            <MenuItem value="<">{t("Менше (<)")}</MenuItem>
+            <MenuItem value="==">{t("Дорівнює (==)")}</MenuItem>
+            <MenuItem value="!=">{t("Не дорівнює (!=)")}</MenuItem>
           </TextField>
 
           <TextField
             fullWidth
-            label="Поріг (Threshold)"
+            label={t("Поріг (Threshold)")}
             name="threshold"
             value={formData.threshold}
             onChange={handleChange}
@@ -150,30 +158,30 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
         <TextField
           select
           fullWidth
-          label="Інтервал повторення"
+          label={t("Інтервал повторення")}
           name="intervalMs"
           value={formData.intervalMs || (5 * 60 * 1000)}
           onChange={handleChange}
           sx={{ mb: 2 }}
         >
-          <MenuItem value={15 * 1000}>15 секунд</MenuItem>
-          <MenuItem value={30 * 1000}>30 секунд</MenuItem>
-          <MenuItem value={60 * 1000}>1 хвилина</MenuItem>
-          <MenuItem value={5 * 60 * 1000}>5 хвилин</MenuItem>
-          <MenuItem value={10 * 60 * 1000}>10 хвилин</MenuItem>
-          <MenuItem value={30 * 60 * 1000}>30 хвилин</MenuItem>
-          <MenuItem value={60 * 60 * 1000}>1 година</MenuItem>
-          <MenuItem value={24 * 60 * 60 * 1000}>1 день</MenuItem>
+          <MenuItem value={15 * 1000}>{t("15 секунд")}</MenuItem>
+          <MenuItem value={30 * 1000}>{t("30 секунд")}</MenuItem>
+          <MenuItem value={60 * 1000}>{t("1 хвилина")}</MenuItem>
+          <MenuItem value={5 * 60 * 1000}>{t("5 хвилин")}</MenuItem>
+          <MenuItem value={10 * 60 * 1000}>{t("10 хвилин")}</MenuItem>
+          <MenuItem value={30 * 60 * 1000}>{t("30 хвилин")}</MenuItem>
+          <MenuItem value={60 * 60 * 1000}>{t("1 година")}</MenuItem>
+          <MenuItem value={24 * 60 * 60 * 1000}>{t("1 день")}</MenuItem>
         </TextField>
 
         <TextField
           fullWidth
-          label="Шаблон повідомлення"
+          label={t("Шаблон повідомлення")}
           name="messageTemplate"
           value={formData.messageTemplate}
           onChange={handleChange}
           sx={{ mb: 1 }}
-          helperText="Використовуйте {value} та {topic} для підстановки."
+          helperText={t("Використовуйте {value} та {topic} для підстановки.")}
           multiline
           rows={2}
         />
@@ -185,9 +193,9 @@ function AlertDialog({ open, onClose, onSave, editingAlert, brokers }) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Скасувати</Button>
+        <Button onClick={onClose}>{t("Скасувати")}</Button>
         <Button onClick={handleSave} variant="contained" color="primary">
-          Зберегти
+          {t("Зберегти")}
         </Button>
       </DialogActions>
     </Dialog>

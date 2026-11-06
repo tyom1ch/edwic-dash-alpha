@@ -2,42 +2,44 @@ import React from "react";
 import { Box, Tooltip, Stack, Typography } from "@mui/material";
 import { CloudDone, CloudOff, CloudSync } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { useI18n } from "../../i18n/LanguageProvider";
 
-export const ConnectionStatusIcon = ({ 
+export const ConnectionStatusIcon = ({
   globalStatus, 
   brokers = [], 
   brokerStatuses = {}, 
   brokerErrors = {} 
 }) => {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   // Determine color and icon based on global status
   let IconComponent = CloudDone;
   let iconColor = "success";
-  let mainTooltip = "Всі брокери підключені";
+  let mainTooltip = t("Всі брокери підключені");
 
   if (globalStatus === "partial") {
     iconColor = "warning";
-    mainTooltip = "Часткове підключення";
+    mainTooltip = t("Часткове підключення");
   } else if (globalStatus === "connecting") {
     IconComponent = CloudSync;
     iconColor = "info";
-    mainTooltip = "Підключення...";
+    mainTooltip = t("Підключення...");
   } else if (globalStatus === "offline" || globalStatus === "error") {
     IconComponent = CloudOff;
     iconColor = "error";
-    mainTooltip = "Відключено від брокерів";
+    mainTooltip = t("Відключено від брокерів");
   }
 
   // Generate detailed tooltip content
   const tooltipContent = (
     <Box sx={{ p: 0.5 }}>
       <Typography variant="subtitle2" sx={{ mb: 1, borderBottom: '1px solid rgba(255,255,255,0.2)', pb: 0.5 }}>
-        Статус брокерів
+        {t("Статус брокерів")}
       </Typography>
       {brokers.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          Брокери не налаштовані
+          {t("Брокери не налаштовані")}
         </Typography>
       ) : (
         <Stack spacing={0.5}>
@@ -46,16 +48,16 @@ export const ConnectionStatusIcon = ({
             const errorMsg = brokerErrors[broker.id];
             
             let statusDotColor = "#f44336"; // error/offline
-            let statusText = "Відключено";
+            let statusText = t("Відключено");
             
             if (status === "connected") {
               statusDotColor = "#4caf50";
-              statusText = "Підключено";
+              statusText = t("Підключено");
             } else if (status === "connecting" || status === "reconnecting") {
               statusDotColor = "#2196f3";
-              statusText = "З'єднання...";
+              statusText = t("З'єднання...");
             } else if (status === "error") {
-              statusText = "Помилка";
+              statusText = t("Помилка");
             }
 
             return (

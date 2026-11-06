@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation, Navigate, Link as RouterLink } from "react-router-dom";
 import { IconButton, Snackbar, Alert, Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 import { AppProvider, DashboardLayout } from "@toolpad/core";
 import {
@@ -23,9 +23,20 @@ import { AddDashboardDialog } from "./dialogs/AddDashboardDialog";
 import { RenameDashboardDialog } from "./dialogs/RenameDashboardDialog";
 import eventBus from "../core/EventBus";
 import { Capacitor } from "@capacitor/core";
+import { useI18n } from "../i18n/LanguageProvider";
+import { routerBasename, stripBasename } from "../routerBase";
+
+const AppLink = React.forwardRef(function AppLink({ href = "/", history, children, ...rest }, ref) {
+  return (
+    <RouterLink ref={ref} to={href} {...rest}>
+      {children}
+    </RouterLink>
+  );
+});
 
 // Компонент для відстеження глобальних подій і показу сповіщень (нативний MUI)
 function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
+  const { t } = useI18n();
   const [snackPack, setSnackPack] = useState([]);
   const [open, setOpen] = useState(false);
   const [messageInfo, setMessageInfo] = useState(undefined);
@@ -57,12 +68,13 @@ function GlobalNotificationListener({ brokers, brokerStatuses, brokerErrors }) {
 
       if (status === "error" || (status === "offline" && errorMsg)) {
         if (!activeErrorToasts.current.has(brokerId)) {
-          pushToast(`Помилка підключення до "${brokerName}": ${errorMsg || 'Брокер недоступний'}`, "error");
+          const detail = errorMsg ? t(errorMsg) : t("Брокер недоступний");
+          pushToast(t('Помилка підключення до "{name}": {error}', { name: brokerName, error: detail }), "error");
           activeErrorToasts.current.add(brokerId);
         }
       } else if (status === "connected") {
         if (activeErrorToasts.current.has(brokerId)) {
-          pushToast(`З'єднання з "${brokerName}" встановлено!`, "success");
+          pushToast(t('З\'єднання з "{name}" встановлено!', { name: brokerName }), "success");
           activeErrorToasts.current.delete(brokerId);
         }
       } else if (status === "connecting" || status === "reconnecting") {
@@ -122,6 +134,7 @@ function AppLayout({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const currentDashboardId = location.pathname.split("/")[1] || null;
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -194,26 +207,28 @@ function AppLayout({
 
   useEffect(() => {
     if (
-      location.pathname === "/" &&
-      Object.keys(appConfig.dashboards).length > 0
-    ) {
-      navigate(`/${Object.keys(appConfig.dashboards)[0]}`);
-    } else if (
       Object.keys(appConfig.dashboards).length === 0 &&
       !location.pathname.startsWith("/settings")
     ) {
-      navigate("/settings");
+      navigate("/settings", { replace: true });
     }
   }, [appConfig.dashboards, navigate, location.pathname]);
 
   const router = useMemo(
     () => ({
-      navigate: (path) =>
-        path === "/add-dash" ? openAddDashDialog() : navigate(path),
+      navigate: (path) => {
+        const next = stripBasename(String(path), routerBasename());
+        if (next === "/add-dash") {
+          openAddDashDialog();
+          return;
+        }
+        navigate(next);
+      },
       pathname: location.pathname,
       searchParams: new URLSearchParams(location.search),
+      Link: AppLink,
     }),
-    [navigate, location.pathname, openAddDashDialog]
+    [navigate, location.pathname, location.search, openAddDashDialog]
   );
 
   return (
@@ -221,7 +236,7 @@ function AppLayout({
       router={router}
       branding={{ logo: null, title: "EdwIC" }}
       navigation={[
-        { kind: "header", title: "Мої дашборди" },
+        { kind: "header", title: t("Мої дашборди") },
         ...Object.entries(appConfig.dashboards).map(([id, { title }]) => ({
           segment: id,
           icon: <DashboardIcon />,
@@ -233,8 +248,8 @@ function AppLayout({
           ),
         })),
         { kind: "divider" },
-        { segment: "add-dash", title: "Додати дашборд", icon: <AddBox /> },
-        { segment: "settings", title: "Налаштування", icon: <Settings /> },
+        { segment: "add-dash", title: t("Додати дашборд"), icon: <AddBox /> },
+        { segment: "settings", title: t("Налаштування"), icon: <Settings /> },
       ]}
     >
       <Box sx={{
@@ -268,6 +283,19 @@ function AppLayout({
         }}
       >
         <Routes>
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={
+                  Object.keys(appConfig.dashboards)[0]
+                    ? `/${Object.keys(appConfig.dashboards)[0]}`
+                    : "/settings"
+                }
+                replace
+              />
+            }
+          />
           {Object.keys(appConfig.dashboards).map((id) => (
             <Route
               key={id}
@@ -275,6 +303,7 @@ function AppLayout({
               element={
                 <DashboardPage
                   dashboard={appConfig.dashboards[id]}
+                  fallbackBrokerId={appConfig.brokers?.[0]?.id || ""}
                   onEditComponent={handleEditComponentClick}
                   onDeleteComponent={handleDeleteComponent}
                   onLayoutChange={handleLayoutChange}
@@ -292,14 +321,19 @@ function AppLayout({
             path="/settings"
             element={
               <SettingsPage
+                appConfig={appConfig}
+                setAppConfig={setAppConfig}
                 brokers={appConfig.brokers}
                 setBrokers={handlers.handleSetBrokers}
+                brokerStatuses={brokerStatuses}
+                brokerErrors={brokerErrors}
+                handleSetAlerts={handlers.handleSetAlerts}
                 themeMode={themeMode}
                 setThemeMode={setThemeMode}
               />
             }
           />
-          <Route path="*" element={<div>404 - Сторінку не знайдено</div>} />
+          <Route path="*" element={<div>{t("404 - Сторінку не знайдено")}</div>} />
         </Routes>
         <GlobalNotificationListener 
           brokers={appConfig.brokers} 
@@ -360,16 +394,16 @@ function AppLayout({
       
       {/* Підтвердження видалення секції */}
       <Dialog open={!!confirmDeleteSection} onClose={() => setConfirmDeleteSection(null)}>
-        <DialogTitle>Видалити секцію?</DialogTitle>
+        <DialogTitle>{t("Видалити секцію?")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Ви впевнені, що хочете видалити цю секцію? Всі віджети всередині неї будуть також видалені. Цю дію неможливо скасувати.
+            {t("Ви впевнені, що хочете видалити цю секцію? Всі віджети всередині неї будуть також видалені. Цю дію неможливо скасувати.")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDeleteSection(null)}>Скасувати</Button>
+          <Button onClick={() => setConfirmDeleteSection(null)}>{t("Скасувати")}</Button>
           <Button color="error" variant="contained" onClick={confirmDeleteSectionAction}>
-            Видалити
+            {t("Видалити")}
           </Button>
         </DialogActions>
       </Dialog>

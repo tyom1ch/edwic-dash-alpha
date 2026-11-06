@@ -4,6 +4,7 @@ import connectionManager from './ConnectionManager';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { db } from './db';
+import { readLang, translate } from '../i18n/messages';
 
 class AlertService {
   constructor() {
@@ -92,7 +93,7 @@ class AlertService {
 
     const message = alert.messageTemplate
       ? alert.messageTemplate.replace('{value}', value).replace('{topic}', alert.topic)
-      : `Алерт: ${alert.name} (${value})`;
+      : translate(readLang(), "Алерт: {name} ({value})", { name: alert.name, value });
 
     // Store in internal IndexedDB for the top-bar Notification Menu
     db.notifications.put({
@@ -100,7 +101,13 @@ class AlertService {
       title: alert.name,
       message: message,
       read: 0
-    }).catch(e => console.error("[AlertService] DB Error:", e));
+    }).then(() => db.notifications.count())
+      .then(async (count) => {
+        if (count <= 100) return;
+        const extras = await db.notifications.orderBy('timestamp').limit(count - 100).primaryKeys();
+        if (extras.length) await db.notifications.bulkDelete(extras);
+      })
+      .catch(e => console.error("[AlertService] DB Error:", e));
 
     // Emit internal event for the UI Snackbar & Menu
     eventBus.emit("app:alert_triggered", { alert, message });

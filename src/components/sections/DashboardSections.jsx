@@ -21,6 +21,7 @@ import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import SectionColumn from "./SectionColumn";
 import WidgetWrapper from "../widgets/WidgetWrapper";
 import { getWidgetById } from "../../core/widgetRegistry";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 // ─── DragOverlay ghost card ──────────────────────────────────────────────────
 // Renders a visual copy of the dragged card while it is in flight.
@@ -79,6 +80,7 @@ function DashboardSections({
   onLayoutChange,
   onDragEnd: handleDragEnd,  // from useComponentManager — (event, sections) => void
 }) {
+  const { t } = useI18n();
   // ── Active drag item (for DragOverlay) ────────────────────────────────────
   const [activeItem, setActiveItem] = useState(null);  // { type, id, card }
 
@@ -221,7 +223,7 @@ function DashboardSections({
               onClick={onAddSection}
             >
               <Box sx={{ fontSize: 28, color: "rgba(3,169,244,0.5)", lineHeight: 1 }}>⊞</Box>
-              <Box sx={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Додати секцію</Box>
+              <Box sx={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{t("Додати секцію")}</Box>
             </Box>
           )}
         </Box>

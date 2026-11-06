@@ -4,6 +4,7 @@ import EventEmitter from 'events'; // <-- Змінено
 class EventBus {
     constructor() {
         this.emitter = new EventEmitter();
+        this.emitter.setMaxListeners(0);
     }
 
     emit(eventName, ...args) {

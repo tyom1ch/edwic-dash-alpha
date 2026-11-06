@@ -16,9 +16,33 @@ import {
 import { Close } from "@mui/icons-material";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { db } from "../core/db";
-import useAppConfig from "../hooks/useAppConfig"; // To get active broker list if needed
+import { historySeriesOf } from "../core/historySeries";
+import { useI18n } from "../i18n/LanguageProvider";
 
-function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
+function ChartTooltip({ active, payload, label, unit }) {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <Box sx={{
+      bgcolor: "background.paper",
+      p: 1.5,
+      border: 1,
+      borderColor: "divider",
+      borderRadius: 1,
+      boxShadow: 3,
+    }}>
+      <Typography variant="body2" color="text.secondary" mb={0.5}>
+        {new Date(label).toLocaleString()}
+      </Typography>
+      <Typography variant="subtitle2" color="primary" fontWeight="bold">
+        {payload[0].value} {unit || ""}
+      </Typography>
+    </Box>
+  );
+}
+
+function HistoryGraphDialog({
+ isOpen, onClose, sensorWidget, fallbackBrokerId }) {
+  const { t } = useI18n();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,7 +50,6 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
   const [endTime, setEndTime] = useState("");
   
   const theme = useTheme();
-  const { appConfig } = useAppConfig();
 
   useEffect(() => {
     if (isOpen && sensorWidget) {
@@ -54,7 +77,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
         endOfToday.getTime()
       );
     }
-  }, [isOpen, sensorWidget]);
+  }, [isOpen, sensorWidget, fallbackBrokerId]);
 
   const fetchHistoryData = async (startMs, endMs) => {
     if (!sensorWidget || !startMs || !endMs) {
@@ -62,14 +85,14 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
       return;
     }
     
-    // Fallbacks if sensor doesn't enforce its own broker
-    const brokerId = sensorWidget.brokerId || (appConfig?.brokers?.[0]?.id);
-    const topic = sensorWidget.state_topic;
-
-    if (!brokerId || !topic) {
-      setError("Топік або брокер не налаштовані.");
+    const series = historySeriesOf(sensorWidget, fallbackBrokerId);
+    if (!series) {
+      setError(t("Топік або брокер не налаштовані."));
+      setData([]);
+      setLoading(false);
       return;
     }
+    const { brokerId, topic } = series;
 
     setLoading(true);
     setError(null);
@@ -88,7 +111,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
       setData(processedData);
     } catch (e) {
       console.error("Failed to fetch history data from Dexie:", e);
-      setError(`Не вдалося завантажити локальні дані: ${e.message}`);
+      setError(t("Не вдалося завантажити локальні дані: {error}", { error: e.message }));
       setData([]);
     } finally {
       setLoading(false);
@@ -99,7 +122,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
     const startMs = new Date(startTime).getTime();
     const endMs = new Date(endTime).getTime();
     if (isNaN(startMs) || isNaN(endMs)) {
-      setError("Будь ласка, введіть коректні дати та час.");
+      setError(t("Будь ласка, введіть коректні дати та час."));
       return;
     }
     fetchHistoryData(startMs, endMs);
@@ -111,33 +134,12 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
     return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   };
 
-  // Advanced Tooltip Formatter
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        return (
-            <Box sx={{ 
-                bgcolor: 'background.paper', 
-                p: 1.5, 
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: 1,
-                boxShadow: theme.shadows[3]
-             }}>
-                <Typography variant="body2" color="text.secondary" mb={0.5}>
-                    {new Date(label).toLocaleString()}
-                </Typography>
-                <Typography variant="subtitle2" color="primary" fontWeight="bold">
-                    {payload[0].value} {sensorWidget?.unit_of_measurement || ""}
-                </Typography>
-            </Box>
-        );
-    }
-    return null;
-  };
+  const unit = sensorWidget?.unit_of_measurement || sensorWidget?.unit_of_meas || "";
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>
-        Історія віджета: {sensorWidget?.label || "Сенсор"}
+        {t("Історія віджета: {name}", { name: sensorWidget?.label || t("Сенсор") })}
         <IconButton aria-label="close" onClick={onClose} sx={{ position: "absolute", right: 8, top: 8, color: (theme) => theme.palette.grey[500] }}>
           <Close />
         </IconButton>
@@ -145,14 +147,14 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
       
       <DialogContent dividers>
         <Box sx={{ mb: 2, display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
-          <TextField label="З" type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1, minWidth: 200 }} />
-          <TextField label="До" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1, minWidth: 200 }} />
-          <Button variant="contained" onClick={handleApplyTimeRange} sx={{ height: 56 }}>Застосувати</Button>
+          <TextField label={t("З")} type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1, minWidth: 200 }} />
+          <TextField label={t("До")} type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ flex: 1, minWidth: 200 }} />
+          <Button variant="contained" onClick={handleApplyTimeRange} sx={{ height: 56 }}>{t("Застосувати")}</Button>
         </Box>
         
         {loading && <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}><CircularProgress /></Box>}
         {error && <Typography color="error" sx={{ textAlign: "center", p: 4 }}>{error}</Typography>}
-        {!loading && !error && data.length === 0 && <Typography sx={{ textAlign: "center", p: 4 }}>Немає локальних даних для відображення (спробуйте почекати нових повідомлень від брокера).</Typography>}
+        {!loading && !error && data.length === 0 && <Typography sx={{ textAlign: "center", p: 4 }}>{t("Немає локальних даних для відображення (спробуйте почекати нових повідомлень від брокера).")}</Typography>}
         
         {!loading && !error && data.length > 0 && (
           <Box sx={{ height: 400, width: "100%", mt: 2 }}>
@@ -176,7 +178,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
                         tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
                         width={40}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: theme.palette.divider, strokeWidth: 1, strokeDasharray: '3 3' }} />
+                    <Tooltip content={<ChartTooltip unit={unit} />} cursor={{ stroke: theme.palette.divider, strokeWidth: 1, strokeDasharray: '3 3' }} />
                     <Area 
                         type="monotone" 
                         dataKey="value" 
@@ -193,7 +195,7 @@ function HistoryGraphDialog({ isOpen, onClose, sensorWidget }) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Закрити</Button>
+        <Button onClick={onClose}>{t("Закрити")}</Button>
       </DialogActions>
     </Dialog>
   );

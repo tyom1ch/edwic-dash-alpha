@@ -4,9 +4,11 @@ import { Box, Typography } from "@mui/material";
 
 import DashboardSections from "../components/sections/DashboardSections";
 import HistoryGraphDialog from "../components/HistoryGraphDialog";
+import { useI18n } from "../i18n/LanguageProvider";
 
 function DashboardPage({
   dashboard,
+  fallbackBrokerId,
   onEditComponent,
   onDeleteComponent,
   onLayoutChange = () => {},  // (newSections) => void
@@ -17,6 +19,7 @@ function DashboardPage({
   onAddComponentToSection,    // (sectionId) => void  — opens dialog scoped to that section
   lockMode,
 }) {
+  const { t } = useI18n();
   const [isHistoryGraphOpen, setIsHistoryGraphOpen] = useState(false);
   const [selectedSensorWidget, setSelectedSensorWidget] = useState(null);
 
@@ -42,10 +45,10 @@ function DashboardPage({
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
         <Typography color="text.secondary">
-          На цьому дашборді поки немає віджетів.
+          {t("На цьому дашборді поки немає віджетів.")}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Перейдіть в режим редагування, та додайте новий віджет.
+          {t("Перейдіть в режим редагування, та додайте новий віджет.")}
         </Typography>
       </Box>
     );
@@ -71,6 +74,7 @@ function DashboardPage({
         isOpen={isHistoryGraphOpen}
         onClose={handleCloseHistoryGraph}
         sensorWidget={selectedSensorWidget}
+        fallbackBrokerId={fallbackBrokerId}
       />
     </>
   );

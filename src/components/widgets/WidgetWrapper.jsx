@@ -5,6 +5,7 @@ import { Edit, Delete, WarningAmber, OpenWith } from "@mui/icons-material";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getRequiredFields } from "../../core/widgetRegistry";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 const WidgetWrapper = ({
   children,
@@ -15,6 +16,7 @@ const WidgetWrapper = ({
   lockMode,
   onClick,
 }) => {
+  const { t } = useI18n();
   const {
     attributes,
     listeners,
@@ -118,7 +120,7 @@ const WidgetWrapper = ({
     >
       {/* ── Тултіп ──────── */}
       {!lockMode && isIncomplete && (
-        <Tooltip title="Неповна конфігурація" placement="top">
+        <Tooltip title={t("Неповна конфігурація")} placement="top">
           <Box
             sx={{
               position: "absolute",
@@ -167,12 +169,12 @@ const WidgetWrapper = ({
             p: "2px",
           }}
         >
-          <Tooltip title="Редагувати">
+          <Tooltip title={t("Редагувати")}>
             <IconButton size="small" onClick={handleEdit} sx={{ color: "rgba(255,255,255,0.8)", p: "3px" }}>
               <Edit sx={{ fontSize: 14 }} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Видалити">
+          <Tooltip title={t("Видалити")}>
             <IconButton size="small" onClick={handleDelete} sx={{ color: "rgba(255,255,255,0.8)", p: "3px" }}>
               <Delete sx={{ fontSize: 14 }} />
             </IconButton>
@@ -213,7 +215,7 @@ const WidgetWrapper = ({
         <Box
           className="widget-controls no-drag"
           data-no-drag="true"
-          title="Змінити розмір"
+          title={t("Змінити розмір")}
           onPointerDown={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -296,13 +298,13 @@ const WidgetWrapper = ({
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onClose={cancelDelete} maxWidth="xs" fullWidth onClick={(e) => e.stopPropagation()}>
-        <DialogTitle>Видалити віджет?</DialogTitle>
+        <DialogTitle>{t("Видалити віджет?")}</DialogTitle>
         <DialogContent dividers>
-          <Typography>Дійсно видалити "{component.label || component.id}"?</Typography>
+          <Typography>{t("Дійсно видалити \"{name}\"?", { name: component.label || component.id })}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={cancelDelete} color="inherit">Скасувати</Button>
-          <Button onClick={confirmDelete} variant="contained" color="error">Видалити</Button>
+          <Button onClick={cancelDelete} color="inherit">{t("Скасувати")}</Button>
+          <Button onClick={confirmDelete} variant="contained" color="error">{t("Видалити")}</Button>
         </DialogActions>
       </Dialog>
     </Box>

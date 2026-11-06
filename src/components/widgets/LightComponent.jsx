@@ -9,6 +9,7 @@ import { MuiColorInput } from 'mui-color-input';
 import useEntity from '../../hooks/useEntity';
 import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
+import { useI18n } from "../../i18n/LanguageProvider";
 
 const hexToRgbString = (hex) => {
     if (!hex || typeof hex !== 'string') return '#0000000000';
@@ -16,7 +17,9 @@ const hexToRgbString = (hex) => {
     return result ? `#${result[1]}${result[2]}${result[3]}0000` : '#0000000000';
 };
 
-const LightComponent = ({ componentConfig }) => {
+const LightComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entityState = useEntity(componentConfig.id) || {};
   
   const {
@@ -89,7 +92,7 @@ const LightComponent = ({ componentConfig }) => {
     deviceRegistry.sendCommand(componentConfig.id, hexToRgbString(newColor), 'set_rgb');
   };
 
-  const label = componentConfig.label || entityState?.name || "Освітлення";
+  const label = componentConfig.label || entityState?.name || t("Освітлення");
   const handleBrightnessChange = (e, v) => setBrightnessValue(v);
   const handleColorTempChange = (e, v) => setColorTempValue(v);
 
@@ -101,26 +104,26 @@ const LightComponent = ({ componentConfig }) => {
     >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <Typography variant="body2" color={isOn ? "text.primary" : "text.secondary"}>
-             {isReady ? (isOn ? 'Увімкнено' : 'Вимкнено') : 'Немає зв\'язку'}
+             {isReady ? (isOn ? t("Увімкнено") : t("Вимкнено")) : t("Немає зв'язку")}
           </Typography>
           <Switch checked={isOn} onChange={handleToggle} disabled={!isReady} />
         </Box>
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
           {supportsBrightness && (
             <Box>
-              <Typography gutterBottom variant="body2">Яскравість</Typography>
+              <Typography gutterBottom variant="body2">{t("Яскравість")}</Typography>
               <Slider value={brightnessValue ?? 0} onChange={handleBrightnessChange} onChangeCommitted={handleBrightnessChangeCommitted} min={0} max={100} step={1} disabled={isOff} valueLabelDisplay="auto" />
             </Box>
           )}
           {supportsColorTemp && (
             <Box>
-              <Typography gutterBottom variant="body2">Температура</Typography>
-              <Slider value={colorTempValue ?? min_mireds} onChange={handleColorTempChange} onChangeCommitted={handleColorTempChangeCommitted} min={min_mireds} max={max_mireds} disabled={isOff} valueLabelDisplay="auto" marks={[{value: min_mireds, label: 'Холодний'}, {value: max_mireds, label: 'Теплий'}]} />
+              <Typography gutterBottom variant="body2">{t("Температура")}</Typography>
+              <Slider value={colorTempValue ?? min_mireds} onChange={handleColorTempChange} onChangeCommitted={handleColorTempChangeCommitted} min={min_mireds} max={max_mireds} disabled={isOff} valueLabelDisplay="auto" marks={[{value: min_mireds, label: t("Холодний")}, {value: max_mireds, label: t("Теплий")}]} />
             </Box>
           )}
           {supportsRgb && (
             <Box>
-              <Typography gutterBottom variant="body2">Колір</Typography>
+              <Typography gutterBottom variant="body2">{t("Колір")}</Typography>
               <MuiColorInput value={colorValue} onChange={handleColorChange} format="hex" disabled={isOff} fullWidth />
             </Box>
           )}

@@ -6,6 +6,12 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 const isNative = Capacitor.isNativePlatform();
 const NativeMqtt = isNative ? registerPlugin('NativeMqtt') : null;
 
+function topicsOf(topic) {
+    if (Array.isArray(topic)) return topic.filter(item => typeof item === 'string' && item);
+    if (typeof topic === 'string' && topic) return [topic];
+    return [];
+}
+
 class ConnectionManager {
     constructor() {
         this.mqttClients = new Map(); // Used only on web
@@ -130,32 +136,39 @@ class ConnectionManager {
     }
     
     subscribeToTopic(brokerId, topic) {
+        const topics = topicsOf(topic);
+        if (topics.length === 0) return;
         if (isNative) {
-            // На Android — тільки нативний сервіс
-            NativeMqtt.subscribe({ brokerId, topic }).catch(e => 
-                console.warn('[ConnectionManager] Native subscribe error:', e));
+            topics.forEach(one => {
+                NativeMqtt.subscribe({ brokerId, topic: one }).catch(e =>
+                    console.warn('[ConnectionManager] Native subscribe error:', e));
+            });
             return;
         }
         const client = this.mqttClients.get(brokerId);
-        if (client) {
-            client.subscribe(topic);
-        } else {
-            console.warn(`[ConnectionManager] Broker ${brokerId} not found for subscription to ${topic}.`);
+        if (!client) {
+            console.warn(`[ConnectionManager] Broker ${brokerId} not found for subscription.`);
+            return;
         }
+        topics.forEach(one => client.subscribe(one));
     }
 
     unsubscribeFromTopic(brokerId, topic) {
+        const topics = topicsOf(topic);
+        if (topics.length === 0) return;
         if (isNative) {
-            NativeMqtt.unsubscribe({ brokerId, topic }).catch(e => 
-                console.warn('[ConnectionManager] Native unsubscribe error:', e));
+            topics.forEach(one => {
+                NativeMqtt.unsubscribe({ brokerId, topic: one }).catch(e =>
+                    console.warn('[ConnectionManager] Native unsubscribe error:', e));
+            });
             return;
         }
         const client = this.mqttClients.get(brokerId);
-        if (client) {
-            client.unsubscribe(topic);
-        } else {
-            console.warn(`[ConnectionManager] Broker ${brokerId} not found for unsubscription from ${topic}.`);
+        if (!client) {
+            console.warn(`[ConnectionManager] Broker ${brokerId} not found for unsubscription.`);
+            return;
         }
+        topics.forEach(one => client.unsubscribe(one));
     }
 
     publishToTopic(brokerId, topic, message) {

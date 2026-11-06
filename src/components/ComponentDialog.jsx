@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { getWidgetById, WIDGET_REGISTRY } from "../core/widgetRegistry";
+import { useI18n } from "../i18n/LanguageProvider";
 
 const getInitialState = () => ({
   label: "",
@@ -44,6 +45,7 @@ function ComponentDialog({
   isEdit,
   brokers = [],
 }) {
+  const { t } = useI18n();
   const availableBrokers = brokers;
   const [localComponent, setLocalComponent] = useState(getInitialState());
 
@@ -184,19 +186,25 @@ function ComponentDialog({
   const renderField = (field) => {
     const currentKey = field.keys.find((key) => localComponent[key] != null);
     const currentValue = currentKey ? localComponent[currentKey] : "";
+    const label = t(field.label);
+    const optionLabel = (option) => {
+      if (option === "slider") return t("Повзунок");
+      if (option === "box") return t("Поле");
+      return t(option);
+    };
     if (Array.isArray(field.modes)) {
       return (
         <FormControl fullWidth key={field.id} sx={{ mt: 1 }}>
-          <InputLabel>{field.label}</InputLabel>
+          <InputLabel>{label}</InputLabel>
           <Select
-            label={field.label}
+            label={label}
             name={field.id}
             value={currentValue}
             onChange={handleChange}
           >
             {field.modes.map((option, key) => (
               <MenuItem key={key} value={option}>
-                {option}
+                {optionLabel(option)}
               </MenuItem>
             ))}
           </Select>
@@ -207,7 +215,7 @@ function ComponentDialog({
       <TextField
         key={field.id}
         name={field.id}
-        label={field.label}
+        label={label}
         value={currentValue}
         onChange={handleChange}
         variant="outlined"
@@ -225,7 +233,7 @@ function ComponentDialog({
         <FormControlLabel
           key={field.id}
           control={<Checkbox checked={currentValue} disabled />}
-          label={field.label}
+          label={t(field.label)}
           sx={{ width: "100%" }}
         />
       );
@@ -237,7 +245,7 @@ function ComponentDialog({
     return (
       <TextField
         key={field.id}
-        label={field.label}
+        label={t(field.label)}
         value={displayValue}
         variant="outlined"
         fullWidth
@@ -251,30 +259,30 @@ function ComponentDialog({
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        {isEdit ? "Редагувати віджет" : "Додати новий віджет"}
+        {isEdit ? t("Редагувати віджет") : t("Додати новий віджет")}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <TextField
             autoFocus
             required
-            label="Назва віджета"
+            label={t("Назва віджета")}
             name="label"
             value={localComponent.label || ""}
             onChange={handleChange}
           />
 
           <FormControl fullWidth required>
-            <InputLabel>Тип віджета</InputLabel>
+            <InputLabel>{t("Тип віджета")}</InputLabel>
             <Select
-              label="Тип віджета"
+              label={t("Тип віджета")}
               name="type"
               value={localComponent.type}
               onChange={handleTypeChange}
             >
               {WIDGET_REGISTRY.map((w) => (
                 <MenuItem key={w.type} value={w.type}>
-                  {w.label}
+                  {t(w.label)}
                 </MenuItem>
               ))}
             </Select>
@@ -282,16 +290,16 @@ function ComponentDialog({
 
           {selectedWidgetDef?.variants && (
             <FormControl fullWidth required>
-              <InputLabel>Режим роботи</InputLabel>
+              <InputLabel>{t("Режим роботи")}</InputLabel>
               <Select
-                label="Режим роботи"
+                label={t("Режим роботи")}
                 name="variant"
                 value={localComponent.variant}
                 onChange={handleVariantChange}
               >
                 {selectedWidgetDef.variants.map((variant) => (
                   <MenuItem key={variant.id} value={variant.id}>
-                    {variant.label}
+                    {t(variant.label)}
                   </MenuItem>
                 ))}
               </Select>
@@ -299,16 +307,16 @@ function ComponentDialog({
           )}
 
           <FormControl fullWidth required>
-            <InputLabel>MQTT Брокер</InputLabel>
+            <InputLabel>{t("MQTT Брокер")}</InputLabel>
             <Select
-              label="MQTT Брокер"
+              label={t("MQTT Брокер")}
               name="brokerId"
               value={localComponent.brokerId}
               onChange={handleChange}
               disabled={availableBrokers.length === 0}
             >
               {availableBrokers.length === 0 ? (
-                <MenuItem disabled>Спочатку додайте брокера</MenuItem>
+                <MenuItem disabled>{t("Спочатку додайте брокера")}</MenuItem>
               ) : (
                 availableBrokers.map((broker) => (
                   <MenuItem key={broker.id} value={broker.id}>
@@ -322,23 +330,23 @@ function ComponentDialog({
           {editableFields.length > 0 && (
             <Accordion sx={{ mt: 2 }} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Налаштування</Typography>
+                <Typography>{t("Налаштування")}</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {editableFields.map(renderField)}
                   <FormControl fullWidth sx={{ mt: 1 }}>
-                    <InputLabel>Заокруглення значення</InputLabel>
+                    <InputLabel>{t("Заокруглення значення")}</InputLabel>
                     <Select
-                      label="Заокруглення значення"
+                      label={t("Заокруглення значення")}
                       value={getDecimalsFromTemplate(
                         localComponent.value_template
                       )}
                       onChange={handleDecimalChange}
                     >
-                      <MenuItem value="default">Не заокруглювати</MenuItem>
-                      <MenuItem value={0}>0 знаків (123)</MenuItem>
-                      <MenuItem value={1}>1 знак (123.4)</MenuItem>
+                      <MenuItem value="default">{t("Не заокруглювати")}</MenuItem>
+                      <MenuItem value={0}>{t("0 знаків (123)")}</MenuItem>
+                      <MenuItem value={1}>{t("1 знак (123.4)")}</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>
@@ -349,7 +357,7 @@ function ComponentDialog({
           {infoFields.length > 0 && (
             <Accordion sx={{ mt: 1 }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Інформація з MQTT Discovery</Typography>
+                <Typography>{t("Інформація з MQTT Discovery")}</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -361,13 +369,13 @@ function ComponentDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Відмінити</Button>
+        <Button onClick={onClose}>{t("Відмінити")}</Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={isSaveDisabled}
         >
-          {isEdit ? "Зберегти" : "Додати"}
+          {isEdit ? t("Зберегти") : t("Додати")}
         </Button>
       </DialogActions>
     </Dialog>

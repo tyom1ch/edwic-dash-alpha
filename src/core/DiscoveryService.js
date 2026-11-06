@@ -165,33 +165,40 @@ const expandAbbreviations = (raw) => {
   return expanded;
 };
 
-// ─── Component type → dashboard widget mapping ────────────────────────────────
+// HA domain → widget this dashboard can actually render.
+// Domains without their own card stay on the closest control we have.
+const WIDGET_BY_HA_TYPE = {
+  light: 'light',
+  fan: 'fan',
+  cover: 'cover',
+  climate: 'climate',
+  binary_sensor: 'binary_sensor',
+  number: 'number',
+  sensor: 'sensor',
+  text: 'sensor',
+  device_tracker: 'sensor',
+  switch: 'switch',
+  lock: 'switch',
+  valve: 'switch',
+  siren: 'switch',
+  water_heater: 'switch',
+  button: 'button',
+  scene: 'button',
+};
+
 const mapHaTypeToDashboardType = (entityConfig) => {
   const componentType = entityConfig.componentType || 'unknown';
 
   if (componentType === 'climate') {
-    const hasLowTempTopic = entityConfig.temperature_low_state_topic;
-    const hasHighTempTopic = entityConfig.temperature_high_state_topic;
-    return { type: 'climate', variant: (hasLowTempTopic && hasHighTempTopic) ? 'range' : 'single' };
+    const range = entityConfig.temperature_low_state_topic && entityConfig.temperature_high_state_topic;
+    return { type: 'climate', variant: range ? 'range' : 'single' };
   }
 
-  if (['switch', 'light', 'fan', 'lock', 'cover', 'valve', 'siren', 'water_heater'].includes(componentType)) {
-    return { type: 'switch' };
-  }
-
-  if (['sensor', 'binary_sensor', 'number', 'text', 'device_tracker'].includes(componentType)) {
-    return { type: 'sensor' };
-  }
-
-  if (['button', 'scene'].includes(componentType)) {
-    return { type: 'button' };
-  }
-
-  const knownWidgetTypes = WIDGET_REGISTRY.map(w => w.type);
-  if (knownWidgetTypes.includes(componentType)) {
+  const known = WIDGET_BY_HA_TYPE[componentType];
+  if (known) return { type: known };
+  if (WIDGET_REGISTRY.some((widget) => widget.type === componentType)) {
     return { type: componentType };
   }
-
   return { type: 'generic_info' };
 };
 
@@ -528,12 +535,19 @@ class DiscoveryService {
         });
         connectionManager.subscribeToTopic(brokerId, availTopic);
       }
-      this.availabilityTopics.get(availTopic).entities.add(entity.id);
+      this.availabilityTopics.get(availTopic).entities.add(entityId);
     }
 
-    // Keep payload_available/not_available on entity for availability checks
     entity.payload_available = config.payload_available || 'online';
     entity.payload_not_available = config.payload_not_available || 'offline';
+
+    entity.id = entityId;
+    entity.name = entity.name || config.name || entityId;
+    entity.componentType = haComponentType;
+    entity.type = widgetInfo.type;
+    if (widgetInfo.variant) entity.variant = widgetInfo.variant;
+    entity.brokerId = brokerId;
+    entity._config_topic = configTopic;
 
     return entity;
   }

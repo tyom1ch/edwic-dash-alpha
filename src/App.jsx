@@ -10,6 +10,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { routerBasename } from "./routerBase";
 import AppLayout from "./components/AppLayout";
 import WelcomePage from "./pages/WelcomePage";
 import useAppConfig from "./hooks/useAppConfig";
@@ -147,7 +148,7 @@ const App = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Router>
+        <Router basename={routerBasename()}>
           {!appConfig.hasSeenWelcome ? (
             <Routes>
               <Route path="*" element={

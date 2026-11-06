@@ -10,8 +10,11 @@ import {
 } from "@mui/icons-material";
 import { db } from "../../core/db";
 import eventBus from "../../core/EventBus";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 export const NotificationMenu = () => {
+  const { t } = useI18n();
+
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -106,17 +109,17 @@ export const NotificationMenu = () => {
       >
         <Box sx={{ width: 350, maxHeight: 500, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="h6">Сповіщення</Typography>
+            <Typography variant="h6">{t("Сповіщення")}</Typography>
             {unreadCount > 0 && (
               <Button size="small" onClick={markAllAsRead}>
-                Прочитано
+                {t("Прочитано")}
               </Button>
             )}
           </Box>
           <List sx={{ flexGrow: 1, overflowY: 'auto', p: 0 }}>
             {notifications.length === 0 ? (
               <ListItem>
-                <ListItemText primary="Немає нових сповіщень" sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }} />
+                <ListItemText primary={t("Немає нових сповіщень")} sx={{ textAlign: 'center', color: 'text.secondary', py: 3 }} />
               </ListItem>
             ) : (
               notifications.map((notif) => (
@@ -154,7 +157,7 @@ export const NotificationMenu = () => {
           {notifications.length > 0 && (
              <Box sx={{ p: 1, borderTop: 1, borderColor: 'divider', textAlign: 'center' }}>
                 <Button size="small" color="inherit" onClick={clearAll}>
-                  Очистити всі
+                  {t("Очистити всі")}
                 </Button>
              </Box>
           )}

@@ -35,6 +35,7 @@ public class NativeMqttPlugin extends Plugin {
             isBound = true;
 
             // Set up event listener to forward events to JS
+            mqttService.setUiActive(true);
             mqttService.setEventListener(new MqttBackgroundService.MqttEventListener() {
                 @Override
                 public void onMessage(String brokerId, String topic, String payload) {
@@ -306,7 +307,23 @@ public class NativeMqttPlugin extends Plugin {
     }
 
     @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        if (mqttService != null) mqttService.setUiActive(true);
+    }
+
+    @Override
+    protected void handleOnPause() {
+        if (mqttService != null) mqttService.setUiActive(false);
+        super.handleOnPause();
+    }
+
+    @Override
     protected void handleOnDestroy() {
+        if (mqttService != null) {
+            mqttService.setUiActive(false);
+            mqttService.setEventListener(null);
+        }
         super.handleOnDestroy();
         if (isBound) {
             try {

@@ -5,6 +5,7 @@ import deviceRegistry from "../../core/DeviceRegistry";
 import { AutoScalableText } from "./AutoScalableText";
 import { ModernWidgetCard } from "./ModernWidgetCard";
 import { PowerSettingsNew } from "@mui/icons-material";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 const hapticsImpactLight = async () => {
   try {
@@ -14,7 +15,9 @@ const hapticsImpactLight = async () => {
   }
 };
 
-const SwitchComponent = ({ componentConfig }) => {
+const SwitchComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const {
@@ -26,7 +29,7 @@ const SwitchComponent = ({ componentConfig }) => {
 
   const lastUpdated = entity?.last_updated
     ? new Date(entity.last_updated).toLocaleTimeString()
-    : "Невідомо";
+    : t("Невідомо");
 
   const isOn = String(state) === String(payload_on);
   const isUnknown = state === null || typeof state === "undefined";
@@ -42,7 +45,7 @@ const SwitchComponent = ({ componentConfig }) => {
     deviceRegistry.sendCommand(componentConfig.id, commandValue);
   };
 
-  const label = componentConfig.label || entity?.name || "Перемикач";
+  const label = componentConfig.label || entity?.name || t("Перемикач");
 
   return (
     <ModernWidgetCard 
@@ -52,8 +55,8 @@ const SwitchComponent = ({ componentConfig }) => {
       statusIcon={<PowerSettingsNew color={isOn ? "warning" : "disabled"} />}
     >
       <AutoScalableText
-        text={isUnknown ? "---" : (isOn ? "УВІМК" : "ВИМК")}
-        subText={`Оновлено: ${lastUpdated}`}
+        text={isUnknown ? "---" : (isOn ? t("УВІМК") : t("ВИМК"))}
+        subText={t("Оновлено: {time}", { time: lastUpdated })}
         color={isOn ? "text.primary" : "text.secondary"}
       />
     </ModernWidgetCard>

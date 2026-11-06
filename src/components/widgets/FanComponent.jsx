@@ -6,8 +6,11 @@ import FanIcon from '@mui/icons-material/ModeFanOff';
 import useEntity from '../../hooks/useEntity';
 import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const FanComponent = ({ componentConfig }) => {
+const FanComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const {
@@ -56,7 +59,7 @@ const FanComponent = ({ componentConfig }) => {
     deviceRegistry.sendCommand(componentConfig.id, preset, 'set_preset_mode');
   };
   
-  const label = componentConfig.label || entity?.name || "Вентилятор";
+  const label = componentConfig.label || entity?.name || t("Вентилятор");
 
   return (
     <ModernWidgetCard 
@@ -66,7 +69,7 @@ const FanComponent = ({ componentConfig }) => {
     >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <Typography variant="body2" sx={{ color: isOn ? 'text.primary' : 'text.secondary', fontWeight: 'bold' }}>
-            {isOn && hasSpeedControl ? `${sliderValue ?? percentage}%` : (isOn ? 'Увімкнено' : 'Вимкнено')}
+            {isOn && hasSpeedControl ? `${sliderValue ?? percentage}%` : (isOn ? t("Увімкнено") : t("Вимкнено"))}
           </Typography>
           <IconButton onClick={handleToggle} disabled={!isReady} edge="end">
             <PowerSettingsNew color={isOn ? 'primary' : 'action'} />
@@ -76,7 +79,7 @@ const FanComponent = ({ componentConfig }) => {
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, opacity: isOff ? 0.4 : 1, mt: 2 }}>
           {hasSpeedControl && (
             <Box>
-              <Typography gutterBottom variant="body2">Швидкість</Typography>
+              <Typography gutterBottom variant="body2">{t("Швидкість")}</Typography>
               <Slider
                 value={sliderValue ?? (typeof percentage === 'number' ? percentage : 0)}
                 onChange={handleSpeedChange}

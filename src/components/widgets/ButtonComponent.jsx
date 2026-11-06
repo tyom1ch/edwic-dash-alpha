@@ -5,6 +5,7 @@ import { SmartButton, RestartAlt, SystemUpdateAlt } from '@mui/icons-material';
 import deviceRegistry from '../../core/DeviceRegistry';
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { ModernWidgetCard } from './ModernWidgetCard';
+import { useI18n } from "../../i18n/LanguageProvider";
 
 const hapticsImpact = async () => {
   try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { /* ignore */ }
@@ -18,7 +19,9 @@ const getIcon = (deviceClass) => {
     }
 }
 
-const ButtonComponent = ({ componentConfig }) => {
+const ButtonComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const { label, device_class, payload_press = '' } = componentConfig;
 
   const handleClick = () => {
@@ -28,7 +31,7 @@ const ButtonComponent = ({ componentConfig }) => {
 
   return (
     <ModernWidgetCard 
-      title={label || "Кнопка"}
+      title={label || t("Кнопка")}
       onClick={handleClick}
       statusIcon={getIcon(device_class)}
     >

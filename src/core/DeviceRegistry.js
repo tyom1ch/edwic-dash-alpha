@@ -8,6 +8,8 @@ import { db } from "./db";
 let topicCacheBuffer = new Map();
 let cacheSaveTimeout = null;
 
+const MAX_CACHED_VALUE = 8192;
+
 const flushTopicCache = async () => {
   if (topicCacheBuffer.size === 0) return;
   const itemsToSave = Array.from(topicCacheBuffer.values());
@@ -18,6 +20,34 @@ const flushTopicCache = async () => {
     console.warn("[DeviceRegistry] Error saving topic cache:", err);
   }
 };
+
+const rememberTopic = (brokerId, topic, value) => {
+  if (value.length > MAX_CACHED_VALUE) return;
+  const key = `${brokerId}:${topic}`;
+  const prev = topicCacheBuffer.get(key);
+  if (prev && prev.value === value) return;
+  topicCacheBuffer.set(key, {
+    brokerId,
+    topic,
+    value,
+    timestamp: new Date().toISOString(),
+  });
+  if (cacheSaveTimeout) return;
+  cacheSaveTimeout = setTimeout(() => {
+    cacheSaveTimeout = null;
+    flushTopicCache();
+  }, 5000);
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    if (cacheSaveTimeout) {
+      clearTimeout(cacheSaveTimeout);
+      cacheSaveTimeout = null;
+    }
+    flushTopicCache();
+  });
+}
 
 class DeviceRegistry {
   constructor() {
@@ -153,39 +183,29 @@ class DeviceRegistry {
   
   handleMqttRawMessage(brokerId, topic, messageBuffer) {
     const actions = this.topicToActionMap.get(topic);
-    if (actions) {
-      const messageString = messageBuffer.toString();
-      
-      // SAVE TO CACHE BUFFER
-      const cacheKey = `${brokerId}:${topic}`;
-      topicCacheBuffer.set(cacheKey, {
-        brokerId,
-        topic,
-        value: messageString,
-        timestamp: new Date().toISOString()
-      });
-      // DEBOUNCE DB SAVE
-      if (cacheSaveTimeout) clearTimeout(cacheSaveTimeout);
-      cacheSaveTimeout = setTimeout(() => flushTopicCache(), 300);
+    if (!actions) return;
 
-      actions.forEach(action => {
-        if (action.brokerId !== brokerId) return;
+    const messageString = messageBuffer.toString();
+    if (messageString.length > 65536) return;
 
-        const { entityId, property } = action;
-        const entity = this.entities.get(entityId);
-        if (entity) {
-          const updatedEntity = {
-            ...entity,
-            [property]: messageString,
-            last_updated: new Date().toISOString(),
-            // +++ ДОДАЄМО МАРКЕР ЖИВИХ ДАНИХ +++
-            _live_keys: { ...(entity._live_keys || {}), [property]: true }
-          };
-          this.entities.set(entityId, updatedEntity);
-          eventBus.emit(`entity:update:${entityId}`, updatedEntity);
-        }
-      });
-    }
+    let changed = false;
+    actions.forEach(action => {
+      if (action.brokerId !== brokerId) return;
+      const entity = this.entities.get(action.entityId);
+      if (!entity || entity[action.property] === messageString) return;
+
+      changed = true;
+      const updatedEntity = {
+        ...entity,
+        [action.property]: messageString,
+        last_updated: new Date().toISOString(),
+        _live_keys: { ...(entity._live_keys || {}), [action.property]: true }
+      };
+      this.entities.set(action.entityId, updatedEntity);
+      eventBus.emit(`entity:update:${action.entityId}`, updatedEntity);
+    });
+
+    if (changed) rememberTopic(brokerId, topic, messageString);
   }
 
   getEntity(entityId) {

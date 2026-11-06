@@ -3,8 +3,11 @@ import useEntity from "../../hooks/useEntity";
 import { evaluateValueTemplate } from "../../utils/templateEvaluator";
 import { AutoScalableText } from "./AutoScalableText";
 import { ModernWidgetCard } from "./ModernWidgetCard";
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const SensorComponent = ({ componentConfig }) => {
+const SensorComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
   const rawValue = entity?.value;
   const template = entity?.val_tpl || componentConfig?.value_template;
@@ -20,16 +23,16 @@ const SensorComponent = ({ componentConfig }) => {
     
   const lastUpdated = entity?.last_updated
     ? new Date(entity.last_updated).toLocaleTimeString()
-    : "Невідомо";
+    : t("Невідомо");
 
-  const label = componentConfig.label || entity?.name || "Сенсор";
+  const label = componentConfig.label || entity?.name || t("Сенсор");
 
   return (
     <ModernWidgetCard title={label} highlightColor="#4fc3f7">
       <AutoScalableText 
         text={displayValue ?? "---"} 
         unit={unit} 
-        subText={`Оновлено: ${lastUpdated}`}
+        subText={t("Оновлено: {time}", { time: lastUpdated })}
         color="text.primary" 
       />
     </ModernWidgetCard>

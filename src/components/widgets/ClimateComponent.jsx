@@ -5,6 +5,7 @@ import { Box, Typography, IconButton, Chip } from "@mui/material";
 import { Add, Remove, AcUnit, WbSunny, Air, PowerSettingsNew } from "@mui/icons-material";
 import useEntity from "../../hooks/useEntity";
 import deviceRegistry from "../../core/DeviceRegistry";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 // ─── HA design tokens ────────────────────────────────────────────────────────
 const ACTION_COLORS = {
@@ -59,7 +60,9 @@ function tempToAngle(temp, min, max) {
   return START_ANGLE + ((clamped - min) / (max - min)) * ARC_RANGE;
 }
 
-function RingDial({ currentTemp, targetTemp, min, max, actionColor, isOff }) {
+function RingDial({
+ currentTemp, targetTemp, min, max, actionColor, isOff }) {
+  const { t } = useI18n();
   const hasCurrent = typeof currentTemp === "number" && !isNaN(currentTemp);
   const hasTarget  = typeof targetTemp  === "number" && !isNaN(targetTemp);
 
@@ -133,14 +136,16 @@ function RingDial({ currentTemp, targetTemp, min, max, actionColor, isOff }) {
         fontSize="13"
         fontFamily="inherit"
       >
-        поточна
+        {t("поточна")}
       </text>
     </svg>
   );
 }
 
 // ─── ClimateComponent ────────────────────────────────────────────────────────
-const ClimateComponent = ({ componentConfig }) => {
+const ClimateComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const {
@@ -157,7 +162,7 @@ const ClimateComponent = ({ componentConfig }) => {
   const targetTemperature  = entity?.temperature ?? null;
 
   const isOff = mode === "off";
-  const label = componentConfig.label || entity?.name || "Клімат";
+  const label = componentConfig.label || entity?.name || t("Клімат");
 
   const getModesArray = () => {
     const m = componentConfig.modes;
@@ -277,7 +282,7 @@ const ClimateComponent = ({ componentConfig }) => {
             {parsedTarget !== null ? `${parsedTarget.toFixed(1)}°` : "—"}
           </Typography>
           <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", fontSize: "0.65rem" }}>
-            цільова
+            {t("цільова")}
           </Typography>
         </Box>
 

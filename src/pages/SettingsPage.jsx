@@ -46,12 +46,13 @@ import {
 import { registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { useNavigate } from "react-router-dom";
-import useAppConfig from "../hooks/useAppConfig";
 import AlertDialog from "../components/AlertDialog";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { db } from "../core/db";
+import { useI18n } from "../i18n/LanguageProvider";
+import LanguageSwitch from "../components/LanguageSwitch";
 
 const defaultBrokerState = {
   id: "",
@@ -67,9 +68,19 @@ const defaultBrokerState = {
 
 const isNativePlatform = Capacitor.isNativePlatform();
 
-function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
+function SettingsPage({
+  appConfig,
+  setAppConfig,
+  brokers,
+  setBrokers,
+  brokerStatuses,
+  brokerErrors,
+  handleSetAlerts,
+  themeMode,
+  setThemeMode,
+}) {
+  const { t } = useI18n();
   const navigate = useNavigate();
-  const { appConfig, setAppConfig, brokerStatuses, brokerErrors, handlers } = useAppConfig();
   const { setMode } = useColorScheme();
   const fileInputRef = useRef(null);
 
@@ -84,7 +95,6 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState(null);
   const alerts = appConfig.alerts || [];
-  const { handleSetAlerts } = handlers || {};
 
   // --- System Status State ---
   const [sysStatus, setSysStatus] = useState({
@@ -125,7 +135,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       const res = await LocalNotifications.requestPermissions();
       setSysStatus(prev => ({ ...prev, notifications: res.display }));
     } catch (e) {
-      setError("Не вдалося запросити дозвіл на сповіщення");
+      setError(t("Не вдалося запросити дозвіл на сповіщення"));
     }
   };
 
@@ -137,7 +147,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       // but we'll re-check after a short delay or when they come back.
       setTimeout(checkSystemStatus, 2000);
     } catch (e) {
-      setError("Не вдалося відкрити налаштування батареї");
+      setError(t("Не вдалося відкрити налаштування батареї"));
     }
   };
 
@@ -154,7 +164,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       }
       setTimeout(checkSystemStatus, 500);
     } catch (e) {
-      setError("Помилка керування сервісом: " + e.message);
+      setError(t("Помилка керування сервісом: {error}", { error: e.message }));
     }
   };
 
@@ -200,7 +210,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   // --- Broker CRUD Handlers ---
 
   const handleOpenBrokerDialog = (broker = null) => {
-    setEditingBroker(broker ? { ...broker } : { ...defaultBrokerState });
+    setEditingBroker(broker ? { ...broker } : { ...defaultBrokerState, name: t("Мій брокер") });
     setError("");
     setIsBrokerDialogOpen(true);
   };
@@ -221,7 +231,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
     setError("");
     try {
       if (!editingBroker.host || !editingBroker.port) {
-        throw new Error("Хост та порт є обов'язковими.");
+        throw new Error(t("Хост та порт є обов'язковими."));
       }
 
       const brokerToSave = {
@@ -252,8 +262,8 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const handleDeleteBroker = (id) => {
     requestConfirm(
-      "Видалити брокера?",
-      "Дійсно видалити цього брокера зі списку?",
+      t("Видалити брокера?"),
+      t("Дійсно видалити цього брокера зі списку?"),
       () => {
         setBrokers((brokers || []).filter((b) => b.id !== id));
       }
@@ -281,8 +291,8 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const handleDeleteAlert = (id) => {
     requestConfirm(
-      "Видалити алерт?",
-      "Дійсно видалити цей алерт?",
+      t("Видалити алерт?"),
+      t("Дійсно видалити цей алерт?"),
       () => {
         if (handleSetAlerts) handleSetAlerts(alerts.filter((a) => a.id !== id));
       }
@@ -312,14 +322,14 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           
           // 2. Open Native Share Dialog so user can save it to Drive/Downloads
           await Share.share({
-            title: 'Експорт конфігурації Edwic',
-            text: 'Резервна копія налаштувань Edwic Dashboard',
+            title: t("Експорт конфігурації Edwic"),
+            text: t("Резервна копія налаштувань Edwic Dashboard"),
             url: writeResult.uri,
-            dialogTitle: 'Зберегти конфігурацію'
+            dialogTitle: t("Зберегти конфігурацію"),
           });
           
         } catch (fileErr) {
-          throw new Error(`Помилка під час експорту: ${fileErr.message}`);
+          throw new Error(t("Помилка під час експорту: {error}", { error: fileErr.message }));
         }
       } else {
         const blob = new Blob([json], { type: "application/json" });
@@ -333,7 +343,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      setError(`Помилка експорту: ${err.message}`);
+      setError(t("Помилка експорту: {error}", { error: err.message }));
     } finally {
       setLoading(false);
     }
@@ -350,20 +360,20 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         const importedConfig = JSON.parse(e.target.result);
         if (importedConfig?.dashboards) {
           requestConfirm(
-            "Імпорт налаштувань",
-            "Ви впевнені, що хочете імпортувати нові налаштування? Усі поточні дашборди та підключення будуть перезаписані.",
+            t("Імпорт налаштувань"),
+            t("Ви впевнені, що хочете імпортувати нові налаштування? Усі поточні дашборди та підключення будуть перезаписані."),
             () => {
                setAppConfig(importedConfig);
-               requestAlert("Успіх", "Налаштування успішно імпортовано!", () => {
+               requestAlert(t("Успіх"), t("Налаштування успішно імпортовано!"), () => {
                  window.location.reload();
                });
             }
           );
         } else {
-          throw new Error("Некоректний формат файлу.");
+          throw new Error(t("Некоректний формат файлу."));
         }
       } catch (err) {
-        setError(`Помилка імпорту: ${err.message}`);
+        setError(t("Помилка імпорту: {error}", { error: err.message }));
       }
     };
     reader.readAsText(file);
@@ -372,8 +382,8 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
   const handleReset = () => {
     requestConfirm(
-      "Увага! Скидання налаштувань",
-      "ВИ ВПЕВНЕНІ? Ця дія повністю видалить всі ваші дашборди, алерт правила та брокери. Відмінити це неможливо!",
+      t("Увага! Скидання налаштувань"),
+      t("ВИ ВПЕВНЕНІ? Ця дія повністю видалить всі ваші дашборди, алерт правила та брокери. Відмінити це неможливо!"),
       async () => {
         try {
           // Clear legacy localStorage
@@ -381,11 +391,11 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           // Clear IndexedDB completely
           await db.delete();
           
-          requestAlert("Успіх", "Налаштування скинуто.", () => {
+          requestAlert(t("Успіх"), t("Налаштування скинуто."), () => {
             window.location.reload();
           });
         } catch (e) {
-          setError(`Помилка скидання: ${e.message}`);
+          setError(t("Помилка скидання: {error}", { error: e.message }));
         }
       }
     );
@@ -400,7 +410,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
   return (
     <Box sx={{ maxWidth: "100%", mx: "auto", p: 2 }}>
       <Typography variant="h4" gutterBottom>
-        Налаштування EdWic
+        {t("Налаштування EdWic")}
       </Typography>
 
       <Tabs
@@ -411,10 +421,10 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         scrollButtons="auto"
         allowScrollButtonsMobile
       >
-        <Tab label="Брокери" />
-        <Tab label="Алерти" />
-        <Tab label="Система" />
-        <Tab label="Додатково" />
+        <Tab label={t("Брокери")} />
+        <Tab label={t("Алерти")} />
+        <Tab label={t("Система")} />
+        <Tab label={t("Додатково")} />
       </Tabs>
 
       {/* ВКЛАДКА 1: Брокери */}
@@ -426,21 +436,21 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             alignItems="center"
             mb={2}
           >
-            <Typography variant="h6">MQTT Брокери</Typography>
+            <Typography variant="h6">{t("MQTT Брокери")}</Typography>
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenBrokerDialog()}
               size="small"
             >
-              Додати
+              {t("Додати")}
             </Button>
           </Stack>
 
           {(!brokers || brokers.length === 0) ? (
             <Card variant="outlined" sx={{ mb: 2, textAlign: "center", py: 3 }}>
               <Typography color="text.secondary">
-                Немає налаштованих брокерів.
+                {t("Немає налаштованих брокерів.")}
               </Typography>
             </Card>
           ) : (
@@ -459,12 +469,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     disablePadding
                     secondaryAction={
                       <Stack direction="row" spacing={1}>
-                        <Tooltip title="Редагувати">
+                        <Tooltip title={t("Редагувати")}>
                           <IconButton onClick={() => handleOpenBrokerDialog(broker)}>
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Видалити">
+                        <Tooltip title={t("Видалити")}>
                           <IconButton
                             color="error"
                             onClick={() => handleDeleteBroker(broker.id)}
@@ -493,7 +503,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                             </Typography>
                             {(status === "error" || status === "offline") && errorMsg && (
                               <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                                Помилка: {errorMsg}
+                                {t("Помилка: {error}", { error: t(errorMsg) })}
                               </Typography>
                             )}
                           </Box>
@@ -510,12 +520,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           {/* Діалог Додавання/Редагування */}
           <Dialog open={isBrokerDialogOpen} onClose={handleCloseBrokerDialog} fullWidth>
             <DialogTitle>
-              {editingBroker.id ? "Редагувати брокера" : "Новий брокер"}
+              {editingBroker.id ? t("Редагувати брокера") : t("Новий брокер")}
             </DialogTitle>
             <DialogContent dividers>
               <TextField
                 fullWidth
-                label="Назва (напр. 'Домашній')"
+                label={t("Назва (напр. 'Домашній')")}
                 name="name"
                 value={editingBroker.name}
                 onChange={handleBrokerFieldChange}
@@ -523,7 +533,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label="IP брокера / Hostname *"
+                label={t("IP брокера / Hostname *")}
                 name="host"
                 value={editingBroker.host}
                 onChange={handleBrokerFieldChange}
@@ -532,18 +542,18 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label={isNativePlatform ? "Порт MQTT (TCP: 1883/1884) *" : "Порт брокера (WebSockets: 8080) *"}
+                label={isNativePlatform ? t("Порт MQTT (TCP: 1883/1884) *") : t("Порт брокера (WebSockets: 8080) *")}
                 name="port"
                 value={editingBroker.port}
                 onChange={handleBrokerFieldChange}
                 sx={{ mb: 2 }}
                 type="number"
                 required
-                helperText={isNativePlatform ? "Мобільний додаток використовує MQTT TCP протокол, не WebSocket" : ""}
+                helperText={isNativePlatform ? t("Мобільний додаток використовує MQTT TCP протокол, не WebSocket") : ""}
               />
               <TextField
                 fullWidth
-                label="Логін"
+                label={t("Логін")}
                 name="username"
                 value={editingBroker.username}
                 onChange={handleBrokerFieldChange}
@@ -551,7 +561,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label="Пароль"
+                label={t("Пароль")}
                 type="password"
                 name="password"
                 value={editingBroker.password}
@@ -560,7 +570,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label="Базовий шлях (/ws)"
+                label={t("Базовий шлях (/ws)")}
                 name="basepath"
                 value={editingBroker.basepath}
                 onChange={handleBrokerFieldChange}
@@ -568,12 +578,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               />
               <TextField
                 fullWidth
-                label="Топік Home Assistant Discovery"
+                label={t("Топік Home Assistant Discovery")}
                 name="discovery_topic"
                 value={editingBroker.discovery_topic}
                 onChange={handleBrokerFieldChange}
                 sx={{ mb: 2 }}
-                helperText="Стандартно: 'homeassistant'"
+                helperText={t("Стандартно: 'homeassistant'")}
               />
               <FormControlLabel
                 control={
@@ -583,7 +593,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     name="secure"
                   />
                 }
-                label={isNativePlatform ? "Використовувати SSL/TLS шифрування" : "Використовувати Secure WebSockets (WSS)"}
+                label={isNativePlatform ? t("Використовувати SSL/TLS шифрування") : t("Використовувати Secure WebSockets (WSS)")}
               />
               {error && (
                 <Typography color="error" variant="body2" sx={{ mt: 1 }}>
@@ -592,9 +602,9 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               )}
             </DialogContent>
             <DialogActions>
-              <Button onClick={handleCloseBrokerDialog}>Скасувати</Button>
+              <Button onClick={handleCloseBrokerDialog}>{t("Скасувати")}</Button>
               <Button onClick={handleSaveBroker} variant="contained">
-                Зберегти
+                {t("Зберегти")}
               </Button>
             </DialogActions>
           </Dialog>
@@ -610,21 +620,21 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             alignItems="center"
             mb={2}
           >
-            <Typography variant="h6">Фонові Алерти</Typography>
+            <Typography variant="h6">{t("Фонові Алерти")}</Typography>
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenAlertDialog()}
               size="small"
             >
-              Додати
+              {t("Додати")}
             </Button>
           </Stack>
 
           {alerts.length === 0 ? (
             <Card variant="outlined" sx={{ mb: 2, textAlign: "center", py: 3 }}>
               <Typography color="text.secondary">
-                Немає налаштованих фонових повідомлень.
+                {t("Немає налаштованих фонових повідомлень.")}
               </Typography>
             </Card>
           ) : (
@@ -635,12 +645,12 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     disablePadding
                     secondaryAction={
                       <Stack direction="row" spacing={1}>
-                        <Tooltip title="Редагувати">
+                        <Tooltip title={t("Редагувати")}>
                           <IconButton onClick={() => handleOpenAlertDialog(al)}>
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Видалити">
+                        <Tooltip title={t("Видалити")}>
                           <IconButton
                             color="error"
                             onClick={() => handleDeleteAlert(al.id)}
@@ -689,7 +699,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="h6" gutterBottom display="flex" alignItems="center">
-                  <SettingsInputComponent sx={{ mr: 1 }} /> Стан системи (Android)
+                  <SettingsInputComponent sx={{ mr: 1 }} /> {t("Стан системи (Android)")}
                 </Typography>
                 
                 <List>
@@ -702,13 +712,13 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                         onClick={handleToggleService}
                         startIcon={<PowerSettingsNew />}
                       >
-                        {sysStatus.serviceRunning ? "Зупинити" : "Запустити"}
+                        {sysStatus.serviceRunning ? t("Зупинити") : t("Запустити")}
                       </Button>
                     }
                   >
                     <ListItemText 
-                      primary="Фоновий MQTT Сервіс" 
-                      secondary={sysStatus.serviceRunning ? "Працює у фоні" : "Зупинено"} 
+                      primary={t("Фоновий MQTT Сервіс")} 
+                      secondary={sysStatus.serviceRunning ? t("Працює у фоні") : t("Зупинено")} 
                     />
                   </ListItem>
                   
@@ -718,7 +728,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     secondaryAction={
                       sysStatus.notifications !== 'granted' && (
                         <Button size="small" onClick={handleRequestNotifications}>
-                          Надати
+                          {t("Надати")}
                         </Button>
                       )
                     }
@@ -727,8 +737,8 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                       <Notifications color={sysStatus.notifications === 'granted' ? "success" : "warning"} />
                     </ListItemIcon>
                     <ListItemText 
-                      primary="Сповіщення" 
-                      secondary={sysStatus.notifications === 'granted' ? "Дозволено" : "Вимкнено"} 
+                      primary={t("Сповіщення")} 
+                      secondary={sysStatus.notifications === 'granted' ? t("Дозволено") : t("Вимкнено")} 
                     />
                   </ListItem>
 
@@ -738,7 +748,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                     secondaryAction={
                       !sysStatus.batteryIgnoring && (
                         <Button size="small" onClick={handleRequestBattery}>
-                          Налаштувати
+                          {t("Налаштувати")}
                         </Button>
                       )
                     }
@@ -747,16 +757,16 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                       <BatteryChargingFull color={sysStatus.batteryIgnoring ? "success" : "warning"} />
                     </ListItemIcon>
                     <ListItemText 
-                      primary="Оптимізація батареї" 
-                      secondary={sysStatus.batteryIgnoring ? "Вимкнено (надійно)" : "Увімкнено (можливі затримки)"} 
+                      primary={t("Оптимізація батареї")} 
+                      secondary={sysStatus.batteryIgnoring ? t("Вимкнено (надійно)") : t("Увімкнено (можливі затримки)")} 
                     />
                   </ListItem>
                 </List>
 
                 {!sysStatus.batteryIgnoring && (
                   <Alert severity="warning" sx={{ mt: 1 }}>
-                    <AlertTitle>Порада</AlertTitle>
-                    Для стабільної роботи у фоні рекомендується вимкнути оптимізацію батареї для цього додатка.
+                    <AlertTitle>{t("Порада")}</AlertTitle>
+                    {t("Для стабільної роботи у фоні рекомендується вимкнути оптимізацію батареї для цього додатка.")}
                   </Alert>
                 )}
               </CardContent>
@@ -765,7 +775,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
 
           <Box>
             <Typography variant="h6" gutterBottom display="flex" alignItems="center">
-              <PowerSettingsNew sx={{ mr: 1 }} /> Налаштування запуску
+              <PowerSettingsNew sx={{ mr: 1 }} /> {t("Налаштування запуску")}
             </Typography>
             <FormControlLabel
               control={
@@ -778,16 +788,23 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                   name="autoConnect"
                 />
               }
-              label="Автоматично підключатися при старті"
+              label={t("Автоматично підключатися при старті")}
             />
             <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5 }}>
-              Якщо вимкнено, додаток не буде ініціалізувати MQTT з'єднання доки ви не перейдете на дашборд або не натиснете "Запустити".
+              {t("Якщо вимкнено, додаток не буде ініціалізувати MQTT з'єднання доки ви не перейдете на дашборд або не натиснете \"Запустити\".")}
             </Typography>
           </Box>
 
           <Box>
             <Typography variant="h6" gutterBottom>
-              Тема додатку
+              {t("Мова")}
+            </Typography>
+            <LanguageSwitch fullWidth />
+          </Box>
+
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              {t("Тема додатку")}
             </Typography>
             <ToggleButtonGroup
               color="primary"
@@ -798,15 +815,15 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             >
               <ToggleButton value="light">
                 <LightMode sx={{ mr: 1 }} />
-                Світла
+                {t("Світла")}
               </ToggleButton>
               <ToggleButton value="dark">
                 <DarkMode sx={{ mr: 1 }} />
-                Темна
+                {t("Темна")}
               </ToggleButton>
               <ToggleButton value="system">
                 <SettingsSystemDaydream sx={{ mr: 1 }} />
-                Системна
+                {t("Системна")}
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
@@ -817,7 +834,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
       {tabIndex === 3 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Резервне копіювання
+            {t("Резервне копіювання")}
           </Typography>
           <Button
             variant="contained"
@@ -826,7 +843,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             disabled={loading}
             sx={{ mb: 2 }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : "Експорт (JSON)"}
+            {loading ? <CircularProgress size={24} color="inherit" /> : t("Експорт (JSON)")}
           </Button>
           <input
             type="file"
@@ -841,13 +858,13 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             sx={{ mb: 4 }}
             onClick={handleImportClick}
           >
-            Відновити з файлу
+            {t("Відновити з файлу")}
           </Button>
 
           <Divider sx={{ mb: 3 }} />
           
           <Typography variant="h6" gutterBottom>
-            Небезпечна зона
+            {t("Небезпечна зона")}
           </Typography>
           <Button
             variant="contained"
@@ -855,13 +872,13 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
             fullWidth
             onClick={handleReset}
           >
-            Скинути Дашборди та Брокери
+            {t("Скинути Дашборди та Брокери")}
           </Button>
 
           <Box mt={4}>
             <Divider sx={{ mb: 3 }} />
             <Typography variant="h6" gutterBottom>
-              Налаштування розробника
+              {t("Налаштування розробника")}
             </Typography>
             <FormControlLabel
               control={
@@ -878,7 +895,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
                   name="debugMode"
                 />
               }
-              label="Увімкнути режим налагодження (Спливаючі помилки)"
+              label={t("Увімкнути режим налагодження (Спливаючі помилки)")}
             />
           </Box>
 
@@ -890,7 +907,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
               target="_blank"
               fullWidth
             >
-              Код та Зворотній зв'язок (GitHub)
+              {t("Код та Зворотній зв'язок (GitHub)")}
             </Button>
           </Box>
         </Box>
@@ -903,7 +920,7 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
           sx={{ mt: 4 }}
           onClick={() => navigate(`/${Object.keys(appConfig.dashboards)[0]}`)}
         >
-          Повернутися на Дашборд
+          {t("Повернутися на Дашборд")}
         </Button>
       )}
 
@@ -915,14 +932,14 @@ function SettingsPage({ brokers, setBrokers, themeMode, setThemeMode }) {
         </DialogContent>
         <DialogActions>
           {!confirmDialog.isAlert && (
-            <Button onClick={closeConfirm} color="inherit">Скасувати</Button>
+            <Button onClick={closeConfirm} color="inherit">{t("Скасувати")}</Button>
           )}
           <Button 
             onClick={confirmDialog.onConfirm} 
             variant="contained" 
             color={confirmDialog.isAlert ? "primary" : "error"}
           >
-            {confirmDialog.isAlert ? "OK" : "Підтвердити"}
+            {confirmDialog.isAlert ? "OK" : t("Підтвердити")}
           </Button>
         </DialogActions>
       </Dialog>

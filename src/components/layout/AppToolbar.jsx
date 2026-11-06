@@ -3,6 +3,7 @@ import { Box, Button, IconButton, Tooltip, Stack, Typography } from "@mui/materi
 import { CheckRounded, Add, TravelExplore, Edit } from "@mui/icons-material";
 import ConnectionStatusIcon from "./ConnectionStatusIcon";
 import { NotificationMenu } from "./NotificationMenu";
+import { useI18n } from "../../i18n/LanguageProvider";
 
 export const AppToolbar = ({
   isEditMode,
@@ -11,9 +12,11 @@ export const AppToolbar = ({
   openDiscoveryDialog,
   isSettingsPage,
 }) => {
+  const { t } = useI18n();
+
   if (isSettingsPage) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <NotificationMenu />
       </Box>
     );
@@ -21,12 +24,12 @@ export const AppToolbar = ({
 
   return isEditMode ? (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <Tooltip title="Додати віджет">
+      <Tooltip title={t("Додати віджет")}>
         <IconButton onClick={openComponentDialog}>
           <Add />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Пошук пристроїв">
+      <Tooltip title={t("Пошук пристроїв")}>
         <IconButton onClick={openDiscoveryDialog}>
           <TravelExplore />
         </IconButton>
@@ -37,13 +40,13 @@ export const AppToolbar = ({
         onClick={() => setIsEditMode(false)}
         size="small"
       >
-        Готово
+        {t("Готово")}
       </Button>
       <NotificationMenu />
     </Box>
   ) : (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <Tooltip title="Редагувати дашборд">
+      <Tooltip title={t("Редагувати дашборд")}>
         <IconButton onClick={() => setIsEditMode(true)}>
           <Edit />
         </IconButton>

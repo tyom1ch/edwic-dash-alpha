@@ -5,8 +5,11 @@ import { ArrowUpward, ArrowDownward, Stop } from '@mui/icons-material';
 import useEntity from '../../hooks/useEntity';
 import deviceRegistry from '../../core/DeviceRegistry';
 import { ModernWidgetCard } from './ModernWidgetCard';
+import { useI18n } from "../../i18n/LanguageProvider";
 
-const CoverComponent = ({ componentConfig }) => {
+const CoverComponent = ({
+ componentConfig }) => {
+  const { t } = useI18n();
   const entity = useEntity(componentConfig.id);
 
   const {
@@ -51,16 +54,16 @@ const CoverComponent = ({ componentConfig }) => {
   const getStateText = () => {
     if (!isReady) return "---";
     const translations = {
-        open: 'Відчинено',
-        closed: 'Зачинено',
-        opening: 'Відчинення...',
-        closing: 'Зачинення...',
-        stopped: 'Зупинено',
+        open: t("Відчинено"),
+        closed: t("Зачинено"),
+        opening: t("Відчинення..."),
+        closing: t("Зачинення..."),
+        stopped: t("Зупинено"),
     };
     return translations[state] || state;
   }
 
-  const label = componentConfig.label || entity?.name || "Ролети";
+  const label = componentConfig.label || entity?.name || t("Ролети");
 
   return (
     <ModernWidgetCard 
@@ -68,7 +71,7 @@ const CoverComponent = ({ componentConfig }) => {
       highlightColor={isOpen ? "#4caf50" : (isClosed ? "transparent" : "#ff9800")}
     >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <Typography variant="body2" color="text.secondary">Стан:</Typography>
+          <Typography variant="body2" color="text.secondary">{t("Стан:")}</Typography>
           <Typography variant="body2" color={isOpen ? "success.main" : "text.primary"} sx={{ fontWeight: 'bold' }}>
             {getStateText()}
           </Typography>
@@ -85,7 +88,7 @@ const CoverComponent = ({ componentConfig }) => {
                 step={1}
                 disabled={!isReady}
                 valueLabelDisplay="auto"
-                marks={[{value: 0, label: 'Закрито'}, {value: 100, label: 'Відчинено'}]}
+                marks={[{value: 0, label: t("Закрито")}, {value: 100, label: t("Відчинено")}]}
               />
           </Box>
         )}

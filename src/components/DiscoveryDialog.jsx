@@ -28,6 +28,7 @@ import ThermostatIcon from "@mui/icons-material/Thermostat";
 
 import discoveryService from "../core/DiscoveryService";
 import eventBus from "../core/EventBus";
+import { useI18n } from "../i18n/LanguageProvider";
 
 // Допоміжний компонент для підсвічування тексту
 const HighlightText = ({ text, highlight }) => {
@@ -71,7 +72,9 @@ const getEntityIcon = (componentType) => {
 };
 
 // useless coment
-function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
+function DiscoveryDialog({
+ isOpen, onClose, onAddEntity, brokers = [] }) {
+  const { t } = useI18n();
   const [discovered, setDiscovered] = useState([]);
   const [openDevices, setOpenDevices] = useState({});
   const [loading, setLoading] = useState(true);
@@ -156,14 +159,14 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
 
   return (
     <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Виявлені пристрої (Home Assistant MQTT)</DialogTitle>
+      <DialogTitle>{t("Виявлені пристрої (Home Assistant MQTT)")}</DialogTitle>
       <DialogContent>
         {/* Поле для пошуку */}
         <Box sx={{ p: 1, mb: 2 }}>
           <TextField
             fullWidth
             variant="outlined"
-            label="Пошук пристроїв або сутностей"
+            label={t("Пошук пристроїв або сутностей")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -176,14 +179,14 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
         )}
         {!loading && discovered.length === 0 && (
           <Typography sx={{ p: 4, textAlign: "center" }}>
-            Пристроїв не знайдено.
+            {t("Пристроїв не знайдено.")}
           </Typography>
         )}
         {!loading &&
           Object.keys(groupedDiscovered).length === 0 &&
           discovered.length > 0 && (
             <Typography sx={{ p: 4, textAlign: "center" }}>
-              Нічого не знайдено за вашим запитом.
+              {t("Нічого не знайдено за вашим запитом.")}
             </Typography>
           )}
 
@@ -203,7 +206,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
               >
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography fontWeight="bold" color="primary">
-                    Брокер: {brokerName} ({devices.length} пристроїв)
+                    {t("Брокер: {name} ({count} пристроїв)", { name: brokerName, count: devices.length })}
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails sx={{ p: 0 }}>
@@ -223,7 +226,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
                                   <HighlightText text={device.manufacturer} highlight={searchQuery} />{" "}
                                   -{" "}
                                   <HighlightText text={device.model} highlight={searchQuery} />{" "}
-                                  ({device.entities.length} сутностей)
+                                  ({t("{count} сутностей", { count: device.entities.length })})
                                 </>
                               }
                             />
@@ -238,7 +241,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
                                   </ListItemIcon>
                                   <ListItemText
                                     primary={<HighlightText text={entity.name} highlight={searchQuery} />}
-                                    secondary={`Тип: ${entity.componentType}`}
+                                    secondary={t("Тип: {type}", { type: entity.componentType })}
                                   />
                                   <IconButton edge="end" aria-label="add" onClick={() => handleAddClick(entity)}>
                                     <AddCircleOutline color="primary" />
@@ -258,7 +261,7 @@ function DiscoveryDialog({ isOpen, onClose, onAddEntity, brokers = [] }) {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Закрити</Button>
+        <Button onClick={onClose}>{t("Закрити")}</Button>
       </DialogActions>
     </Dialog>
   );
